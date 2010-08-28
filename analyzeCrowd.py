@@ -6,6 +6,8 @@ import Crowd
 from math import pi, exp
 import time
 import os
+from GLWidget import *
+from roadmapBuilder import readObstacles
 
 class Config:
     """An analysis configuration state"""
@@ -55,7 +57,12 @@ class CrowdWindow( QtGui.QMainWindow):
         self.console = QtGui.QPlainTextEdit( splitter )
         self.console.setReadOnly( True )
 
-        self.setCentralWidget( splitter )
+        self.glWindow = GLWidget(  (10,10),(0,0), (10,10),(0,0), (1,1), splitter )        
+
+        self.setCentralWidget(splitter )
+        splitter.setStretchFactor( 0, 0 )
+        splitter.setStretchFactor( 1, 0 )
+        splitter.setStretchFactor( 2, 1 )
 
         self.createActions()
         self.createMenus()
@@ -69,7 +76,7 @@ class CrowdWindow( QtGui.QMainWindow):
         fLayout = QtGui.QGridLayout( inputBox )
         fLayout.setColumnStretch( 0, 0 )
         fLayout.setColumnStretch( 1, 1 )
-        fLayout.setColumnStretch( 2, 1 )
+        fLayout.setColumnStretch( 2, 0 )
         # scb file
         fLayout.addWidget( QtGui.QLabel( "SCB file" ), 0, 0, 1, 1, QtCore.Qt.AlignRight )
         self.scbFilePathGUI = QtGui.QPushButton( '', inputBox )
@@ -99,6 +106,16 @@ class CrowdWindow( QtGui.QMainWindow):
         self.timeStepGui.setDecimals( 4 )
         fLayout.addWidget( self.timeStepGui, 3, 1, 1, 2 )
 
+        # obstacle file
+        fLayout.addWidget( QtGui.QLabel( "Obstacle file" ), 4, 0, 1, 1, QtCore.Qt.AlignRight )
+        self.obstFilePathGUI = QtGui.QPushButton( '', inputBox )
+        QtCore.QObject.connect( self.obstFilePathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectObstDlg )
+        fLayout.addWidget( self.obstFilePathGUI, 4, 1, 1, 1 )
+        self.loadObstBtn = QtGui.QPushButton( "Load", inputBox )
+        QtCore.QObject.connect( self.loadObstBtn, QtCore.SIGNAL('clicked(bool)'), self.loadObstacle )
+        fLayout.addWidget( self.loadObstBtn, 4, 2, 1, 1 )
+
+        
         vLayout.addWidget( inputBox, 0 )   
 
     def createOutputBox( self, vLayout ):
@@ -131,24 +148,26 @@ class CrowdWindow( QtGui.QMainWindow):
         box = QtGui.QGroupBox("Analysis")
         fLayout = QtGui.QGridLayout( box )
         fLayout.setColumnStretch( 0, 0 )
-        fLayout.setColumnStretch( 1, 1 )
+        fLayout.setColumnStretch( 1, 0 )
+        fLayout.setColumnStretch( 2, 1 )
         
         # density
         fLayout.addWidget( QtGui.QLabel("Density"), 0, 0, 1, 1 )
         self.doDensityGUI = QtGui.QComboBox( box )
         self.doDensityGUI.addItems( ("No action", "Compute", "Visualize", "Compute and Vis." ) )
-        fLayout.addWidget( self.doDensityGUI, 0, 1, 1, 2, QtCore.Qt.AlignLeft )
+        fLayout.addWidget( self.doDensityGUI, 0, 1, 1, 2 )
         # speed
+        
         fLayout.addWidget( QtGui.QLabel("Speed"), 1, 0, 1, 1 )
         self.doSpeedGUI = QtGui.QComboBox( box )
         self.doSpeedGUI.addItems( ("No action", "Compute", "Visualize", "Compute and Vis." ) )
         QtCore.QObject.connect( self.doSpeedGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.toggleSpeed )
-        fLayout.addWidget( self.doSpeedGUI, 1, 1, 1, 2, QtCore.Qt.AlignLeft )
-        fLayout.addWidget( QtGui.QLabel( "Temporal window" ), 2, 0, 1, 1, QtCore.Qt.AlignRight )
+        fLayout.addWidget( self.doSpeedGUI, 1, 1, 1, 2 )
+        fLayout.addWidget( QtGui.QLabel( "Temporal window" ), 2, 1, 1, 1, QtCore.Qt.AlignRight )
         self.speedWindowGUI = QtGui.QSpinBox( box )
         self.speedWindowGUI.setMinimum( 1 )
         self.speedWindowGUI.setEnabled( False )
-        fLayout.addWidget( self.speedWindowGUI, 2, 1, 1, 1 )
+        fLayout.addWidget( self.speedWindowGUI, 2, 2, 1, 1 )
 
         vLayout.addWidget( box, 0 )
 
@@ -202,6 +221,16 @@ class CrowdWindow( QtGui.QMainWindow):
     def createStatusBar(self):
         self.statusBar().showMessage("Ready")
 
+    def selectObstDlg( self ):
+        """Spawns a dialog to select an obstacle file"""
+        startPath = '.'
+        currPath = str( self.obstFilePathGUI.text() )
+        if ( currPath ):
+            startPath = os.path.split( currPath )[0]
+        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open obstacle file", startPath, "All Files (*.*)")
+        if ( fileName ):
+            self.obstFilePathGUI.setText( fileName )
+            
     def selectSCBDlg( self ):
         """Spawns a dialog to select an scb file"""
         fileName = QtGui.QFileDialog.getOpenFileName( self, "Open SCB file", ".", "SCB Files (*.scb)")
@@ -268,6 +297,7 @@ class CrowdWindow( QtGui.QMainWindow):
         self.domainSizeXGUI.setValue( float( cfg[ 'sizeX' ] ) )
         self.domainSizeYGUI.setValue( float( cfg[ 'sizeY' ] ) )
         self.timeStepGui.setValue( float( cfg[ 'timeStep' ] ) )
+        self.obstFilePathGUI.setText( cfg[ 'obstacle' ] )
         self.outPathGUI.setText( cfg[ 'outDir' ] )
         self.tempPathGUI.setText( cfg[ 'tempDir' ] )
         self.tempNameGUI.setText( cfg[ 'tempName' ] )
@@ -288,6 +318,7 @@ class CrowdWindow( QtGui.QMainWindow):
         cfg[ 'sizeX' ] = self.domainSizeXGUI.value()
         cfg[ 'sizeY' ] = self.domainSizeYGUI.value()
         cfg[ 'timeStep' ] = self.timeStepGui.value()
+        cfg[ 'obstacle' ] = str( self.obstFilePathGUI.text() )
         cfg[ 'outDir' ] = str( self.outPathGUI.text() )
         cfg[ 'tempDir' ] = str( self.tempPathGUI.text() )
         cfg[ 'tempName' ] = str( self.tempNameGUI.text() )
@@ -354,7 +385,27 @@ class CrowdWindow( QtGui.QMainWindow):
             grids.speedImages( colorMap, imageName )
             pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
             self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )            
-            
+
+    def loadObstacle( self ):
+        """Causes the indicated obstacle file to be loaded into the OpenGL viewer"""
+        obstFileName = str( self.obstFilePathGUI.text() )
+        if ( obstFileName ):
+            self.console.appendPlainText('Reading obstacle file: %s' % obstFileName )
+            try:
+                flipY = True
+                obstacles, bb = readObstacles( obstFileName, flipY )                
+                self.glWindow.addDrawables( obstacles )
+                w = bb.max.x - bb.min.x
+                h = bb.max.y - bb.min.y
+                self.glWindow.setBG( (w,h), (bb.min.x, bb.min.y) )
+                self.glWindow.setView( (w,h), (bb.min.x, bb.min.y) )
+                glSize = self.glWindow.size()
+                self.glWindow.resizeGL( glSize.width(), glSize.height() )
+                self.glWindow.updateGL()
+            except:
+                self.console.appendPlainText('Error reading obstacle file: %s' % obstFileName )
+        else:
+            self.console.appendPlainText('No obstacle file to load' )
                                           
 
 if __name__ == '__main__':
@@ -364,5 +415,5 @@ if __name__ == '__main__':
     app = QtGui.QApplication( sys.argv )
     gui = CrowdWindow()
     gui.show()
-##    gui.resize( 640, 480 )
+    gui.resize( 1024, 480 )
     app.exec_()
