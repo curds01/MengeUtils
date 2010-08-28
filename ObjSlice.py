@@ -41,8 +41,15 @@ class AABB:
         if ( vertices ):
             self.expand( vertices )
 
+    def flipY( self ):
+        '''Flips the y-values of the bounding box'''
+        temp = -self.min.y
+        self.min.y = -self.max.y
+        self.max.y = temp
+        
     def __repr__( self ):
         return "BB: min %s, max %s" % ( self.min, self.max )
+    
     def expand( self, vertices ):
         """Expands the bounding volume based on a list of vertices"""
         for v in vertices:
@@ -195,6 +202,15 @@ class Polygon:
             s += "%s " % v
         return s
 
+    def flipY( self ):
+        """Flips the y-values of the polygon (and reverses the order"""
+        newVerts = []
+        while ( self.vertices ):
+            v = self.vertices.pop( -1 )
+            v.y = -v.y
+            newVerts.append( v )
+        self.vertices = newVerts            
+    
     def sjguy( self ):
         """Returns a string of this obstacle formatted to stephen guy's format"""
         s = ''
