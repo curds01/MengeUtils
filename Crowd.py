@@ -313,16 +313,18 @@ class Grid:
                 t = self.resolution[1]
             self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]
 
-    def rasterizeSpeed( self, f2, f1, distFunc, maxRad ):
+    def rasterizeSpeed( self, f2, f1, distFunc, maxRad, timeStep ):
         """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
         kernel = Kernel( maxRad, distFunc, self.cellSize )
         w, h = kernel.data.shape
         w /= 2
         h /= 2
+        invDT = 1.0 / timeStep
         for i in range( len ( f2.agents ) ):
             ag2 = f2.agents[ i ]
             ag1 = f1.agents[ i ]
-            disp = ( ag2.pos - ag1.pos ).length()
+            disp = ( ag2.pos - ag1.pos ).length() * invDT
+##            print "Agent %d travels:" % i , disp
             center = self.getCenter( ag2.pos )
             l = center[0] - w
             r = center[0] + w + 1
@@ -373,7 +375,7 @@ class GridSequence:
             frame, thisIdx = frameSet.next()
         self.maxDensity = maxVal
 
-    def computeSpeeds( self, minCorner, size, resolution, distFunc, maxRad, frameSet ):
+    def computeSpeeds( self, minCorner, size, resolution, distFunc, maxRad, frameSet, timeStep ):
         """Computes the displacements from one cell to the next"""
         WINDOW_SIZE = 2  # the number of frames across which speed is computed
         frameSet.setNext( 0 )
@@ -383,7 +385,7 @@ class GridSequence:
             f1, i1 = data.pop(0)
             f2, i2 = data[ -1 ]
             g = Grid( minCorner, size, resolution )
-            g.rasterizeSpeed( f2, f1, distFunc, maxRad )
+            g.rasterizeSpeed( f2, f1, distFunc, maxRad, timeStep )
             M = g.maxVal()
             if ( M > maxVal ):
                 maxVal = M
@@ -459,7 +461,7 @@ class GridFileSequence:
         outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
         outFile.close()
 
-    def computeDisplacement( self, minCorner, size, resolution, distFunc, maxRad, frameSet, timeWindow=1 ):
+    def computeSpeeds( self, minCorner, size, resolution, distFunc, maxRad, frameSet, timeStep, timeWindow=1 ):
         """Computes the displacements from one cell to the next"""
         outFile = open( self.outFileName + '.speed', 'wb' )
         outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
@@ -476,7 +478,7 @@ class GridFileSequence:
             f1, i1 = data.pop(0)
             f2, i2 = data[ -1 ]
             g = Grid( minCorner, size, resolution )
-            g.rasterizeSpeed( f2, f1, distFunc, maxRad )
+            g.rasterizeSpeed( f2, f1, distFunc, maxRad, timeStep * timeWindow )
             M = g.maxVal()
             if ( M > maxVal ):
                 maxVal = M
@@ -515,7 +517,7 @@ class GridFileSequence:
                 pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
             f.close()
 
-    def displaceImages( self, colorMap, fileBase ):
+    def speedImages( self, colorMap, fileBase ):
         """Outputs the density images"""
         try:
             f = open( self.outFileName + ".speed", "rb" )
@@ -549,7 +551,7 @@ def main():
         minPt = Point( size.x / -2.0, size.y / -2.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
         path = 'data/Circle10/playbackPLE.scb'
-    elif ( False ):
+    elif ( True ):
         size = Point(60.0, 60.0 )
         minPt = Point( size.x / -2.0, size.y / -2.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
@@ -602,12 +604,12 @@ def main():
 
     print "\tComputing displacements",
     s = time.clock()
-    grids.computeDisplacement( minPt, size, res, dfunc, 3 * R, frameSet )
+    grids.computeSpeeds( minPt, size, res, dfunc, 3 * R, frameSet, 0.1 )
     print "Took", (time.clock() - s), "seconds"
     print "\tComputing displacement images",
     s = time.clock()
     imageName = 'data/displace'
-    grids.displaceImages( colorMap, imageName )
+    grids.speedImages( colorMap, imageName )
     pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
     print "Took", (time.clock() - s), "seconds"
 ##    print "\t",
