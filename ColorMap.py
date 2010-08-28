@@ -167,4 +167,12 @@ class BandedBlackBodyMap( BlackBodyMap ):
         color[:,:,1] = ( ( normData - 0.4 ) / 0.35 ).clip( 0.0, 1.0 ) * 255
         color[:,:,2] = ( ( normData - 0.75 ) / 0.25 ).clip( 0.0, 1.0 ) * 255
         return pygame.surfarray.make_surface( color )
+
+# a dictionary from available color map namess to color map classes
+COLOR_MAPS = { "Grey scale":GreyScaleMap,
+               "Black body":BlackBodyMap,
+               "Flame":FlameMap,
+               "Log Black body":LogBlackBodyMap
+               }
+
             
