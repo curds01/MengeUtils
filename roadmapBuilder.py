@@ -347,12 +347,16 @@ class ObstXMLParser(handler.ContentHandler):
         print "BB:", self.bb
 
             
-def readObstacles( fileName ):
+def readObstacles( fileName, yFlip=False ):
     print "READ OBSTACLES: ", fileName
     parser = make_parser()
     obstHandler = ObstXMLParser()
     parser.setContentHandler( obstHandler )
     parser.parse( fileName )
+    if ( yFlip ):
+        for o in obstHandler.obstacles:
+            o.flipY()
+        obstHandler.bb.flipY()
     return obstHandler.obstacles, obstHandler.bb
 
 
