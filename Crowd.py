@@ -140,9 +140,13 @@ class Agent:
     def __init__( self, position ):
         self.pos = position             # a Point object
         self.vel = None
+        self.value = 0.0                # a per-agent value which can be rasterized
 
     def __str__( self ):
         return '%s' % ( self.pos )
+
+    def setPosition( self, pos ):
+        self.pos = pos
 
 class Frame:
     """A set of agents for a given time frame"""
@@ -176,37 +180,36 @@ class FrameSet:
         self.agtCount = struct.unpack( 'i', data )[0]
         print "\t%d agents" % ( self.agtCount )
         self.frameSize = self.agtCount * 12 # three floats per agent, 4 bytes per float
-        self.currFrame = -1
+        self.currFrameIndex = -1
+        self.currFrame = None
 
     def next( self, updateFrame=None ):
         """Returns the next frame in sequence from current point"""
-        self.currFrame += 1
-        if ( updateFrame ):
-            frm = updateFrame
-        else:
-            frm = Frame( self.agtCount )
+        self.currFrameIndex += 1
+        if ( not updateFrame or self.currFrame == None):
+            self.currFrame = Frame( self.agtCount )
         for i in range( self.agtCount ):
             data = self.file.read( 12 ) # three 4-byte floats
             if ( data == '' ):
-                frm = None
+                self.currFrame = None
                 break
             else:
                 try:
                     x, y, o = struct.unpack( 'fff', data )                  
-                    frm.setPosition( i, Point( x, y ) )
+                    self.currFrame.setPosition( i, Point( x, y ) )
                 except struct.error:
-                    frm = None
+                    self.currFrame = None
                     break
-        return frm, self.currFrame
+        return self.currFrame, self.currFrameIndex
 
     def setNext( self, index ):
         """Sets the set so that the call to next frame will return frame index"""
         if ( index < 0 ):
             index = 0
-        self.currFrame = index
-        byteAddr = self.currFrame * self.frameSize + 8      # +8 is the header offset
+        self.currFrameIndex = index
+        byteAddr = self.currFrameIndex * self.frameSize + 8      # +8 is the header offset
         self.file.seek( byteAddr )
-        self.currFrame -= 1
+        self.currFrameIndex -= 1
 
 class Kernel:
     """Distance function kernel"""
