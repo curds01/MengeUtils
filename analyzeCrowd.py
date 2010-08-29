@@ -365,10 +365,10 @@ class CrowdWindow( QtGui.QMainWindow):
             grids.computeDensity( domainMin, domainSize, res, dfunc, 3 * R, frameSet )
             self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )
         if ( densityAction >= 2 ):
-            imageName = os.path.join( cfg[ 'outDir' ], 'dense_' )
+            imageName = os.path.join( cfg[ 'outDir' ], 'density_' )
             self.console.appendPlainText( 'Creating density images...' )
             s = time.clock()
-            grids.densityImages( colorMap, imageName )
+            grids.makeImages( colorMap, imageName, 'density' )
             pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
             self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )
 
@@ -382,7 +382,10 @@ class CrowdWindow( QtGui.QMainWindow):
             imageName = os.path.join( cfg[ 'outDir' ], 'speed_' )
             self.console.appendPlainText( 'Creating speed images...' )
             s = time.clock()
-            grids.speedImages( colorMap, imageName )
+            grids.makeImages( colorMap, imageName, 'speed' )
+            pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
+            self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )            
+
             pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
             self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )            
 
