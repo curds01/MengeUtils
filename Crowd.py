@@ -23,6 +23,7 @@ import numpy as np
 import threading
 import time
 from ColorMap import *
+from Context import GLLine
 
 class RasterReport:
     """Simple class to return the results of rasterization"""
@@ -247,7 +248,7 @@ class Grid:
         self.resolution = resolution        # tuple (x, y)  - int
         self.clear()
         self.cellSize = Point( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )
-        
+       
     def __str__( self ):
         s = 'Grid'
         for row in range( self.resolution[1] - 1, -1, -1 ):
@@ -321,6 +322,35 @@ class Grid:
                 kt -= t - self.resolution[1]
                 t = self.resolution[1]
             self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]
+
+    def rasterizeValue( self, frame, distFunc, maxRad ):
+        """Given a frame of agents, rasterizes the whole frame"""
+        kernel = Kernel( maxRad, distFunc, self.cellSize )
+        w, h = kernel.data.shape
+        w /= 2
+        h /= 2
+        for agt in frame.agents:
+            center = self.getCenter( agt.pos )
+            l = center[0] - w
+            r = center[0] + w + 1
+            b = center[1] - h
+            t = center[1] + h + 1
+            kl = 0
+            kb = 0
+            kr, kt = kernel.data.shape
+            if ( l < 0 ):
+                kl -= l
+                l = 0
+            if ( b < 0 ):
+                kb -= b
+                b = 0
+            if ( r >= self.resolution[0] ):
+                kr -= r - self.resolution[0]
+                r = self.resolution[0]
+            if ( t >= self.resolution[1] ):
+                kt -= t - self.resolution[1]
+                t = self.resolution[1]
+            self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * agt.value        
 
     def rasterizeSpeed( self, f2, f1, distFunc, maxRad, timeStep ):
         """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
@@ -534,7 +564,7 @@ class GridFileSequence:
             print "Can't open desnity file: %.speed" % ( self.outFileName )
         else:
             w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
-            print "Density images in range:", minVal, maxVal
+            print "Speed images in range:", minVal, maxVal
             gridSize = w * h * 4
             g = Grid( Point(0.0, 0.0), Point(10.0, 10.0), (w, h) )
             for i in range( count ):
@@ -543,7 +573,66 @@ class GridFileSequence:
                 s = g.surface( colorMap, maxVal )
                 pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
             f.close()
-                       
+
+    def makeImages( self, colorMap, fileBase, ext ):
+        """Outputs the density images"""
+        try:
+            f = open( self.outFileName + ".%s" % ( ext ), "rb" )
+        except:
+            print "Can't open desnity file: %.%s" % ( ext ) % ( self.outFileName )
+        else:
+            w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
+            print "%s images in range:" % ( ext ), minVal, maxVal
+            gridSize = w * h * 4
+            g = Grid( Point(0.0, 0.0), Point(10.0, 10.0), (w, h) )
+            for i in range( count ):
+                data = f.read( gridSize )
+                g.setFromBinary( data )
+                s = g.surface( colorMap, maxVal )
+                pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
+            f.close()
+
+                
+    def computeAdvecFlow( self, minCorner, size, resolution, distFunc, maxDist, kernelSize, frameSet, lines ):
+        """Performs a visualization of marking agents according to their intial position w.r.t. a line"""
+        # initialization
+        #   Iterate through the agents on the first frame
+        frameSet.setNext( 0 )
+        f, i = frameSet.next()
+        for agt in f.agents:
+            pos = agt.pos
+            minDist = 1e6
+            for line in lines:
+                dist = line.pointDistance( pos )
+                if ( dist < minDist ):
+                    minDist = dist
+            agt.value = max( maxDist - minDist, 0 )
+
+        # now iterate through each frame and rasterize it
+        outFile = open( self.outFileName + '.advec', 'wb' )
+        outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
+        outFile.write( struct.pack( 'i', 0 ) )                              # grid count
+        outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
+        maxVal = 0        
+        gridCount = 0
+        gridSize = resolution[0] * resolution[1]
+        while ( f ):
+            g = Grid( minCorner, size, resolution )
+            g.rasterizeValue( f, distFunc, kernelSize )
+            M = g.maxVal()
+            if ( M > maxVal ):
+                maxVal = M
+            outFile.write( g.binaryString() )
+            gridCount += 1
+            f, i = frameSet.next( True )
+
+        # add the additional information about grid count and maximum values            
+        outFile.seek( 8 )
+        outFile.write( struct.pack( 'i', gridCount ) )
+        outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
+        outFile.close()               
+            
+        
 class CrowdVis:
     """Visualizes discrete agents"""
     def __init__( self ):
@@ -560,7 +649,7 @@ def main():
         minPt = Point( size.x / -2.0, size.y / -2.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
         path = 'data/Circle10/playbackPLE.scb'
-    elif ( True ):
+    elif ( False ):
         size = Point(60.0, 60.0 )
         minPt = Point( size.x / -2.0, size.y / -2.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
@@ -572,12 +661,12 @@ def main():
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
         path = 'data/bigtawaf/playback.scb'
 ##        path = 'data/tawaf/playback.scb'
-    elif ( False ):
+    elif ( True ):
         size = Point( 15, 5 )
         minPt = Point( -1.0, -2.5 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
         path = 'linear.scb'
-    elif ( True ):
+    elif ( False ):
         size = Point( 30, 5 )
         minPt = Point( -1.0, -2.5 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
@@ -599,7 +688,7 @@ def main():
 
     dfunc = lambda x: distFunc( x, R * R )
 
-    if ( True ):
+    if ( False ):
         print "\tComputing density",
         s = time.clock()
         grids.computeDensity(  minPt, size, res, dfunc, 3 * R, frameSet )
@@ -611,16 +700,30 @@ def main():
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
-    print "\tComputing displacements",
-    s = time.clock()
-    grids.computeSpeeds( minPt, size, res, dfunc, 3 * R, frameSet, 0.1 )
-    print "Took", (time.clock() - s), "seconds"
-    print "\tComputing displacement images",
-    s = time.clock()
-    imageName = 'data/displace'
-    grids.speedImages( colorMap, imageName )
-    pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
-    print "Took", (time.clock() - s), "seconds"
+    if ( False ):
+        print "\tComputing displacements",
+        s = time.clock()
+        grids.computeSpeeds( minPt, size, res, dfunc, 3 * R, frameSet, 0.1 )
+        print "Took", (time.clock() - s), "seconds"
+        print "\tComputing displacement images",
+        s = time.clock()
+        imageName = 'data/displace'
+        grids.speedImages( colorMap, imageName )
+        pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
+        print "Took", (time.clock() - s), "seconds"
+
+    if ( True ):
+        lines = [ GLLine( Point(0.81592, 5.12050), Point( 0.96233, -5.27461) ) ]
+        print "\tComputing advection",
+        s = time.clock()
+        grids.computeAdvecFlow( minPt, size, res, dfunc, 3.0, 3 * R, frameSet, lines )
+        print "Took", (time.clock() - s), "seconds"
+        print "\tComputing advection images",
+        s = time.clock()
+        imageName = 'data/advec_'
+        grids.makeImages( colorMap, imageName, 'advec' )
+        pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
+        print "Took", (time.clock() - s), "seconds"        
 ##    print "\t",
 ##    grids.speedImages( 'tempVel' )
     
