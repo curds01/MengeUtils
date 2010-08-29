@@ -10,6 +10,29 @@ class Vector2:
     def asTuple( self ):
         return (self.x, self.y)
 
+    def __sub__( self, v ):
+        return Vector2( self.x - v.x, self.y - v.y )
+
+    def __div__( self, s ):
+        return Vector2( self.x / s, self.y / s )
+
+    def __mul__( self, s ):
+        return Vector2( self.x * s, self.y * s )
+
+    def normalize( self ):
+        """Returns a normalized version of the vector"""
+        mag = self.magnitude()
+        if ( mag > 0.0 ):
+            return Vector2( self.x / mag, self.y / mag )
+        else:
+            return Vector2( 0.0, 0.0 )
+
+    def dot( self, v ):
+        return self.x * v.x + self.y * v.y
+
+    def magnitude( self ):
+        return sqrt( self.x * self.x + self.y * self.y )
+
     def __getitem__( self, index ):
         if ( index == 0 ):
             return self.x
