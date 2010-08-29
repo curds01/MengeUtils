@@ -8,6 +8,7 @@ import time
 import os
 from GLWidget import *
 from roadmapBuilder import readObstacles
+from Context import *
 
 class Config:
     """An analysis configuration state"""
@@ -169,6 +170,24 @@ class CrowdWindow( QtGui.QMainWindow):
         self.speedWindowGUI.setEnabled( False )
         fLayout.addWidget( self.speedWindowGUI, 2, 2, 1, 1 )
 
+        # flow advection
+        fLayout.addWidget( QtGui.QLabel("Advec. Flow"), 3, 0, 1, 1 )
+        self.doFlowAdvecGUI = QtGui.QComboBox( box )
+        self.doFlowAdvecGUI.addItems( ("No action", "Compute", "Visualize", "Compute and Vis." ) )
+        QtCore.QObject.connect( self.doFlowAdvecGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.flowAdvecChanged )
+        fLayout.addWidget( self.doFlowAdvecGUI, 3, 1, 1, 1 )
+        self.setFlowAdvecLine = QtGui.QPushButton( 'Set line' )
+        self.setFlowAdvecLine.setCheckable( True )
+        self.setFlowAdvecLine.setEnabled( False )
+        QtCore.QObject.connect( self.setFlowAdvecLine, QtCore.SIGNAL('toggled(bool)'), self.setFlowAdvecLineCB )
+        fLayout.addWidget( self.setFlowAdvecLine, 3, 2, 1, 1 )
+        fLayout.addWidget( QtGui.QLabel( "Number of lines" ), 4, 1, 1, 1, QtCore.Qt.AlignRight )
+        self.advecFlowCountGui = QtGui.QSpinBox( box )
+        self.advecFlowCountGui.setMinimum( 1 )
+        self.advecFlowCountGui.setEnabled( False )
+        QtCore.QObject.connect( self.advecFlowCountGui, QtCore.SIGNAL('valueChanged(int)'), self.flowCountChange )
+        fLayout.addWidget( self.advecFlowCountGui, 4, 2, 1, 1 )
+        self.flowAdvecLineCtx = LineContext( 1 )
         vLayout.addWidget( box, 0 )
 
     def createRasterBox( self, vLayout ):
@@ -252,17 +271,38 @@ class CrowdWindow( QtGui.QMainWindow):
     def toggleSpeed( self ):
         self.speedWindowGUI.setEnabled( self.doSpeedGUI.currentIndex() != 0 )
 
+    def flowCountChange( self, count ):
+        '''Changes the number of lines that can be drawn in the context'''
+        if ( self.flowAdvecLineCtx.setMaximumLineCount( count) ):
+            self.glWindow.updateGL()
+        
+    def flowAdvecChanged( self ):
+        """When the flow advec computation state changes, the button might deactivate"""
+        active = self.doFlowAdvecGUI.currentIndex() != 0
+        self.setFlowAdvecLine.setEnabled( active )
+        self.advecFlowCountGui.setEnabled( active )
+
+    def setFlowAdvecLineCB( self, checked ):
+        """Flow advection works by marking agents with a line"""
+        if ( checked ):
+            self.glWindow.setUserContext( self.flowAdvecLineCtx )
+        else:
+            self.glWindow.setUserContext( None )
+        self.glWindow.updateGL()
+    
     def readInConfigFileDlg( self ):
         """Spawns a dialog to read an input configuration file"""
         pass
-    
+
     def saveInConfigFileDlg( self ):
         """Spawns a dialog to save an input configuration file"""
         pass
     
     def readConfigFileDlg( self ):
         """Spawns a dialog to read an input configuration file"""
-        pass
+        fileName = QtGui.QFileDialog.getOpenFileName( self, "Read application config file", ".", "Config files (*.cfg)" )
+        if ( fileName ):
+            self.readConfigFile( fileName )
     
     def saveConfigFileDlg( self ):
         """Spawns a dialog to save an input configuration file"""
@@ -291,24 +331,86 @@ class CrowdWindow( QtGui.QMainWindow):
             
     def setFullConfig( self, cfg ):
         """Given a config object for the full application, sets the application state"""
-        self.scbFilePathGUI.setText( cfg[ 'SCB' ] )
-        self.domainMinXGUI.setValue( float( cfg[ 'minPtX' ] ) )
-        self.domainMinYGUI.setValue( float( cfg[ 'minPtY' ] ) )
-        self.domainSizeXGUI.setValue( float( cfg[ 'sizeX' ] ) )
-        self.domainSizeYGUI.setValue( float( cfg[ 'sizeY' ] ) )
-        self.timeStepGui.setValue( float( cfg[ 'timeStep' ] ) )
-        self.obstFilePathGUI.setText( cfg[ 'obstacle' ] )
-        self.outPathGUI.setText( cfg[ 'outDir' ] )
-        self.tempPathGUI.setText( cfg[ 'tempDir' ] )
-        self.tempNameGUI.setText( cfg[ 'tempName' ] )
-        self.doDensityGUI.setCurrentIndex( self.doDensityGUI.findText( cfg[ 'density' ] ) )
-        self.doSpeedGUI.setCurrentIndex( self.doSpeedGUI.findText( cfg[ 'speed' ] ) )
-        self.speedWindowGUI.setValue( int( cfg['speedWindow'] ) )
-        self.toggleSpeed()
-        self.kernelSizeGUI.setValue( float( cfg[ 'kernelSize' ] ) )
-        self.cellSizeGUI.setValue( float( cfg[ 'cellSize' ] ) )
-        self.colorMapGUI.setCurrentIndex( self.colorMapGUI.findText( cfg[ 'colorMap' ] ) )
-        
+        try:
+            self.scbFilePathGUI.setText( cfg[ 'SCB' ] )
+        except:
+            pass
+        try:
+            self.domainMinXGUI.setValue( float( cfg[ 'minPtX' ] ) )
+        except:
+            pass
+        try:
+            self.domainMinYGUI.setValue( float( cfg[ 'minPtY' ] ) )
+        except:
+            pass
+        try:
+            self.domainSizeXGUI.setValue( float( cfg[ 'sizeX' ] ) )
+        except:
+            pass
+        try:
+            self.domainSizeYGUI.setValue( float( cfg[ 'sizeY' ] ) )
+        except:
+            pass
+        try:
+            self.timeStepGui.setValue( float( cfg[ 'timeStep' ] ) )
+        except:
+            pass
+        try:
+            self.obstFilePathGUI.setText( cfg[ 'obstacle' ] )
+        except:
+            pass
+        try:
+            self.outPathGUI.setText( cfg[ 'outDir' ] )
+        except:
+            pass
+        try:
+            self.tempPathGUI.setText( cfg[ 'tempDir' ] )
+        except:
+            pass
+        try:
+            self.tempNameGUI.setText( cfg[ 'tempName' ] )
+        except:
+            pass
+        try:
+            self.doDensityGUI.setCurrentIndex( self.doDensityGUI.findText( cfg[ 'density' ] ) )
+        except:
+            pass
+        try:
+            self.doSpeedGUI.setCurrentIndex( self.doSpeedGUI.findText( cfg[ 'speed' ] ) )
+            self.toggleSpeed()
+        except:
+            pass
+        try:
+            self.speedWindowGUI.setValue( int( cfg['speedWindow'] ) )
+        except:
+            pass
+        try:
+            self.kernelSizeGUI.setValue( float( cfg[ 'kernelSize' ] ) )
+        except:
+            pass
+        try:
+            self.cellSizeGUI.setValue( float( cfg[ 'cellSize' ] ) )
+        except:
+            pass
+        try:
+            self.colorMapGUI.setCurrentIndex( self.colorMapGUI.findText( cfg[ 'colorMap' ] ) )
+        except:
+            pass
+        try:
+            self.doFlowAdvecGUI.setCurrentIndex( self.doFlowAdvecGUI.findText( cfg[ 'advecFlow' ] ) )
+        except:
+            pass
+        try:
+            self.flowAdvecLineCtx.setFromString( cfg[ 'advecFlowLines' ] )
+        except:
+            pass
+        try:
+            self.advecFlowCountGui.setValue( self.flowAdvecLineCtx.getMaxLineCount() )
+        except:
+            pass
+        self.glWindow.updateGL()
+
+                    
     def collectFullConfig( self ):
         '''Returns a Config object reflecting the full configuration of the application'''
         cfg = Config()
@@ -328,6 +430,8 @@ class CrowdWindow( QtGui.QMainWindow):
         cfg[ 'kernelSize' ] = self.kernelSizeGUI.value()
         cfg[ 'cellSize' ] = self.cellSizeGUI.value()
         cfg[ 'colorMap' ] = str( self.colorMapGUI.currentText() )
+        cfg[ 'advecFlow' ] = str( self.doFlowAdvecGUI.currentText() )
+        cfg[ 'advecFlowLines' ] = self.flowAdvecLineCtx.toConfigString()
         return cfg
 
     def collectInputConfig( self ):
@@ -386,6 +490,17 @@ class CrowdWindow( QtGui.QMainWindow):
             pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
             self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )            
 
+        advecAction = self.doFlowAdvecGUI.currentIndex()
+        if ( advecAction == 1 or advecAction == 3 ):
+            self.console.appendPlainText( 'Computing advection...' )
+            s = time.clock()
+            grids.computeAdvecFlow( domainMin, domainSize, res, dfunc, 3.0, 3 * R, frameSet, self.flowAdvecLineCtx.lines )
+            self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )
+        if ( advecAction >= 2 ):
+            imageName = os.path.join( cfg[ 'outDir' ], 'advec_' )
+            self.console.appendPlainText( 'Creating flow advection images...' )
+            s = time.clock()
+            grids.makeImages( colorMap, imageName, 'advec' )
             pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
             self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )            
 
