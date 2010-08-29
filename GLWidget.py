@@ -1,5 +1,6 @@
 from PyQt4 import QtCore, QtGui, QtOpenGL
 from OpenGL.GL import *
+from Context import *
 
 # dragging parameters
 NO_DRAG = 0
@@ -21,6 +22,9 @@ class GLWidget( QtOpenGL.QGLWidget ):
     def __init__( self, bgSize, bgBtmLeft, viewSize, viewBtmLeft, winSize, parent=None ):
         QtOpenGL.QGLWidget.__init__( self, parent )
 
+        # The external context for interacting with the scene
+        self.context = None
+        
         # everything that needs to be drawn in the scene
         #   drawn in the order given
         self.drawables = []
@@ -56,6 +60,10 @@ class GLWidget( QtOpenGL.QGLWidget ):
 ##        self.lw = self.char[ ord('0') ][1]
 ##        self.lh = self.char[ ord('0') ][2]
 
+    def setUserContext( self, newContext ):
+        '''Sets the interaction context'''
+        self.context = newContext
+        
     def setBG( self, bgSize, bgBtmLeft ):
         '''Sets the background values'''
         self.bgWidth = bgSize[0]
@@ -81,6 +89,8 @@ class GLWidget( QtOpenGL.QGLWidget ):
 
         for drawable in self.drawables:
             drawable.drawGL()
+        if ( self.context ):
+            self.context.drawGL()
 
     def addDrawable( self, drawable ):
         '''Add a single drawable object'''
@@ -126,39 +136,70 @@ class GLWidget( QtOpenGL.QGLWidget ):
         glLoadIdentity()
 
     def mousePressEvent(self, event):
-        btn = event.button()
-        mods = event.modifiers()
-        hasCtrl = mods & QtCore.Qt.ControlModifier
-        if ( btn == LEFT ):
-            self.downX, self.downY = event.x(), event.y()
-            print "left", self.downX, self.downY
-            if ( hasCtrl ):
-                print "with control"
-                self.startPan()
-                self.dragging = PAN
-        elif ( btn == MIDDLE ):
-            print "middle"
-        elif ( btn == RIGHT ):
-            print 'right'
-##        self.lastPos = event.pos()
+        result = ContextResult()
+        if ( self.context ):
+            result = self.context.handleMouse( event, self )
+            if ( result.isFinished() ):
+                self.setUserContext( None )
+        if ( not result.isHandled() ):
+            btn = event.button()
+            mods = event.modifiers()
+            hasCtrl = mods & QtCore.Qt.ControlModifier
+            if ( btn == LEFT ):
+                self.downX, self.downY = event.x(), event.y()
+                if ( int( hasCtrl ) ):
+                    self.startPan()
+                    self.dragging = PAN
+            elif ( btn == MIDDLE ):
+                pass
+            elif ( btn == RIGHT ):
+                pass
+        if ( result.needsRedraw() ):
+            self.updateGL()
+
+    def mouseReleaseEvent( self, event ):
+        result = ContextResult()
+        if ( self.context ):
+            result = self.context.handleMouse( event, self )
+            if ( result.isFinished() ):
+                self.setUserContext( None )
+        if ( not result.isHandled() ):
+            if ( self.dragging == PAN ):
+                self.dragging = NO_DRAG
+        if ( result.needsRedraw() ):
+            self.updateGL()
 
     def mouseMoveEvent(self, event):
-        mods = event.modifiers()
-        hasCtrl = mods & QtCore.Qt.ControlModifier
-        if ( self.dragging == PAN ):
-            dX, dY = self.screenToWorld( ( self.downX, self.downY ) )
-            pX, pY = self.screenToWorld( ( event.x(), event.y() ) )
-            self.pan( (dX - pX, dY - pY ) )
+        result = ContextResult()
+        if ( self.context ):
+            result = self.context.handleMouse( event, self )
+            if ( result.isFinished() ):
+                self.setUserContext( None )
+        if ( not result.isHandled() ):
+            mods = event.modifiers()
+            hasCtrl = mods & QtCore.Qt.ControlModifier
+            if ( self.dragging == PAN ):
+                dX, dY = self.screenToWorld( ( self.downX, self.downY ) )
+                pX, pY = self.screenToWorld( ( event.x(), event.y() ) )
+                self.pan( (dX - pX, dY - pY ) )
+                result.setNeedsRedraw( True )
+        if ( result.needsRedraw() ):
             self.updateGL()
-##        dx = event.x() - self.lastPos.x()
-##        dy = event.y() - self.lastPos.y()
 
     def wheelEvent( self, event ):
-        if ( event.delta() > 0 ):
-            self.zoomIn( ( event.x(), event.y() ) )
-        else:
-            self.zoomOut( ( event.x(), event.y() ) )
-        self.updateGL()        
+        result = ContextResult()
+        if ( self.context ):
+            result = self.context.handleMouse( event, self )
+            if ( result.isFinished() ):
+                self.setUserContext( None )
+        if ( not result.isHandled() ):
+            if ( event.delta() > 0 ):
+                self.zoomIn( ( event.x(), event.y() ) )
+            else:
+                self.zoomOut( ( event.x(), event.y() ) )
+            result.setNeedsRedraw( True )
+        if ( result.needsRedraw() ):
+            self.updateGL()
 
     def screenToWorld( self, (x, y ) ):
         """Converts a screen-space value into a world-space value"""
