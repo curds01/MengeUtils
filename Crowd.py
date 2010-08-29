@@ -98,6 +98,12 @@ class Point:
         self.x = x
         self.y = y
 
+    def magnitude( self ):
+        return sqrt( self.x * self.x + self.y * self.y )
+
+    def dot( self, v ):
+        return self.x * v.x + self.y * v.y
+
     def __str__( self ):
         return '(%.3f, %.3f)' % ( self.x, self.y )
 
