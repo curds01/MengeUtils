@@ -24,6 +24,8 @@ import threading
 import time
 from ColorMap import *
 from Context import GLLine
+from flow import *
+from primitives import Vector2
 
 class RasterReport:
     """Simple class to return the results of rasterization"""
@@ -588,11 +590,14 @@ class GridFileSequence:
             for i in range( count ):
                 data = f.read( gridSize )
                 g.setFromBinary( data )
-                s = g.surface( colorMap, maxVal )
+                try:
+                    s = g.surface( colorMap, maxVal )
+                except MemoryError:
+                    print "Error on frame", i
+                    raise
                 pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
             f.close()
 
-                
     def computeAdvecFlow( self, minCorner, size, resolution, distFunc, maxDist, kernelSize, frameSet, lines ):
         """Performs a visualization of marking agents according to their intial position w.r.t. a line"""
         # initialization
@@ -632,12 +637,25 @@ class GridFileSequence:
         outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
         outFile.close()               
             
-        
-class CrowdVis:
-    """Visualizes discrete agents"""
-    def __init__( self ):
-        pass
+def computeFlowLines( center, lines, frameSet ):
+    """Computes the flow of agents past the various lines"""
+    # initialize
+    flowRegion = FlowLineRegion()
+    for line in lines:
+        flowRegion.addLine( line.p1, line.p2 )
+    flowRegion.sortLines( center )
+    print flowRegion
 
+    frameSet.setNext( 0 )
+    f, i = frameSet.next()
+    flowRegion.sortAgents( f.agents )
+
+    f, i = frameSet.next( True )
+    while( f ):
+        flowRegion.step()
+        f, i = frameSet.next( True )
+    return flowRegion
+    
 def main():
     """Test the functionality"""
     from math import pi, exp
@@ -655,13 +673,16 @@ def main():
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
         path = '/projects/SG10/CrowdViewer/Exe/Win32/2circle/playback.scb'        
 ##        path = '/projects/SG10/CrowdViewer/Exe/Win32/2circle/playbackRVO.scb'
-    elif ( False ):
+    elif ( True ):
         size = Point( 150.0, 110.0 )
         minPt = Point( -70.0, -55.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
-        path = 'data/bigtawaf/playback.scb'
-##        path = 'data/tawaf/playback.scb'
-    elif ( True ):
+##        path = 'data/bigtawaf/playback.scb'
+##        path = 'data/bigtawaf/playback_1agt_20step_30Skip.scb'
+        path = 'data/bigtawaf/playback_30step_Allframe.scb'
+##        path = 'data/bigtawaf/playback_All_step30_agt100.scb'
+##        path = 'data/bigtawaf/playback_50step_20frame.scb'
+    elif ( False ):
         size = Point( 15, 5 )
         minPt = Point( -1.0, -2.5 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
@@ -712,7 +733,7 @@ def main():
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
-    if ( True ):
+    if ( False ):
         lines = [ GLLine( Point(0.81592, 5.12050), Point( 0.96233, -5.27461) ) ]
         print "\tComputing advection",
         s = time.clock()
@@ -723,10 +744,25 @@ def main():
         imageName = 'data/advec_'
         grids.makeImages( colorMap, imageName, 'advec' )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
-        print "Took", (time.clock() - s), "seconds"        
+        print "Took", (time.clock() - s), "seconds"
+    if ( True ):
+        # flow lines
+                     
+        lines = ( GLLine( Vector2( 4.56230, -7.71608 ), Vector2( 81.49586, -4.55443  ) ),
+                  GLLine( Vector2( 5.08924, 5.72094 ), Vector2( 82.28628, 8.61913  ) ),
+                  GLLine( Vector2( 3.50842, 8.09218 ), Vector2( 2.71800, 51.30145  ) ),
+                  GLLine( Vector2( -5.97654, 5.72094 ), Vector2( -8.87472, 51.56492  ) ),
+                  GLLine( Vector2( -6.50348, -7.18914 ), Vector2( -40.75473, -53.56005  ) ),
+                  GLLine( Vector2( -1.23406, -6.92567 ), Vector2( 1.13718, -51.18881  ) ),
+                  GLLine( Vector2( 3.50842, -7.45261 ), Vector2( 44.08297, -45.65592 ) ) )
+        flow = computeFlowLines( Vector2( 0, 0 ), lines, frameSet )
+        file = open( 'data/flow.txt', 'w' )
+        flow.write( file )
+        file.close()
 ##    print "\t",
 ##    grids.speedImages( 'tempVel' )
     
 
 if __name__ == '__main__':
     main()
+    
