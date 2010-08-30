@@ -69,6 +69,13 @@ class GLLine:
     def __repr__( self ):
         return str( self )
 
+    def midPoint( self ):
+        """Returns the mid-point of the line"""
+        try:
+            return ( self.p1 + self.p2 ) * 0.5
+        except TypeError:
+            print type( self.p1 ), type( self.p2 )
+
     def drawGL( self, color=(0.1, 1.0, 0.1) ):
         glPushAttrib( GL_COLOR_BUFFER_BIT )
         glBegin( GL_LINES )
