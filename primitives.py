@@ -13,6 +13,9 @@ class Vector2:
     def __sub__( self, v ):
         return Vector2( self.x - v.x, self.y - v.y )
 
+    def __add__( self, v ):
+        return Vector2( self.x + v.x, self.y + v.y )
+
     def __div__( self, s ):
         return Vector2( self.x / s, self.y / s )
 
@@ -26,6 +29,10 @@ class Vector2:
             return Vector2( self.x / mag, self.y / mag )
         else:
             return Vector2( 0.0, 0.0 )
+
+    def det( self, v ):
+        """Computes the determinant of this vector with v"""
+        return self.x * v.y - self.y * v.x
 
     def dot( self, v ):
         return self.x * v.x + self.y * v.y
