@@ -64,6 +64,7 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet, minCorner, si
     while ( frame ):
         # create grid and rasterize
         g = Grid( minCorner, size, resolution )
+##        g.rasterizePosition2( frame, distFunc, maxRad )
         g.rasterizePosition( frame, distFunc, maxRad )
         # update log
         log.setMax( g.maxVal() )
@@ -107,21 +108,40 @@ class Kernel:
         (it need not be square.)  The values in each cell are determined
         by the distance of each cell from the center cell computed with
         dFunc.  Each cell is given a logical size of cSize"""
-        hCount = int( 2 * radius / cSize.x )
+        hCount = int( 6 * radius / cSize.x )
         if ( hCount % 2 == 0 ):
             hCount += 1
-        vCount = int( 2 * radius / cSize.y )
-        if ( vCount % 2 == 0 ):
-            vCount += 1
-        self.data = np.zeros( (hCount, vCount), dtype=np.float32 )
-        centerX = hCount / 2
-        centerY = vCount / 2
-        for x in range( hCount ):
-            for y in range( vCount ):
-                offsetX = ( centerX - x ) * cSize.x
-                offsetY = ( centerY - y ) * cSize.y
-                dist = np.sqrt( offsetX * offsetX + offsetY * offsetY )
-                self.data[ x, y ] = dFunc( dist )
+        o = np.arange( -(hCount/2), hCount/2 + 1) * cSize.x
+        X, Y = np.meshgrid( o, o )
+        self.data = dFunc( X * X + Y * Y )
+
+class Kernel2:
+    """Computes the contribution of an agent to it's surrounding neighborhood"""
+    # THE BIG DIFFERENCE between Kernel2 and Kernel:
+    #   Kernel assumes that every agent is centered on a cell, so the contribution
+    #   is a fixed contribution to the neighborhood
+    #   This kernel has fixed size, but the values change because it's computed based
+    #   on the actual world position of the agent w.r.t. the world position of the kernel center
+    #   So, this creates a generic kernel of the appropriate size, but then given a particular
+    #   center value and a particular position, computes the unique kernel (instance method)
+    def __init__( self, radius, cSize ):
+        # compute size: assume cSize is square
+        self.k = int( 6 * radius / cSize.x )
+        if ( self.k % 2 == 0 ):
+            self.k += 1
+        self.data = np.zeros( (self.k, self.k), dtype=np.float32 )
+        # world offsets from the center of the kernel
+        o = np.arange( -(self.k/2), self.k/2 + 1) * cSize.x
+        self.localX, self.localY = np.meshgrid( o, o )
+        
+    def instance( self, dfunc, center, position ):
+        '''Creates an instance of the sized kernel for this center and position'''
+        localPos = position - center
+        deltaX = ( self.localX - localPos.x ) ** 2
+        deltaY = ( self.localY - localPos.y ) ** 2
+        distSqd = deltaX + deltaY
+        # the distance function must take an array as an argument.
+        self.data = dfunc( distSqd )
                 
 class Grid:
     """Class to discretize scalar field computation"""
@@ -178,6 +198,7 @@ class Grid:
         x = int( ofX )
         y = int( ofY )
         return x, y
+      
 
     def rasterizePosition( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
@@ -207,6 +228,38 @@ class Grid:
                 kt -= t - self.resolution[1]
                 t = self.resolution[1]
             self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]
+
+    def rasterizePosition2( self, frame, distFunc, maxRad ):
+        """Given a frame of agents, rasterizes the whole frame"""
+        kernel = Kernel2( maxRad, self.cellSize )
+        w, h = kernel.data.shape
+        w /= 2
+        h /= 2
+        for agt in frame.agents:
+            center = self.getCenter( agt.pos )
+            centerWorld = Vector2( center[0] * self.cellSize.x + self.minCorner.x,
+                                   center[1] * self.cellSize.y + self.minCorner.y )
+            kernel.instance( distFunc, centerWorld, agt.pos )
+            l = center[0] - w
+            r = center[0] + w + 1
+            b = center[1] - h
+            t = center[1] + h + 1
+            kl = 0
+            kb = 0
+            kr, kt = kernel.data.shape
+            if ( l < 0 ):
+                kl -= l
+                l = 0
+            if ( b < 0 ):
+                kb -= b
+                b = 0
+            if ( r >= self.resolution[0] ):
+                kr -= r - self.resolution[0]
+                r = self.resolution[0]
+            if ( t >= self.resolution[1] ):
+                kt -= t - self.resolution[1]
+                t = self.resolution[1]
+            self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]            
 
     def rasterizeValue( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
@@ -292,7 +345,8 @@ class GridSequence:
         maxVal = 0
         while ( thisIdx > lastIdx ):
             g = Grid( minCorner, size, resolution )
-            g.rasterizePosition( frame, distFunc, maxRad )
+            g.rasterizePosition2( frame, distFunc, maxRad )        
+##            g.rasterizePosition( frame, distFunc, maxRad )
             M = g.maxVal()
             if ( M > maxVal ):
                 maxVal = M
@@ -587,10 +641,10 @@ def main():
 
     R = 2.0
     print "Density for %s with R = %f" % ( path, R )
-    def distFunc( dist, radiusSqd ):
+    def distFunc( distSqd, radiusSqd ):
         """Constant distance function"""
         # This is the local density function provided by Helbing
-        return 1.0 / ( pi * radiusSqd ) * exp( - (dist * dist / radiusSqd ) )        
+        return 1.0 / ( pi * radiusSqd ) * np.exp( - (distSqd / radiusSqd ) )        
 
     dfunc = lambda x: distFunc( x, R * R )
 
