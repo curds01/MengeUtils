@@ -78,7 +78,7 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet, minCorner, si
         frameLock.release()
 
 # the thread that does the file output
-def threadOutput( outFile, buffer, bufferLock ):
+def threadOutput( outFile, buffer, bufferLock, startTime ):
     """Reads grids from the buffer and writes them to the output file"""
     nextGrid = 0
     while ( buffer or ACTIVE_RASTER_THREADS ):
@@ -88,7 +88,7 @@ def threadOutput( outFile, buffer, bufferLock ):
             i = buffer.index( nextGrid )
             bg = buffer.pop( i )
             bufferLock.release()
-##            print "Writing frame", nextGrid
+            print "\t\tWriting buffer %d at time %f s" % ( nextGrid, time.clock() - startTime )
             outFile.write( bg.grid.binaryString() )
             nextGrid += 1
         except ValueError:
@@ -345,7 +345,7 @@ class GridFileSequence:
         '''Creates a binary file representing the density scalar fields of each frame'''
         global ACTIVE_RASTER_THREADS
 
-        THREAD_COUNT = 3
+        THREAD_COUNT = 7
         # file output
         outFile = open( self.outFileName + '.density', 'wb' )
         outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
@@ -353,7 +353,7 @@ class GridFileSequence:
         outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
         buffer = []
         bufferLock = threading.Lock()
-        saveThread = threading.Thread( target=threadOutput, args=(outFile, buffer, bufferLock ) )
+        saveThread = threading.Thread( target=threadOutput, args=(outFile, buffer, bufferLock, time.clock() ) )
         ACTIVE_RASTER_THREADS = THREAD_COUNT
         saveThread.start()
 
@@ -371,7 +371,7 @@ class GridFileSequence:
         for i in range( THREAD_COUNT ):
             rasterThreads[i].join()
             ACTIVE_RASTER_THREADS -= 1
-            print "ACTIVE_RASTER_THREADS:", ACTIVE_RASTER_THREADS
+##            print "ACTIVE_RASTER_THREADS:", ACTIVE_RASTER_THREADS
         saveThread.join()
 
         gridCount = 0
@@ -595,10 +595,10 @@ def main():
     dfunc = lambda x: distFunc( x, R * R )
 
     if ( True ):
-        print "\tComputing density",
+        print "\tComputing density"
         s = time.clock()
         grids.computeDensity(  minPt, size, res, dfunc, 3 * R, frameSet )
-        print "Took", (time.clock() - s), "seconds"
+        print "\t\tTotal computation time: ", (time.clock() - s), "seconds"
         print "\tComputing density images",
         s = time.clock()
         imageName = 'data/dense'
