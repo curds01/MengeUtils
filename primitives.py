@@ -13,8 +13,18 @@ class Vector2:
     def __sub__( self, v ):
         return Vector2( self.x - v.x, self.y - v.y )
 
+    def __isub__( self, v ):
+        self.x -= v.x
+        self.y -= v.y
+        return self
+
     def __add__( self, v ):
         return Vector2( self.x + v.x, self.y + v.y )
+
+    def __iadd__( self, v ):
+        self.x += v.x
+        self.y += v.y
+        return self
 
     def __div__( self, s ):
         return Vector2( self.x / s, self.y / s )

@@ -26,6 +26,7 @@ from ColorMap import *
 from Context import GLLine
 from flow import *
 from primitives import Vector2
+from scbData import FrameSet
 
 class RasterReport:
     """Simple class to return the results of rasterization"""
@@ -95,124 +96,6 @@ def threadOutput( outFile, buffer, bufferLock ):
             time.sleep( 1.0 )
     
 
-class Point:
-    """2D point"""
-    def __init__( self, x, y ):
-        self.x = x
-        self.y = y
-
-    def magnitude( self ):
-        return sqrt( self.x * self.x + self.y * self.y )
-
-    def dot( self, v ):
-        return self.x * v.x + self.y * v.y
-
-    def __str__( self ):
-        return '(%.3f, %.3f)' % ( self.x, self.y )
-
-    def __repr__( self ):
-        return str( self )
-
-    def distance( self, p ):
-        return (p - self).length()
-
-    def __sub__( self, p ):
-        return Point( self.x - p.x, self.y - p.y )
-
-    def __isub__( self, p ):
-        self.x -= p.x
-        self.y -= p.y
-        return self
-
-    def __add__( self, p ):
-        return Point( self.x + p.x, self.y + p.y )
-
-    def __iadd__( self, p ):
-        self.x += p.x
-        self.y += p.y
-        return self
-
-    def __div__( self, s ):
-        return Point( self.x / s, self.y / s )
-
-    def length( self ):
-        return sqrt( self.x * self.x + self.y * self.y )
-
-class Agent:
-    """Basic agent class"""
-    def __init__( self, position ):
-        self.pos = position             # a Point object
-        self.vel = None
-        self.value = 0.0                # a per-agent value which can be rasterized
-
-    def __str__( self ):
-        return '%s' % ( self.pos )
-
-    def setPosition( self, pos ):
-        self.pos = pos
-
-class Frame:
-    """A set of agents for a given time frame"""
-    def __init__( self, agentCount ):
-        self.agents = [ Agent( Point(0,0) ) for i in range( agentCount ) ]
-
-    def __str__( self ):
-        s = 'Frame with %d agents' % ( len(self.agents) )
-        for agt in self.agents:
-            s += '\n\t%s' % agt
-        return s
-
-    def setPosition( self, i, pos ):
-        self.agents[ i ].pos = pos
-
-    def computeVelocity( self, prevFrame, dt ):
-        """Computes the velocity for each agent based ona previous frame"""
-        for i, agent in enumerate( self.agents ):
-            agent.vel = ( agent.pos - prevFrame.agents[ i ].pos ) / dt
-
-    def getPosition( self, i ):
-        return self.agents[ i ].pos
-
-class FrameSet:
-    """A pseudo iterator for frames in an scb file"""
-    def __init__( self, scbFile ):
-        self.file = open( scbFile, 'rb' )
-        data = self.file.read( 4 )
-        print "SCB file version:", data
-        data = self.file.read( 4 )
-        self.agtCount = struct.unpack( 'i', data )[0]
-        print "\t%d agents" % ( self.agtCount )
-        self.frameSize = self.agtCount * 12 # three floats per agent, 4 bytes per float
-        self.currFrameIndex = -1
-        self.currFrame = None
-
-    def next( self, updateFrame=None ):
-        """Returns the next frame in sequence from current point"""
-        self.currFrameIndex += 1
-        if ( not updateFrame or self.currFrame == None):
-            self.currFrame = Frame( self.agtCount )
-        for i in range( self.agtCount ):
-            data = self.file.read( 12 ) # three 4-byte floats
-            if ( data == '' ):
-                self.currFrame = None
-                break
-            else:
-                try:
-                    x, y, o = struct.unpack( 'fff', data )                  
-                    self.currFrame.setPosition( i, Point( x, y ) )
-                except struct.error:
-                    self.currFrame = None
-                    break
-        return self.currFrame, self.currFrameIndex
-
-    def setNext( self, index ):
-        """Sets the set so that the call to next frame will return frame index"""
-        if ( index < 0 ):
-            index = 0
-        self.currFrameIndex = index
-        byteAddr = self.currFrameIndex * self.frameSize + 8      # +8 is the header offset
-        self.file.seek( byteAddr )
-        self.currFrameIndex -= 1
 
 class Kernel:
     """Distance function kernel"""
@@ -249,7 +132,7 @@ class Grid:
         self.size = size                    # tuple (x, y)  - float
         self.resolution = resolution        # tuple (x, y)  - int
         self.clear()
-        self.cellSize = Point( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )
+        self.cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )
        
     def __str__( self ):
         s = 'Grid'
@@ -364,7 +247,9 @@ class Grid:
         for i in range( len ( f2.agents ) ):
             ag2 = f2.agents[ i ]
             ag1 = f1.agents[ i ]
-            disp = ( ag2.pos - ag1.pos ).length() * invDT
+            disp = ( ag2.pos - ag1.pos ).magnitude()
+            print disp, invDT
+            disp *= invDT
 ##            print "Agent %d travels:" % i , disp
             center = self.getCenter( ag2.pos )
             l = center[0] - w
@@ -550,7 +435,7 @@ class GridFileSequence:
             w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
             print "Density images in range:", minVal, maxVal
             gridSize = w * h * 4
-            g = Grid( Point(0.0, 0.0), Point(10.0, 10.0), (w, h) )
+            g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h) )
             for i in range( count ):
                 data = f.read( gridSize )
                 g.setFromBinary( data )
@@ -568,7 +453,7 @@ class GridFileSequence:
             w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
             print "Speed images in range:", minVal, maxVal
             gridSize = w * h * 4
-            g = Grid( Point(0.0, 0.0), Point(10.0, 10.0), (w, h) )
+            g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h) )
             for i in range( count ):
                 data = f.read( gridSize )
                 g.setFromBinary( data )
@@ -586,7 +471,7 @@ class GridFileSequence:
             w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
             print "%s images in range:" % ( ext ), minVal, maxVal
             gridSize = w * h * 4
-            g = Grid( Point(0.0, 0.0), Point(10.0, 10.0), (w, h) )
+            g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h) )
             for i in range( count ):
                 data = f.read( gridSize )
                 g.setFromBinary( data )
@@ -662,20 +547,20 @@ def main():
     pygame.init()
     CELL_SIZE = 0.2
     # I want cell-size to be approximately 0.4 - i.e. a single person
-    if ( False ):
-        size = Point(12.0, 12.0 )
-        minPt = Point( size.x / -2.0, size.y / -2.0 )
+    if ( True ):
+        size = Vector2(12.0, 12.0 )
+        minPt = Vector2( size.x / -2.0, size.y / -2.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
         path = 'data/Circle10/playbackPLE.scb'
     elif ( False ):
-        size = Point(60.0, 60.0 )
-        minPt = Point( size.x / -2.0, size.y / -2.0 )
+        size = Vector2(60.0, 60.0 )
+        minPt = Vector2( size.x / -2.0, size.y / -2.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
         path = '/projects/SG10/CrowdViewer/Exe/Win32/2circle/playback.scb'        
 ##        path = '/projects/SG10/CrowdViewer/Exe/Win32/2circle/playbackRVO.scb'
-    elif ( True ):
-        size = Point( 150.0, 110.0 )
-        minPt = Point( -70.0, -55.0 )
+    elif ( False ):
+        size = Vector2( 150.0, 110.0 )
+        minPt = Vector2( -70.0, -55.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
 ##        path = 'data/bigtawaf/playback.scb'
 ##        path = 'data/bigtawaf/playback_1agt_20step_30Skip.scb'
@@ -683,13 +568,13 @@ def main():
 ##        path = 'data/bigtawaf/playback_All_step30_agt100.scb'
 ##        path = 'data/bigtawaf/playback_50step_20frame.scb'
     elif ( False ):
-        size = Point( 15, 5 )
-        minPt = Point( -1.0, -2.5 )
+        size = Vector2( 15, 5 )
+        minPt = Vector2( -1.0, -2.5 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
         path = 'linear.scb'
     elif ( False ):
-        size = Point( 30, 5 )
-        minPt = Point( -1.0, -2.5 )
+        size = Vector2( 30, 5 )
+        minPt = Vector2( -1.0, -2.5 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
         path = 'quad.scb'
     print "Size:", size
@@ -709,7 +594,7 @@ def main():
 
     dfunc = lambda x: distFunc( x, R * R )
 
-    if ( False ):
+    if ( True ):
         print "\tComputing density",
         s = time.clock()
         grids.computeDensity(  minPt, size, res, dfunc, 3 * R, frameSet )
@@ -734,7 +619,7 @@ def main():
         print "Took", (time.clock() - s), "seconds"
 
     if ( False ):
-        lines = [ GLLine( Point(0.81592, 5.12050), Point( 0.96233, -5.27461) ) ]
+        lines = [ GLLine( Vector2(0.81592, 5.12050), Vector2( 0.96233, -5.27461) ) ]
         print "\tComputing advection",
         s = time.clock()
         grids.computeAdvecFlow( minPt, size, res, dfunc, 3.0, 3 * R, frameSet, lines )
@@ -745,7 +630,7 @@ def main():
         grids.makeImages( colorMap, imageName, 'advec' )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
-    if ( True ):
+    if ( False ):
         # flow lines
                      
         lines = ( GLLine( Vector2( 4.56230, -7.71608 ), Vector2( 81.49586, -4.55443  ) ),
