@@ -95,8 +95,6 @@ def threadOutput( outFile, buffer, bufferLock, startTime ):
         except ValueError:
             bufferLock.release()
             time.sleep( 1.0 )
-    
-
 
 class Kernel:
     """Distance function kernel"""
@@ -290,7 +288,35 @@ class Grid:
                 t = self.resolution[1]
             self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * agt.value        
 
+    
+
     def rasterizeSpeed( self, f2, f1, distFunc, maxRad, timeStep ):
+        """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
+        invDT = 1.0 / timeStep
+        for i in range( len ( f2.agents ) ):
+            ag2 = f2.agents[ i ]
+            ag1 = f1.agents[ i ]
+            disp = ( ag2.pos - ag1.pos ).magnitude()
+            disp *= invDT
+            center = self.getCenter( ag2.pos )
+
+            l = center[0] - 1
+            r = center[0] + 2
+            b = center[1] - 1
+            t = center[1] + 2
+            
+            if ( l < 0 ):
+                l = 0
+            if ( b < 0 ):
+                b = 0
+            if ( r >= self.resolution[0] ):
+                r = self.resolution[0]
+            if ( t >= self.resolution[1] ):
+                t = self.resolution[1]
+            self.cells[ l:r, b:t ] =  disp            
+##            self.cells[ center[0], center[1] ] = disp
+
+    def rasterizeSpeed2( self, f2, f1, distFunc, maxRad, timeStep ):
         """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
         kernel = Kernel( maxRad, distFunc, self.cellSize )
         w, h = kernel.data.shape
@@ -301,9 +327,7 @@ class Grid:
             ag2 = f2.agents[ i ]
             ag1 = f1.agents[ i ]
             disp = ( ag2.pos - ag1.pos ).magnitude()
-            print disp, invDT
             disp *= invDT
-##            print "Agent %d travels:" % i , disp
             center = self.getCenter( ag2.pos )
             l = center[0] - w
             r = center[0] + w + 1
@@ -660,10 +684,12 @@ def main():
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
-    if ( False ):
+    if ( True ):
         print "\tComputing displacements",
         s = time.clock()
-        grids.computeSpeeds( minPt, size, res, dfunc, 3 * R, frameSet, 0.1 )
+        speedRadius = CELL_SIZE / np.sqrt( -np.log(0.5) )
+        dfunc = lambda x: np.exp( -( x / ( speedRadius * speedRadius ) ) )
+        grids.computeSpeeds( minPt, size, res, dfunc, 3 * speedRadius, frameSet, 1.0 )
         print "Took", (time.clock() - s), "seconds"
         print "\tComputing displacement images",
         s = time.clock()
