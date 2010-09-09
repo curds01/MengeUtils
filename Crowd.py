@@ -27,6 +27,7 @@ from Context import GLLine
 from flow import *
 from primitives import Vector2
 from scbData import FrameSet
+from trace import renderTraces
 
 class RasterReport:
     """Simple class to return the results of rasterization"""
@@ -419,6 +420,17 @@ class GridFileSequence:
     def __init__( self, outFileName ):
         self.outFileName = outFileName
 
+    def renderTraces( self, minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase ):
+        """Creates a sequence of images of the traces of the agents.
+
+        The trace extends temporally backwards preWindow frames.
+        The trace extends temporally forwards postWindow frames.
+        The dimensions of the rasterized grid are determined by: minCorner, size, resolution.
+        The rendered colors are then output via the colorMap and fileBase name.
+        """
+
+        renderTraces( minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase )
+        
     def computeDensity( self, minCorner, size, resolution, distFunc, maxRad, frameSet ):
         '''Creates a binary file representing the density scalar fields of each frame'''
         global ACTIVE_RASTER_THREADS
@@ -724,9 +736,14 @@ def main():
         file = open( 'data/flow.txt', 'w' )
         flow.write( file )
         file.close()
-##    print "\t",
-##    grids.speedImages( 'tempVel' )
-    
+
+    if ( False ):
+        # Traces
+        print "Rendering traces"
+        s = time.clock()
+        grids.renderTraces( minPt, size, res, frameSet, 5, 5, 'data/trace11_' )
+        print "Took", (time.clock() - s), "seconds"
+
 
 if __name__ == '__main__':
     main()
