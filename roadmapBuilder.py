@@ -144,6 +144,10 @@ class AgentSet():
         self.agents = []
         self.activeAgent = None
 
+    def count( self ):
+        '''Returns the number of agents in the set'''
+        return len( self.agents )
+
     def selectLastGoal( self ):
         if ( self.activeAgent ):
             self.activeAgent.deactivate()
@@ -1133,7 +1137,7 @@ def drawGL( view, obstacles=None, graph=None, agents=None ):
         agents.drawGL( editable=(editState == AGENT_EDIT ) )
         
 ## BASIC USAGE
-def updateMsg():
+def updateMsg( agtCount ):
     if ( editState == NO_EDIT ):
         return "Hit the 'e' key to enter edit mode."
     elif ( editState == GRAPH_EDIT ):
@@ -1141,7 +1145,7 @@ def updateMsg():
     elif ( editState == OBSTACLE_EDIT ):
         return "Edit obstacle"
     elif ( editState == AGENT_EDIT ):
-        return "Edit agents"
+        return "Edit agents: %d" % agtCount
     else:
         return "Invalid edit state"
 
@@ -1220,7 +1224,7 @@ def main():
                 redraw |= True
         if ( redraw ):
             drawGL( view, obstacles, graph, agents )
-            message( view, updateMsg() )
+            message( view, updateMsg( agents.count() ) )
             pygame.display.flip()
             redraw = False
     writeRoadmap()    
