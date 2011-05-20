@@ -323,7 +323,28 @@ class ObstacleSet:
                 glEnd()
                 glLineWidth( 1.0 )
         glPopAttrib()               
-            
+
+## TODO: Write this parser
+##def sjguyObstParser( fileName ):
+##    '''Create an obstacle set and bounding box based on the definition of sjguy for obstacles.activeEdge
+##
+##    definition is simple:
+##    line 0:  number of line segments
+##    line 1-N: each line segment is four floats: x0, y0, x1, y1
+##    '''
+##    obstacles = ObstacleSet()
+##    bb = AABB()
+##    f = open( fileName, 'r' )
+##    obstCount = -1
+##    for line in f.xreadlines():
+##        if ( obstCount == -1 ):
+##            obstCount = int( line )
+##        else:
+##            tokens = line.split()
+##            
+##                             
+##    f.close()
+    
 class ObstXMLParser(handler.ContentHandler):
     def __init__(self):
         self.bb = AABB()
@@ -353,14 +374,19 @@ class ObstXMLParser(handler.ContentHandler):
             
 def readObstacles( fileName, yFlip=False ):
     print "READ OBSTACLES: ", fileName
-    parser = make_parser()
-    obstHandler = ObstXMLParser()
-    parser.setContentHandler( obstHandler )
-    parser.parse( fileName )
-    if ( yFlip ):
-        for o in obstHandler.obstacles:
-            o.flipY()
-        obstHandler.bb.flipY()
+    if ( fileName[-3:] == 'xml' ):
+        parser = make_parser()
+        obstHandler = ObstXMLParser()
+        parser.setContentHandler( obstHandler )
+        parser.parse( fileName )
+        if ( yFlip ):
+            for o in obstHandler.obstacles:
+                o.flipY()
+            obstHandler.bb.flipY()
+    elif ( fileName[ -3: ] == 'txt' ):
+        raise Exception, "Invalid obstacle extension: %s" % ( fileName )
+    else:
+        raise Exception, "Invalid obstacle extension: %s" % ( fileName )
     return obstHandler.obstacles, obstHandler.bb
 
 
