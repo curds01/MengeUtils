@@ -1178,14 +1178,16 @@ def main():
         bb = AABB()
         bb.min = Vector3( -100, -100, 0 )
         bb.max = Vector3( 100, 100, 0 )
-    graph = Graph()
-    if ( len( sys.argv ) > 2 ):
-        graph.initFromFile( sys.argv[2] )
 
     agents = AgentSet( 0.4 )
-    if ( len( sys.argv ) > 3 ):
-        agents.initFromFile( sys.argv[3] )
+    if ( len( sys.argv ) > 2 ):
+        agents.initFromFile( sys.argv[2] )
     
+
+    graph = Graph()
+    if ( len( sys.argv ) > 3 ):
+        graph.initFromFile( sys.argv[3] )
+
     # create viewer
     pygame.init()
     fontname = pygame.font.get_default_font()
