@@ -791,15 +791,15 @@ def handleKey( event, view, graph, obstacles, agents ):
             print graph
         elif ( event.key == pygame.K_s ):
             if ( editState == GRAPH_EDIT ):
-                f = open('roadmap.txt', 'w' )
+                f = open('graph.txt', 'w' )
                 f.write( '%s\n' % graph )
                 f.close()
             elif ( editState == OBSTACLE_EDIT ):
-                f = open('obst.txt', 'w' )
+                f = open('obstacles.txt', 'w' )
                 f.write( '%s' % obstacles.sjguy() )
                 f.close()
             elif ( editState == AGENT_EDIT ):
-                f = open('agents.txt', 'w' )
+                f = open('positions.txt', 'w' )
                 f.write( '%s' % agents.sjguy() )
                 f.close()
         elif ( event.key == pygame.K_e ):
