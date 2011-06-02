@@ -99,7 +99,7 @@ def threadOutput( outFile, buffer, bufferLock, startTime ):
 
 class Kernel:
     """Distance function kernel"""
-    def __init__( self, radius, dFunc, cSize ):
+    def __init__( self, radius, dFunc, cSize, normalize=True ):
         """Creates a kernel to add into the grid.normalize
         The kernel is a 2d grid (with odd # of cells in both directions.)
         The cell count is determined by the radius and cell size.x
@@ -112,7 +112,13 @@ class Kernel:
             hCount += 1
         o = np.arange( -(hCount/2), hCount/2 + 1) * cSize.x
         X, Y = np.meshgrid( o, o )
-        self.data = dFunc( X * X + Y * Y )
+        #self.data = dFunc( X * X + Y * Y )
+        self.data = dFunc( X, Y )
+        if ( normalize ):
+            self.data /= self.data.sum()
+
+    def __str__( self ):
+        return str( self.data )
 
 class Kernel2:
     """Computes the contribution of an agent to it's surrounding neighborhood"""
@@ -144,14 +150,16 @@ class Kernel2:
                 
 class Grid:
     """Class to discretize scalar field computation"""
-    def __init__( self, minCorner, size, resolution ):
+    def __init__( self, minCorner, size, resolution, initVal=0.0 ):
         """Initializes the grid to span the space starting at minCorner,
         extending size amount in each direction with resolution cells"""
         self.minCorner = minCorner          # tuple (x, y)  - float
         self.size = size                    # tuple (x, y)  - float
         self.resolution = resolution        # tuple (x, y)  - int
+        self.initVal = initVal
         self.clear()
         self.cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )
+        
        
     def __str__( self ):
         s = 'Grid'
@@ -182,10 +190,17 @@ class Grid:
         """Returns the maximum value of the grid"""
         return self.cells.max()
 
+    def minVal( self ):
+        """Returns the maximum value of the grid"""
+        return self.cells.min()
+
     def clear( self ):
         # Cells are a 2D array accessible with (x, y) values
         #   x = column, y = row
-        self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=np.float32 )
+        if ( self.initVal == 0 ):
+            self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=np.float32 )
+        else:
+            self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=np.float32 ) + self.initVal
 
     def getCenter( self, position ):
         """Returns the closest cell center to this position"""
@@ -291,7 +306,50 @@ class Grid:
 
     
 
-    def rasterizeSpeed( self, f2, f1, distFunc, maxRad, timeStep ):
+    def rasterizeContribSpeed( self, kernel, f2, f1, distFunc, maxRad, timeStep ):
+        """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
+        w, h = kernel.data.shape
+        w /= 2
+        h /= 2
+        invDT = 1.0 / timeStep
+        countCells = np.zeros_like( self.cells )
+        maxSpd = 0
+        for i in range( len ( f2.agents ) ):
+            ag2 = f2.agents[ i ]
+            ag1 = f1.agents[ i ]
+            disp = ( ag2.pos - ag1.pos ).magnitude()
+            disp *= invDT
+            if ( disp > maxSpd ): maxSpd = disp
+            center = self.getCenter( ag2.pos )
+            l = center[0] - w
+            r = center[0] + w + 1
+            b = center[1] - h
+            t = center[1] + h + 1
+            kl = 0
+            kb = 0
+            kr, kt = kernel.data.shape
+            if ( l < 0 ):
+                kl -= l
+                l = 0
+            if ( b < 0 ):
+                kb -= b
+                b = 0
+            if ( r >= self.resolution[0] ):
+                kr -= r - self.resolution[0]
+                r = self.resolution[0]
+            if ( t >= self.resolution[1] ):
+                kt -= t - self.resolution[1]
+                t = self.resolution[1]
+            self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * disp
+            countCells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]
+        countMask = countCells == 0
+        countCells[ countMask ] = 1
+        print "Counts: max", countCells.max(), "min:", countCells.min(),
+        print "Accum max:", self.cells.max(), 
+        self.cells /= countCells
+        print "Max speed:", maxSpd, "max cell", self.cells.max()
+
+    def rasterizeSpeedBlit( self, kernel, f2, f1, distFunc, maxRad, timeStep ):
         """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
         invDT = 1.0 / timeStep
         for i in range( len ( f2.agents ) ):
@@ -317,9 +375,54 @@ class Grid:
             self.cells[ l:r, b:t ] =  disp            
 ##            self.cells[ center[0], center[1] ] = disp
 
-    def rasterizeSpeed2( self, f2, f1, distFunc, maxRad, timeStep ):
+    def rasterizeDenseSpeed( self, denseFile, kernel, f2, f1, distFunc, maxRad, timeStep ):
+        '''GIven two frames of agents, computes per-agent speed and rasterizes the whole frame.agents
+        Divides the rasterized speeds by density from the denseFile'''
+        w, h = kernel.data.shape
+        w /= 2
+        h /= 2
+        invDT = 1.0 / timeStep
+        countCells = np.zeros_like( self.cells )
+        maxSpd = 0
+        for i in range( len ( f2.agents ) ):
+            ag2 = f2.agents[ i ]
+            ag1 = f1.agents[ i ]
+            disp = ( ag2.pos - ag1.pos ).magnitude()
+            disp *= invDT
+            if ( disp > maxSpd ): maxSpd = disp
+            center = self.getCenter( ag2.pos )
+            l = center[0] - w
+            r = center[0] + w + 1
+            b = center[1] - h
+            t = center[1] + h + 1
+            kl = 0
+            kb = 0
+            kr, kt = kernel.data.shape
+            if ( l < 0 ):
+                kl -= l
+                l = 0
+            if ( b < 0 ):
+                kb -= b
+                b = 0
+            if ( r >= self.resolution[0] ):
+                kr -= r - self.resolution[0]
+                r = self.resolution[0]
+            if ( t >= self.resolution[1] ):
+                kt -= t - self.resolution[1]
+                t = self.resolution[1]
+            self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * disp
+        dataStr = denseFile.read( self.resolution[0] * self.resolution[1] * 4 ) # total floats X 4 bytes per float
+        density = np.fromstring( dataStr, dtype=np.float32 )
+##        density[ density == 0 ] = 1
+        density = density.reshape( self.cells.shape )
+##        density[ density == 0 ] = 1
+        print "Density: max", density.max(), "min:", density.min(),
+        print "Accum max:", self.cells.max(), 
+##        self.cells /= density
+        print "Max speed:", maxSpd, "max cell", self.cells.max()
+        
+    def rasterizeSpeedGauss( self, kernel, f2, f1, distFunc, maxRad, timeStep ):
         """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
-        kernel = Kernel( maxRad, distFunc, self.cellSize )
         w, h = kernel.data.shape
         w /= 2
         h /= 2
@@ -351,72 +454,60 @@ class Grid:
                 t = self.resolution[1]
             self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * disp
 
-    def surface( self, map, maxVal=1.0 ):
+    def rasterizeVelocity( self, X, Y, kernel, f2, f1, distFunc, maxRad, timeStep ):
+        """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
+        w, h = kernel.data.shape
+        w /= 2
+        h /= 2
+        invDT = 1.0 / timeStep
+        X.fill( 0.0 )
+        Y.fill( 0.0 )
+        for i in range( len ( f2.agents ) ):
+            ag2 = f2.agents[ i ]
+            ag1 = f1.agents[ i ]
+            disp = ag2.pos - ag1.pos
+            disp *= invDT
+            center = self.getCenter( ag2.pos )
+            l = center[0] - w
+            r = center[0] + w + 1
+            b = center[1] - h
+            t = center[1] + h + 1
+            kl = 0
+            kb = 0
+            kr, kt = kernel.data.shape
+            if ( l < 0 ):
+                kl -= l
+                l = 0
+            if ( b < 0 ):
+                kb -= b
+                b = 0
+            if ( r >= self.resolution[0] ):
+                kr -= r - self.resolution[0]
+                r = self.resolution[0]
+            if ( t >= self.resolution[1] ):
+                kt -= t - self.resolution[1]
+                t = self.resolution[1]
+            X[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * disp.x
+            Y[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * disp.y
+        self.cells = X + Y
+        #self.cells = np.sqrt( X * X + Y * Y )
+
+    def surface( self, map, minVal, maxVal ):
         """Creates a pygame surface"""
-        return map.colorOnSurface( (0, maxVal ), self.cells )
-
-class GridSequence:
-    """A sequence of grids"""
-    def __init__( self ):
-        self.densityGrids = []
-        self.maxDensity = 0.0
-        self.speedGrids = []
-        self.maxSpeed = 0.0
-
-    def computeDensity( self, minCorner, size, resolution, distFunc, maxRad, frameSet ):
-        frameSet.setNext( 0 )
-        lastIdx = -1
-        frame, thisIdx = frameSet.next()
-        maxVal = 0
-        while ( thisIdx > lastIdx ):
-            g = Grid( minCorner, size, resolution )
-            g.rasterizePosition2( frame, distFunc, maxRad )        
-##            g.rasterizePosition( frame, distFunc, maxRad )
-            M = g.maxVal()
-            if ( M > maxVal ):
-                maxVal = M
-            self.densityGrids.append( g )
-            lastIdx = thisIdx
-            frame, thisIdx = frameSet.next()
-        self.maxDensity = maxVal
-
-    def computeSpeeds( self, minCorner, size, resolution, distFunc, maxRad, frameSet, timeStep ):
-        """Computes the displacements from one cell to the next"""
-        WINDOW_SIZE = 2  # the number of frames across which speed is computed
-        frameSet.setNext( 0 )
-        data = [ frameSet.next() for i in range( WINDOW_SIZE ) ]
-        maxVal = 0
-        while ( data[ -1 ][1] > data[ 0 ][1] ):
-            f1, i1 = data.pop(0)
-            f2, i2 = data[ -1 ]
-            g = Grid( minCorner, size, resolution )
-            g.rasterizeSpeed( f2, f1, distFunc, maxRad, timeStep )
-            M = g.maxVal()
-            if ( M > maxVal ):
-                maxVal = M
-            self.speedGrids.append( g )
-            data.append( frameSet.next() )
-        self.maxSpeed = maxVal
-
-
-    def densityImages( self, colorMap, fileBase ):
-        """Outputs the density images"""
-        print "Density images in range:", 0, self.maxDensity
-        for i, g in enumerate( self.densityGrids ):
-            s = g.surface( colorMap, self.maxDensity )
-            pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
-
-    def speedImages( self, fileBase ):
-        """Outputs the density images"""
-        print "Speed images in range:", 0, self.maxSpeed
-        for i, g in enumerate( self.speedGrids ):
-            s = g.surface( 1.0 / self.maxSpeed )
-            pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )            
+        return map.colorOnSurface( (minVal, maxVal ), self.cells )
 
 class GridFileSequence:
     """Creates a grid sequence from a frame file and streams the resulting grids to
        a file"""
     HEADER_SIZE = 20        # 20 bytes: resolution, grid count, min/max values
+    # different ways of visualizing speed
+    BLIT_SPEED = 0      # simply blit the agent to the cell center with his speed
+    NORM_SPEED = 1      # distribute speed with a normalized gaussian
+    UNNORM_SPEED = 2    # distribute speed with an unnormalized gaussian
+    NORM_DENSE_SPEED = 3 # distribute speed with normalized gaussian and then divide by the density
+    NORM_CONTRIB_SPEED = 4 # distribute speed with normalized gaussian and then divide by contribution matrix
+    LAPLACE_SPEED = 5   # compute the magnitude of the laplacian of the velocity field
+    
     def __init__( self, outFileName ):
         self.outFileName = outFileName
 
@@ -477,35 +568,80 @@ class GridFileSequence:
         outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
         outFile.close()
 
-    def computeSpeeds( self, minCorner, size, resolution, distFunc, maxRad, frameSet, timeStep, timeWindow=1 ):
+    def computeSpeeds( self, minCorner, size, resolution, maxRad, frameSet, timeStep, speedType=NORM_CONTRIB_SPEED, timeWindow=1 ):
         """Computes the displacements from one cell to the next"""
         outFile = open( self.outFileName + '.speed', 'wb' )
         outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
         outFile.write( struct.pack( 'i', 0 ) )                              # grid count
         outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
-        maxVal = 0        
+        maxVal = -1e6
+        minVal = 1e6
         gridCount = 0
         gridSize = resolution[0] * resolution[1]
-
+        cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )
         frameSet.setNext( 0 )        
         data = [ frameSet.next() for i in range( timeWindow + 1 ) ]
         # continue while the index of the last frame on the queue is greater than the index of the first frame
+
+        distFunc = lambda x, y: np.exp( -( (x * x + y *y) / ( maxRad * maxRad ) ) )
+        print "Speedy type:", speedType
+        if ( speedType == GridFileSequence.BLIT_SPEED ):
+            speedFunc = Grid.rasterizeSpeedBlit
+            kernel = None
+            gridFunc = lambda: Grid( minCorner, size, resolution, -1.0 )
+        elif ( speedType == GridFileSequence.NORM_SPEED ):
+            speedFunc = Grid.rasterizeSpeedGauss
+            kernel = Kernel( maxRad, distFunc, cellSize )
+            gridFunc = lambda: Grid( minCorner, size, resolution )
+        elif ( speedType == GridFileSequence.UNNORM_SPEED ):
+            speedFunc = Grid.rasterizeSpeedGauss
+            kernel = Kernel( maxRad, distFunc, cellSize, False )
+            gridFunc = lambda: Grid( minCorner, size, resolution )
+        elif ( speedType == GridFileSequence.NORM_DENSE_SPEED ):
+            try:
+                denseFile = open( self.outFileName + ".density", "rb" )
+            except:
+                print "Can't open desnity file: %.density" % ( self.outFileName )
+                raise
+            else:
+                w, h, count, minVal, maxVal = struct.unpack( 'iiiff', denseFile.read( GridFileSequence.HEADER_SIZE ) )
+                assert( w == resolution[0] and h == resolution[1] )
+            speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeDenseSpeed( g, denseFile, k, f2, f1, dist, rad, step )
+            kernel = Kernel( maxRad, distFunc, cellSize )
+            gridFunc = lambda: Grid( minCorner, size, resolution )
+        elif ( speedType == GridFileSequence.NORM_CONTRIB_SPEED ):
+            speedFunc = Grid.rasterizeContribSpeed
+            kernel = Kernel( maxRad, distFunc, cellSize )
+            gridFunc = lambda: Grid( minCorner, size, resolution )
+        elif ( speedType == GridFileSequence.LAPLACE_SPEED ):
+            distFunc = lambda x, y: 1.0 / ( np.pi * maxRad * maxRad ) * ((x * x + y * y - maxRad * maxRad) / (0.25 * maxRad ** 4 ) ) * np.exp( -( (x * x + y *y) / ( maxRad * maxRad ) ) )
+            gridFunc = lambda: Grid( minCorner, size, resolution )
+            X = np.zeros( resolution, dtype=np.float32 )
+            Y = np.zeros( resolution, dtype=np.float32 )
+            speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeVelocity( g, X, Y, k, f2, f1, dist, rad, step )
+            kernel = Kernel( maxRad, distFunc, cellSize, False )
+            
         while ( data[ -1 ][0] ): 
             f1, i1 = data.pop(0)
             f2, i2 = data[ -1 ]
-            g = Grid( minCorner, size, resolution )
-            g.rasterizeSpeed( f2, f1, distFunc, maxRad, timeStep * timeWindow )
+            g = gridFunc() 
+            speedFunc( g, kernel, f2, f1, distFunc, maxRad, timeStep * timeWindow )
             M = g.maxVal()
             if ( M > maxVal ):
                 maxVal = M
+            m = g.minVal()
+            if ( m < minVal ):
+                minVal = m
             outFile.write( g.binaryString() )
             gridCount += 1
             data.append( frameSet.next() )
 
+        if ( speedType != GridFileSequence.LAPLACE_SPEED ):
+            minVal = 0
         # add the additional information about grid count and maximum values            
         outFile.seek( 8 )
         outFile.write( struct.pack( 'i', gridCount ) )
-        outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
+        outFile.write( struct.pack( 'ff', minVal, maxVal ) )
         outFile.close()            
 
     def readGrid( self, g, file, gridSize, index ):
@@ -529,7 +665,7 @@ class GridFileSequence:
             for i in range( count ):
                 data = f.read( gridSize )
                 g.setFromBinary( data )
-                s = g.surface( colorMap, maxVal )
+                s = g.surface( colorMap, minVal, maxVal )
                 pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
             f.close()
 
@@ -545,9 +681,11 @@ class GridFileSequence:
             gridSize = w * h * 4
             g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h) )
             for i in range( count ):
+##                g.cells = np.loadtxt( 'junk%d.speed' % i )
+
                 data = f.read( gridSize )
                 g.setFromBinary( data )
-                s = g.surface( colorMap, maxVal )
+                s = g.surface( colorMap, minVal, maxVal )
                 pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
             f.close()
 
@@ -556,7 +694,7 @@ class GridFileSequence:
         try:
             f = open( self.outFileName + ".%s" % ( ext ), "rb" )
         except:
-            print "Can't open desnity file: %.%s" % ( ext ) % ( self.outFileName )
+            print "Can't open file: %.%s" % ( ext ) % ( self.outFileName )
         else:
             w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
             print "%s images in range:" % ( ext ), minVal, maxVal
@@ -566,7 +704,7 @@ class GridFileSequence:
                 data = f.read( gridSize )
                 g.setFromBinary( data )
                 try:
-                    s = g.surface( colorMap, maxVal )
+                    s = g.surface( colorMap, minVal, maxVal )
                 except MemoryError:
                     print "Error on frame", i
                     raise
@@ -636,8 +774,11 @@ def main():
     from math import pi, exp
     pygame.init()
     CELL_SIZE = 0.2
+    MAX_AGENTS = -1
+    MAX_FRAMES = -1
+    FRAME_STEP = 1
     # I want cell-size to be approximately 0.4 - i.e. a single person
-    if ( True ):
+    if ( False ):
         size = Vector2(12.0, 12.0 )
         minPt = Vector2( size.x / -2.0, size.y / -2.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
@@ -648,15 +789,14 @@ def main():
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
         path = '/projects/SG10/CrowdViewer/Exe/Win32/2circle/playback.scb'        
 ##        path = '/projects/SG10/CrowdViewer/Exe/Win32/2circle/playbackRVO.scb'
-    elif ( False ):
+    elif ( True ):
         size = Vector2( 150.0, 110.0 )
         minPt = Vector2( -70.0, -55.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
-##        path = 'data/bigtawaf/playback.scb'
-##        path = 'data/bigtawaf/playback_1agt_20step_30Skip.scb'
-        path = 'data/bigtawaf/playback_30step_Allframe.scb'
-##        path = 'data/bigtawaf/playback_All_step30_agt100.scb'
-##        path = 'data/bigtawaf/playback_50step_20frame.scb'
+        path = 'data/bigtawaf/playback.scb'
+##        MAX_AGENTS = 50
+##        FRAME_STEP = 20
+        MAX_FRAMES = 192
     elif ( False ):
         size = Vector2( 15, 5 )
         minPt = Vector2( -1.0, -2.5 )
@@ -670,21 +810,21 @@ def main():
     print "Size:", size
     print "minPt:", minPt
     print "res:", res
-    frameSet = FrameSet( path )
+    frameSet = FrameSet( path, MAX_FRAMES, MAX_AGENTS, FRAME_STEP )
 
     grids = GridFileSequence( 'junk' )
     colorMap = FlameMap()
 
     R = 2.0
     print "Density for %s with R = %f" % ( path, R )
-    def distFunc( distSqd, radiusSqd ):
+    def distFunc( dispX, dispY, radiusSqd ):
         """Constant distance function"""
         # This is the local density function provided by Helbing
-        return 1.0 / ( pi * radiusSqd ) * np.exp( - (distSqd / radiusSqd ) )        
+        return np.exp( - ( (dispX * dispX + dispY * dispY) / radiusSqd ) )        
 
-    dfunc = lambda x: distFunc( x, R * R )
+    dfunc = lambda x, y: distFunc( x, y, R * R )
 
-    if ( True ):
+    if ( False ):
         print "\tComputing density"
         s = time.clock()
         grids.computeDensity(  minPt, size, res, dfunc, 3 * R, frameSet )
@@ -699,13 +839,11 @@ def main():
     if ( True ):
         print "\tComputing displacements",
         s = time.clock()
-        speedRadius = CELL_SIZE / np.sqrt( -np.log(0.5) )
-        dfunc = lambda x: np.exp( -( x / ( speedRadius * speedRadius ) ) )
-        grids.computeSpeeds( minPt, size, res, dfunc, 3 * speedRadius, frameSet, 1.0 )
+        grids.computeSpeeds( minPt, size, res, R, frameSet, 1.0, GridFileSequence.BLIT_SPEED )
         print "Took", (time.clock() - s), "seconds"
         print "\tComputing displacement images",
         s = time.clock()
-        imageName = 'data/displace'
+        imageName = 'data/speed'
         grids.speedImages( colorMap, imageName )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"

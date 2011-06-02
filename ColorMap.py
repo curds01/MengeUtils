@@ -37,6 +37,7 @@ class ColorMap:
         labelWidth = max( [ srf.get_rect().width for srf in labelSrf ] )
         barRect.top = labelHeight / 2
         map = pygame.Surface( ( ColorMap.BAR_WIDTH + ColorMap.LABEL_PAD + labelWidth, ColorMap.BAR_HEIGHT + labelHeight ) )
+        map.fill( (128, 128, 128 ) )
         map.blit( bar, barRect )
         labelLeft = ColorMap.BAR_WIDTH + ColorMap.LABEL_PAD
         labelTop = 0
@@ -54,7 +55,12 @@ class ColorMap:
         """Returns an affine mapped version of the data based on the data range provided"""
         assert( maxVal > minVal )
         return ( data - minVal ) / ( maxVal - minVal )
-
+    
+    def bgMask( self, data, dataRange ):
+        """Creates a mask on the data for the background"""
+        # the background is detected by values less than the minimum data range
+        return data < dataRange[0]
+    
 class GreyScaleMap( ColorMap ):
     """Maps the data to a grey scale map"""
     def __init__( self ):
@@ -69,6 +75,7 @@ class GreyScaleMap( ColorMap ):
         color[:,:,0] = normData * 255
         color[:,:,1] = normData * 255
         color[:,:,2] = normData * 255
+        
         return pygame.surfarray.make_surface( color )
     
 class BlackBodyMap( ColorMap ):
@@ -89,12 +96,10 @@ class BlackBodyMap( ColorMap ):
         color[:,:,0] = ( normData * 2.0 ).clip( 0.0, 1.0 ) * 255
         color[:,:,1] = ( ( normData - 0.25 ) * 2 ).clip( 0.0, 1.0 ) * 255
         color[:,:,2] = ( ( normData - 0.5 ) * 2 ).clip( 0.0, 1.0 ) * 255
-##        rScale = 1.0 / self.red
-##        color[:,:,0] = ( normData * rScale ).clip( 0.0, 1.0 ) * 255
-##        gScale = 1.0 / ( self.yellow - self.red )
-##        color[:,:,1] = ( ( normData - self.red ) * gScale ).clip( 0.0, 1.0 ) * 255
-##        bScale = 1.0 / ( 1.0 - self.yellow )
-##        color[:,:,2] = ( ( normData - self.yellow ) * bScale ).clip( 0.0, 1.0 ) * 255
+        # use grey as the default bg color
+        bgMask = self.bgMask( data, dataRange )
+        color[ bgMask ] = 128
+        
         return pygame.surfarray.make_surface( color )
 
 class FlameMap( ColorMap ):
@@ -119,6 +124,10 @@ class FlameMap( ColorMap ):
         blueValues[b3Mask ]= ( normData[ b3Mask ] - 0.75 ) * 4.0
         blueValues[b2Mask ] = 1.0 - ( normData[ b2Mask ] - 0.25 ) * 4.0
         color[:,:,2] = blueValues.clip( 0.0, 1.0 ) * 255
+        # use grey as the default bg color
+        
+        bgMask = self.bgMask( data, dataRange )
+        color[ bgMask ] = 128
         return pygame.surfarray.make_surface( color )
     
 class StephenBlackBodyMap( BlackBodyMap ):
