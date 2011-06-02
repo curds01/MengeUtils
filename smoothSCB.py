@@ -74,14 +74,15 @@ def filterPosition( frames, kernel, window ):
         smoothData[ :, i, : ] = np.fft.irfft( smoothFFT, smoothData.shape[2], axis=1 )
     # orientation data
     smoothData[:, 2, : ] = rawData[:, 2, : ]
+    SAMPLE = 10
     if ( True ):
         plt.figure()
         for i in range( rawData.shape[0] ):
-            plt.plot( rawData[i, 0, window:-window ], rawData[i, 1, window:-window] )
+            plt.plot( rawData[i, 0, window:-window:SAMPLE ], rawData[i, 1, window:-window:SAMPLE], 'o' )
         plt.title( 'raw trajectory' )
         plt.figure()
         for i in range( rawData.shape[0] ):
-            plt.plot( smoothData[i, 0, window:-window ], smoothData[i, 1, window:-window] )
+            plt.plot( smoothData[i, 0, window:-window:SAMPLE ], smoothData[i, 1, window:-window:SAMPLE],'o' )
         plt.title( 'Smoothed trajectory' )
         plt.show()
     return smoothData
