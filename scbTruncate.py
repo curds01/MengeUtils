@@ -13,12 +13,23 @@ def copyNFrames( inFile, outFile, count, step, tgtAgtCount ):
     includes header"""
     # assume both inFile and outFile are at position 0
     # copy header - 4 bytes for version, 4 bytes for agent count
-    header = inFile.read( 4 )
-    outFile.write( header )
+    version = inFile.read( 4 )
+    print "Version", version
+    outFile.write( version )
     agtCount = struct.unpack( 'i', inFile.read( 4 ) )[0]
     if ( tgtAgtCount == -1 or tgtAgtCount > agtCount):
         tgtAgtCount = agtCount
     outFile.write( struct.pack('i', tgtAgtCount ) )
+    
+    if ( version == '2.0\x00' ):
+        print "Version 2"
+        stepSize = struct.unpack( 'f', inFile.read( 4 ) )[0]
+        stepSize = stepSize * step
+        outFile.write( struct.pack( 'f', stepSize ) )
+        idReadSize = agtCount * 4
+        idWriteSize = tgtAgtCount * 4
+        ids = inFile.read( idReadSize )
+        outFile.write( ids[ :idWriteSize ] )
     frameSize = agtCount * 4 * 3  # three, four-byte floats per agent
     copySize = tgtAgtCount * 4 * 3  # three, four-byte floats per agent
     actual = 0
