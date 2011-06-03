@@ -5,6 +5,7 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 from ObjSlice import AABB, Segment, Polygon
 from primitives import Vector3
+from vField import GLVectorField
 
 # sax parser for obstacles
 from xml.sax import make_parser, handler
@@ -13,7 +14,8 @@ NO_EDIT = 0
 GRAPH_EDIT = 1
 OBSTACLE_EDIT = 2
 AGENT_EDIT = 3
-EDIT_STATE_COUNT = 4
+FIELD_EDIT = 4
+EDIT_STATE_COUNT = 5
 editState = AGENT_EDIT
 
 class Agent:
@@ -805,7 +807,7 @@ class View:
             
 
 
-def handleKey( event, view, graph, obstacles, agents ):
+def handleKey( event, view, graph, obstacles, agents, field ):
     global editState
     mods = pygame.key.get_mods()
     hasShift = mods & pygame.KMOD_SHIFT
@@ -828,6 +830,8 @@ def handleKey( event, view, graph, obstacles, agents ):
                 f = open('positions.txt', 'w' )
                 f.write( '%s' % agents.sjguy() )
                 f.close()
+            elif ( editState == FIELD_EDIT ):
+                field.writeField( 'field.txt' )
         elif ( event.key == pygame.K_e ):
             editState = ( editState + 1 ) % EDIT_STATE_COUNT
             redraw = True
@@ -867,7 +871,7 @@ RIGHT = 3
 WHEEL_UP = 4
 WHEEL_DOWN = 5
 
-def handleMouse( event, view, graph, obstacles, agents ):
+def handleMouse( event, view, graph, obstacles, agents, field ):
     """Handles mouse events -- returns a boolean -- whether the view needs to redraw"""
     global downX, downY, dragging, downPos, edgeDir#, ZOOM_RECT
     mods = pygame.key.get_mods()
@@ -1073,8 +1077,10 @@ def handleMouse( event, view, graph, obstacles, agents ):
             dragging = EDGE
     return redraw
 
-def drawGL( view, obstacles=None, graph=None, agents=None ):
+def drawGL( view, obstacles=None, graph=None, agents=None, field=None ):
     glClear( GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT )
+    if ( field ):
+        field.drawGL( editable=(editState == FIELD_EDIT ) )
     if ( obstacles ):
         obstacles.drawGL( editable=(editState == OBSTACLE_EDIT ) )
     if ( graph ):
@@ -1092,6 +1098,8 @@ def updateMsg( agtCount ):
         return "Edit obstacle"
     elif ( editState == AGENT_EDIT ):
         return "Edit agents: %d" % agtCount
+    elif ( editState == FIELD_EDIT ):
+        return "Edit guidance field"
     else:
         return "Invalid edit state"
 
@@ -1148,8 +1156,14 @@ def main():
     agents = AgentSet( 0.25 )
     if ( agtName ):
         agents.initFromFile( sys.argv[2] )
-    
 
+    if ( fieldName ):
+        field = GLVectorField( (0,0), (1, 1), 1 )
+        field.readField( fieldName )
+    else:
+        bbSize = bb.max - bb.min    
+        field = GLVectorField( ( bb.min.x, bb.min.y ), ( bbSize.x, bbSize.y ), 2.0 )
+    
     graph = Graph()
     if ( graphName ):
         graph.initFromFile( sys.argv[3] )
@@ -1165,6 +1179,8 @@ def main():
     view.initWindow( 'Create roadmap' )
     pygame.key.set_repeat( 250, 10 )
     view.initGL()
+
+    field.newGLContext()    
     
 
     redraw = True
@@ -1176,16 +1192,17 @@ def main():
                 break
             elif (event.type == pygame.MOUSEMOTION or event.type == pygame.MOUSEBUTTONUP or
                   event.type == pygame.MOUSEBUTTONDOWN ):
-                redraw |= handleMouse( event, view, graph, obstacles, agents )
+                redraw |= handleMouse( event, view, graph, obstacles, agents, field )
             elif ( event.type == pygame.KEYDOWN or event.type == pygame.KEYUP ):
-                redraw |= handleKey( event, view, graph, obstacles, agents  )
+                redraw |= handleKey( event, view, graph, obstacles, agents, field  )
             elif ( event.type == pygame.VIDEORESIZE ):
                 view.resizeGL( event.size )
+                field.newGLContext()
                 redraw |= True
             elif ( event.type == pygame.VIDEOEXPOSE ):
                 redraw |= True
         if ( redraw ):
-            drawGL( view, obstacles, graph, agents )
+            drawGL( view, obstacles, graph, agents, field )
             message( view, updateMsg( agents.count() ) )
             pygame.display.flip()
             redraw = False
