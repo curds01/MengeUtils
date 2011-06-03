@@ -1,12 +1,8 @@
 import sys, pygame
 from math import sqrt, cos, sin, pi
-##import numpy as np
-
 
 from OpenGL.GL import *
 from OpenGL.GLU import *
-##import os
-##import GLPrimitives
 from ObjSlice import AABB, Segment, Polygon
 from primitives import Vector3
 
@@ -847,82 +843,6 @@ def handleKey( event, view, graph, obstacles, agents ):
                     redraw = True
             if ( editState == AGENT_EDIT ):
                 redraw = agents.deleteActiveAgent()
-##        if ( event.key == pygame.K_RIGHT ):
-##            if ( hasCtrl ):
-##                currImg = 0
-##                updateMarkers = True
-##            elif ( hasAlt and currMarker != None ):
-##                currImg = markers[ currMarker ].lastKeyTime()
-##                updateMarkers = True
-##            elif ( hasShift ):
-##                currImg = ( currImg + 1 ) % imgCount
-##                trackMarkerPos()
-##                redraw = True
-##            else:
-##                currImg = ( currImg + 1 ) % imgCount
-##                updateMarkers = True
-##            bindTexture( currImg )
-##            
-##        elif ( event.key == pygame.K_LEFT ):
-##            if ( hasCtrl ):
-##                currImg = 0
-##            elif ( hasAlt and currMarker != None ):
-##                currImg = markers[ currMarker ].firstKeyTime()
-##            elif ( hasShift ):
-##                pass
-##            else:
-##                currImg = ( currImg - 1 ) % imgCount        
-##            bindTexture( currImg )
-##            updateMarkers = True
-##        elif ( event.key == pygame.K_UP ):
-##            if ( currMarker != None ):
-##                markers[ currMarker ].deactivate()
-##                currMarker = ( currMarker + 1 ) % markerCount
-##            else:
-##                currMarker = 0
-##            markers[ currMarker ].show()
-##            markers[ currMarker ].activate()
-##            redraw = True
-##        elif ( event.key == pygame.K_DOWN ):
-##            if ( currMarker != None ):
-##                markers[ currMarker ].deactivate()
-##                currMarker = ( currMarker - 1 ) % markerCount
-##            else:
-##                currMarker = markerCount - 1
-##            markers[ currMarker ].show()
-##            markers[ currMarker ].activate()
-##            redraw = True
-##        elif ( event.key == pygame.K_EQUALS and currMarker != None):
-##            markers[ currMarker ].incRadius()
-##            redraw = True
-##        elif ( event.key == pygame.K_MINUS and currMarker != None ):
-##            markers[ currMarker ].decRadius()
-##            redraw = True
-##        elif ( event.key == pygame.K_h ):
-##            if ( hasShift ):
-##                unhideAllMarkers()
-##            else:
-##                hideUnselectedMarkers()
-##            redraw = True
-##        elif ( event.key == pygame.K_ESCAPE ):
-##            if ( currMarker != None ):
-##                markers[ currMarker ].deactivate()
-##                currMarker = None
-##                redraw = True
-##        elif ( event.key == pygame.K_s ):
-##            writeMarkers()
-##        elif ( event.key == pygame.K_a ):
-##            if ( currMarker != None ):
-##                markers[ currMarker ].align()
-##                redraw = True
-##        elif ( event.key == pygame.K_SPACE ):
-##            runningAuto = not runningAuto
-##    elif ( event.type == pygame.KEYUP ):
-##        pass
-##    if ( updateMarkers ):
-##        redraw = True
-##        for m in markers:
-##            m.setFrame( currImg )
     return redraw
 
 ## data for handling mouse events
@@ -1196,12 +1116,28 @@ def writeRoadmap():
     pass
 
 def usage():
-    print "roadmapBuilder <obstacle list> <opt roadmap file>"
-    print "  Builds a roadmap based on obstacles"
-    print "  Feed an obstacle list (xml) and plot a roadmap"  
+    print "roadmapBuilder <-obst obstFile.xml> <-agt agtFile.txt> <-graph graphFile.txt> <-field fieldFile.txt>"
+    print "  Edit configuration for crowd simulation"
+    print "  Options (all are optional):"
+    print "    -obst obstFile.xml     - load the obstacle description from the xml file obstFile.xml"
+    print "    -agt agtFile.txt       - load the agent definitions from the agent description file."
+    print "    -graph graphFile.txt   - load a roadmap definition from graphFile.txt"
+    print "    -field fieldFile.txt   - load a vector field.  If none is given a default vector field is generated"
+    
 
 def main():
-    if ( len( sys.argv ) > 1 ):
+    from commandline import SimpleParamManager
+
+    try:
+        pMan = SimpleParamManager( sys.argv[1:], {'obst':'', 'agt':'', 'graph':'', 'field':'' } )
+    except IOError:
+        usage()
+
+    obstName = pMan[ 'obst' ]
+    agtName = pMan[ 'agt' ]
+    graphName = pMan[ 'graph' ]
+    fieldName = pMan[ 'field' ]
+    if ( obstName ):
         obstacles, bb = readObstacles( sys.argv[1] )
     else:
         obstacles = ObstacleSet()
@@ -1209,13 +1145,13 @@ def main():
         bb.min = Vector3( -100, -100, 0 )
         bb.max = Vector3( 100, 100, 0 )
 
-    agents = AgentSet( 0.4 )
-    if ( len( sys.argv ) > 2 ):
+    agents = AgentSet( 0.25 )
+    if ( agtName ):
         agents.initFromFile( sys.argv[2] )
     
 
     graph = Graph()
-    if ( len( sys.argv ) > 3 ):
+    if ( graphName ):
         graph.initFromFile( sys.argv[3] )
 
     # create viewer
