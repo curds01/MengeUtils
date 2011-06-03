@@ -7,16 +7,19 @@ from ObjSlice import AABB, Segment, Polygon
 from primitives import Vector3
 from vField import GLVectorField
 
+# contexts
+from RoadContext import ContextSwitcher, AgentContext
+from Context import ContextResult
+
 # sax parser for obstacles
 from xml.sax import make_parser, handler
 
 NO_EDIT = 0
 GRAPH_EDIT = 1
 OBSTACLE_EDIT = 2
-AGENT_EDIT = 3
-FIELD_EDIT = 4
-EDIT_STATE_COUNT = 5
-editState = AGENT_EDIT
+FIELD_EDIT = 3
+EDIT_STATE_COUNT = 4
+editState = NO_EDIT
 
 class Agent:
     """Agent object for drawing"""
@@ -141,6 +144,7 @@ class AgentSet():
         self.defRadius = defRadius
         self.agents = []
         self.activeAgent = None
+        self.editable = False
 
     def count( self ):
         '''Returns the number of agents in the set'''
@@ -187,11 +191,11 @@ class AgentSet():
         self.agents.append( a )
         return a
 
-    def drawGL( self, select=False, editable=False ):
+    def drawGL( self, select=False, dummy=None ):
         glPushAttrib( GL_POLYGON_BIT )
         glPolygonMode( GL_FRONT_AND_BACK, GL_FILL )
         for agent in self.agents:
-            agent.drawGL( select, editable )
+            agent.drawGL( select, self.editable )
         glPopAttrib()
 
     def deleteActiveAgent( self ):
@@ -807,13 +811,19 @@ class View:
             
 
 
-def handleKey( event, view, graph, obstacles, agents, field ):
+def handleKey( event, context, view, graph, obstacles, agents, field ):
     global editState
+    result = ContextResult()
+    if ( context ):
+        result = context.handleKeyboard( event, view )
+        if ( result.isHandled() ):
+            return result
+        
     mods = pygame.key.get_mods()
     hasShift = mods & pygame.KMOD_SHIFT
     hasCtrl = mods & pygame.KMOD_CTRL
     hasAlt = mods & pygame.KMOD_ALT
-    redraw = False
+
     if ( event.type == pygame.KEYDOWN ):
         if ( event.key == pygame.K_p ):
             print graph
@@ -826,28 +836,22 @@ def handleKey( event, view, graph, obstacles, agents, field ):
                 f = open('obstacles.txt', 'w' )
                 f.write( '%s' % obstacles.sjguy() )
                 f.close()
-            elif ( editState == AGENT_EDIT ):
-                f = open('positions.txt', 'w' )
-                f.write( '%s' % agents.sjguy() )
-                f.close()
             elif ( editState == FIELD_EDIT ):
                 field.writeField( 'field.txt' )
         elif ( event.key == pygame.K_e ):
             editState = ( editState + 1 ) % EDIT_STATE_COUNT
-            redraw = True
+            result.setNeedsRedraw( True )
         elif ( event.key == pygame.K_DELETE ):
             if ( editState == GRAPH_EDIT ):
                 if ( graph.fromID != None ):
                     graph.deleteVertex( graph.fromID )
                     graph.fromID = None
-                    redraw = True
+                    result.setNeedsRedraw( True )
                 elif ( graph.activeEdge != None ):
                     graph.deleteEdge( graph.activeEdge )
                     graph.activeEdge = None
-                    redraw = True
-            if ( editState == AGENT_EDIT ):
-                redraw = agents.deleteActiveAgent()
-    return redraw
+                    result.setNeedsRedraw( True )
+    return result
 
 ## data for handling mouse events
 downX = 0
@@ -871,14 +875,19 @@ RIGHT = 3
 WHEEL_UP = 4
 WHEEL_DOWN = 5
 
-def handleMouse( event, view, graph, obstacles, agents, field ):
+def handleMouse( event, context, view, graph, obstacles, agents, field ):
     """Handles mouse events -- returns a boolean -- whether the view needs to redraw"""
+    result = ContextResult()
+    if ( context ):
+        result = context.handleMouse( event, view )
+        if ( result.isHandled() ):
+            return result
     global downX, downY, dragging, downPos, edgeDir#, ZOOM_RECT
     mods = pygame.key.get_mods()
     hasCtrl = mods & pygame.KMOD_CTRL
     hasAlt = mods & pygame.KMOD_ALT
     hasShift = mods & pygame.KMOD_SHIFT
-    redraw = False
+    
     if (event.type == pygame.MOUSEMOTION ):
         if ( dragging == RECT):
             pass
@@ -886,7 +895,7 @@ def handleMouse( event, view, graph, obstacles, agents, field ):
             dX, dY = view.screenToWorld( ( downX, downY ) )
             pX, pY = view.screenToWorld( event.pos )
             view.pan( (dX - pX, dY - pY) )
-            redraw = True
+            result.setNeedsRedraw( True )
         elif ( dragging == EDGE ):
             pX, pY = event.pos 
             selected = view.select( pX, pY, graph )
@@ -894,7 +903,7 @@ def handleMouse( event, view, graph, obstacles, agents, field ):
             if ( selected != -1 and selVert != graph.fromID  ):
                 graph.toID = selVert
                 graph.testEdge.end = selVert
-                redraw = True
+                result.setNeedsRedraw( True )
         elif ( dragging == MOVE ):
             dX, dY = view.screenToWorld( ( downX, downY ) )
             pX, pY = view.screenToWorld( event.pos )
@@ -912,10 +921,7 @@ def handleMouse( event, view, graph, obstacles, agents, field ):
                     v1.y = newY
                     v2.x = v1.x + edgeDir[0]
                     v2.y = v1.y + edgeDir[1]
-            elif ( editState == AGENT_EDIT ):
-                if ( agents.activeAgent ):
-                    agents.activeAgent.setActivePos( (newX, newY ) )
-            redraw = True
+            result.setNeedsRedraw( True )
         else:
             pX, pY = event.pos
             if ( editState == GRAPH_EDIT ):
@@ -923,7 +929,7 @@ def handleMouse( event, view, graph, obstacles, agents, field ):
                 if ( selected == -1 ):
                     graph.activeEdge = None
                     graph.fromID = graph.toID = None
-                    redraw = True
+                    result.setNeedsRedraw( True )
                 else:
                     if ( hasShift ):
                         selEdge = graph.edges[ selected ]
@@ -931,19 +937,19 @@ def handleMouse( event, view, graph, obstacles, agents, field ):
                         # select edges
                         if ( selEdge != graph.activeEdge ):
                             graph.activeEdge = selEdge
-                            redraw = True
+                            result.setNeedsRedraw( True )
                     else:
                         graph.activeEdge = None
                         selVert = graph.vertices[ selected ]
                         if ( graph.fromID != selVert ):
-                            redraw = True
+                            result.setNeedsRedraw( True )
                             graph.fromID = selVert
             elif ( editState == OBSTACLE_EDIT ):
                 selected = view.select( pX, pY, obstacles, hasShift )
                 if ( selected == -1 ):
                     obstacles.activeEdge = None
                     obstacles.activeVert = None
-                    redraw = True
+                    result.setNeedsRedraw( True )
                 else:
                     if ( hasShift ):
                         selEdge = obstacles.selectEdge( selected )
@@ -951,43 +957,27 @@ def handleMouse( event, view, graph, obstacles, agents, field ):
                         # select edges
                         if ( selEdge != obstacles.activeEdge ):
                             obstacles.activeEdge = selEdge
-                            redraw = True
+                            result.setNeedsRedraw( True )
                     else:
                         obstacles.activeEdge = None
                         selVert = obstacles.selectVertex( selected )
                         if ( selVert != obstacles.activeVert ):
                             obstacles.activeVert = selVert
-                            redraw = True
-            elif ( editState == AGENT_EDIT ):
-                selected = view.select( pX, pY, agents, hasShift )
-                    
-                if ( selected == -1 ):
-                    if ( agents.activeAgent ):
-                        agents.activeAgent.deactivate()
-                    agents.activeAgent = None
-                    redraw = True
-                else:
-                    selAgt = agents.selectAgent( selected )
-                    if ( selAgt != agents.activeAgent ):
-                        if ( agents.activeAgent ):
-                            agents.activeAgent.deactivate()
-                        agents.activeAgent = selAgt
-                        redraw = True
-            
+                            result.setNeedsRedraw( True )
     elif ( event.type == pygame.MOUSEBUTTONUP ):
         if ( event.button == LEFT ):
             if ( dragging == RECT ):
                 pass
 ##                view.zoomRectangle( ZOOM_RECT )
 ##                ZOOM_RECT.hide()
-##                redraw = True
+##                result.setNeedsRedraw( True )
         elif ( event.button == MIDDLE and dragging == EDGE ):
             if ( graph.testEdge.isValid() ):
                 graph.addEdge( graph.testEdge )
                 graph.fromID = graph.toID
                 graph.toID = None
                 graph.testEdge.clear()
-                redraw = True
+                result.setNeedsRedraw( True )
         dragging = NO_DRAG
     elif ( event.type == pygame.MOUSEBUTTONDOWN ):
         if ( event.button == LEFT ):
@@ -1004,7 +994,7 @@ def handleMouse( event, view, graph, obstacles, agents, field ):
                         p = view.screenToWorld( event.pos )
                         graph.addVertex( p )
                         graph.fromID = graph.lastVertex()
-                        redraw = True
+                        result.setNeedsRedraw( True )
                 elif( editState == OBSTACLE_EDIT ):
                     if ( obstacles.activeVert != None ):
                         downPos = ( obstacles.activeVert.x, obstacles.activeVert.y )
@@ -1014,18 +1004,6 @@ def handleMouse( event, view, graph, obstacles, agents, field ):
                         downPos = ( v1.x, v1.y )
                         edgeDir = ( v2.x - v1.x, v2.y - v1.y )
                         dragging = MOVE
-                elif ( editState == AGENT_EDIT ):
-                    if ( agents.activeAgent ):
-                        downPos = agents.activeAgent.getActivePos()
-                        dragging = MOVE
-                    else:
-                        p = view.screenToWorld( event.pos )
-                        downPos = p
-                        agents.addAgent( p, p )
-                        agents.selectLastGoal()
-                        dragging = MOVE
-                        redraw = True
-                
 ##            elif ( hasAlt ):
 ##                dragging = RECT
 ##            else:
@@ -1049,35 +1027,32 @@ def handleMouse( event, view, graph, obstacles, agents, field ):
                         v1.y = downPos[1]
                         v2.x = v1.x + edgeDir[0]
                         v2.y = v1.y + edgeDir[1]
-                elif ( editState == AGENT_EDIT ):
-                    if ( agents.activeAgent ):
-                        agents.activeAgent.setActivePos( downPos )
-                redraw = True
+                result.setNeedsRedraw( True )
             elif ( dragging == PAN ):
                 view.cancelPan()
             elif ( dragging == EDGE ):
                 graph.fromID = graph.toID = None
                 graph.testEdge.clear()
-                redraw = True
+                result.setNeedsRedraw( True )
             dragging = NO_DRAG
         elif ( event.button == WHEEL_UP ):
             view.zoomIn( event.pos )
-            redraw = True
+            result.setNeedsRedraw( True )
         elif ( event.button == WHEEL_DOWN ):
             view.zoomOut( event.pos )
-            redraw = True
+            result.setNeedsRedraw( True )
         elif ( event.button == MIDDLE ):
             downX, downY = event.pos
             if ( graph.fromID == None ):
                 p = view.screenToWorld( event.pos )
                 graph.addVertex( p )
                 graph.fromID = graph.lastVertex()
-                redraw = True
+                result.setNeedsRedraw( True )
             graph.testEdge.start = graph.fromID
             dragging = EDGE
-    return redraw
+    return result
 
-def drawGL( view, obstacles=None, graph=None, agents=None, field=None ):
+def drawGL( view, context=None, obstacles=None, graph=None, agents=None, field=None ):
     glClear( GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT )
     if ( field ):
         field.drawGL( editable=(editState == FIELD_EDIT ) )
@@ -1086,7 +1061,9 @@ def drawGL( view, obstacles=None, graph=None, agents=None, field=None ):
     if ( graph ):
         graph.drawGL( editable=(editState == GRAPH_EDIT) )
     if ( agents ):
-        agents.drawGL( editable=(editState == AGENT_EDIT ) )
+        agents.drawGL()
+    if ( context ):
+        context.drawGL( view )
         
 ## BASIC USAGE
 def updateMsg( agtCount ):
@@ -1096,8 +1073,6 @@ def updateMsg( agtCount ):
         return "Edit roadmap"
     elif ( editState == OBSTACLE_EDIT ):
         return "Edit obstacle"
-    elif ( editState == AGENT_EDIT ):
-        return "Edit agents: %d" % agtCount
     elif ( editState == FIELD_EDIT ):
         return "Edit guidance field"
     else:
@@ -1181,7 +1156,9 @@ def main():
     view.initGL()
 
     field.newGLContext()    
-    
+
+    context = ContextSwitcher()
+    context.addContext( AgentContext( agents ), pygame.K_a )
 
     redraw = True
     running = True
@@ -1192,9 +1169,11 @@ def main():
                 break
             elif (event.type == pygame.MOUSEMOTION or event.type == pygame.MOUSEBUTTONUP or
                   event.type == pygame.MOUSEBUTTONDOWN ):
-                redraw |= handleMouse( event, view, graph, obstacles, agents, field )
+                result = handleMouse( event, context, view, graph, obstacles, agents, field )
+                redraw |= result.needsRedraw()
             elif ( event.type == pygame.KEYDOWN or event.type == pygame.KEYUP ):
-                redraw |= handleKey( event, view, graph, obstacles, agents, field  )
+                result = handleKey( event, context, view, graph, obstacles, agents, field  )
+                redraw |= result.needsRedraw()
             elif ( event.type == pygame.VIDEORESIZE ):
                 view.resizeGL( event.size )
                 field.newGLContext()
@@ -1202,7 +1181,7 @@ def main():
             elif ( event.type == pygame.VIDEOEXPOSE ):
                 redraw |= True
         if ( redraw ):
-            drawGL( view, obstacles, graph, agents, field )
+            drawGL( view, context, obstacles, graph, agents, field )
             message( view, updateMsg( agents.count() ) )
             pygame.display.flip()
             redraw = False

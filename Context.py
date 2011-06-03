@@ -32,7 +32,7 @@ class ContextResult:
     def needsRedraw( self ):
         return self.redraw
 
-    def set( self, handled, redraw, finished ):
+    def set( self, handled, redraw, finished=False ):
         self.handled = handled
         self.redraw = redraw
         
@@ -40,6 +40,9 @@ class BaseContext:
     """Basic context"""
     def __init__( self ):
         pass
+
+    def __str__( self ):
+        return self.__class__.__name__
 
     def drawGL( self ):
         """This gives the context the chance to draw in the OpenGL view"""
@@ -56,6 +59,18 @@ class BaseContext:
     def handleKeyboard( self, event, view ):
         """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
         return ContextResult()
+
+    def newGLContext( self ):
+        '''Renews the open gl objects for ths context'''
+        pass
+
+    def activate( self ):
+        '''Called when the context is first activated'''
+        pass
+
+    def deactivate( self ):
+        '''Called when the context is deactivated.'''
+        pass
 
 class GLLine:
     """Simple line object"""

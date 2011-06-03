@@ -181,7 +181,7 @@ class GLVectorField( VectorField ):
 
         self.gridID = glGenLists(1)
         glNewList( self.gridID, GL_COMPILE )
-
+        glColor3f( 0.25, 0.25, 0.25 )
         glBegin( GL_LINES )
         # horizontal lines
         for i in xrange( self.resolution[0] + 1 ):
@@ -199,11 +199,6 @@ class GLVectorField( VectorField ):
     def drawGL( self, select=False, editable=False ):
         '''Draws the field into the gl context'''
         if ( not select ):
-            # first draw the grid
-            if ( editable ):
-                glColor3f( 0.95, 0.95, 0.95 )
-            else:
-                glColor3f( 0.25, 0.25, 0.25 )
             glCallList( self.gridID )
             
             if ( editable ):
@@ -225,5 +220,6 @@ def test():
     cells = vf.getCells( points )
     for row in range( points.shape[0] ):
         print points[row,:], "maps to", cells[row,:]
+        
 if __name__ == '__main__':
     test()
