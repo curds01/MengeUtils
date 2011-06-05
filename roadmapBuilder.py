@@ -8,7 +8,7 @@ from primitives import Vector3
 from vField import GLVectorField
 
 # contexts
-from RoadContext import ContextSwitcher, AgentContext
+from RoadContext import ContextSwitcher, AgentContext, FieldEditContext
 from Context import ContextResult
 
 # sax parser for obstacles
@@ -1055,7 +1055,7 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
 def drawGL( view, context=None, obstacles=None, graph=None, agents=None, field=None ):
     glClear( GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT )
     if ( field ):
-        field.drawGL( editable=(editState == FIELD_EDIT ) )
+        field.drawGL()
     if ( obstacles ):
         obstacles.drawGL( editable=(editState == OBSTACLE_EDIT ) )
     if ( graph ):
@@ -1121,7 +1121,7 @@ def main():
     graphName = pMan[ 'graph' ]
     fieldName = pMan[ 'field' ]
     if ( obstName ):
-        obstacles, bb = readObstacles( sys.argv[1] )
+        obstacles, bb = readObstacles( obstName )
     else:
         obstacles = ObstacleSet()
         bb = AABB()
@@ -1136,6 +1136,7 @@ def main():
         field = GLVectorField( (0,0), (1, 1), 1 )
         field.readField( fieldName )
     else:
+        print "Instantiate vector field from geometry:", bb
         bbSize = bb.max - bb.min    
         field = GLVectorField( ( bb.min.x, bb.min.y ), ( bbSize.x, bbSize.y ), 2.0 )
     
@@ -1155,10 +1156,12 @@ def main():
     pygame.key.set_repeat( 250, 10 )
     view.initGL()
 
-    field.newGLContext()    
+    field.newGLContext()
+##    field = None
 
     context = ContextSwitcher()
     context.addContext( AgentContext( agents ), pygame.K_a )
+    context.addContext( FieldEditContext( field ), pygame.K_f )
 
     redraw = True
     running = True
@@ -1177,6 +1180,7 @@ def main():
             elif ( event.type == pygame.VIDEORESIZE ):
                 view.resizeGL( event.size )
                 field.newGLContext()
+                context.newGLContext()
                 redraw |= True
             elif ( event.type == pygame.VIDEOEXPOSE ):
                 redraw |= True
