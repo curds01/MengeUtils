@@ -38,7 +38,7 @@ class Config:
             self.state[ tok[0].strip() ] = tok[1].strip()
         
 class CrowdWindow( QtGui.QMainWindow):
-    def __init__( self, parent = None ):
+    def __init__( self, configName='', parent = None ):
         QtGui.QMainWindow.__init__( self, parent )
         self.setWindowTitle( 'Crowd Analysis' )
         splitter = QtGui.QSplitter( self )
@@ -68,8 +68,11 @@ class CrowdWindow( QtGui.QMainWindow):
         self.createActions()
         self.createMenus()
         self.createStatusBar()
-        
-        self.readConfigFile( 'default.cfg' )        
+
+        if ( configName == '' ):        
+            self.readConfigFile( 'default.cfg' )
+        else:
+            self.readConfigFile( configName )
 
     def createInputBox( self, vLayout ):
         # input frame
@@ -531,7 +534,10 @@ if __name__ == '__main__':
     import pygame
     pygame.init()
     app = QtGui.QApplication( sys.argv )
-    gui = CrowdWindow()
+    configName = ''
+    if ( len( sys.argv ) > 1 ):
+        configName = sys.argv[1]
+    gui = CrowdWindow( configName )
     gui.show()
     gui.resize( 1024, 480 )
     app.exec_()
