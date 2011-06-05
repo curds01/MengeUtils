@@ -774,12 +774,14 @@ def computeFlowLines( center, lines, frameSet ):
 def main():
     """Test the functionality"""
     from math import pi, exp
+    import os
     pygame.init()
     CELL_SIZE = 0.2
     MAX_AGENTS = -1
     MAX_FRAMES = -1
     FRAME_STEP = 1
     # I want cell-size to be approximately 0.4 - i.e. a single person
+    timeStep = 1.0
     if ( False ):
         size = Vector2(12.0, 12.0 )
         minPt = Vector2( size.x / -2.0, size.y / -2.0 )
@@ -841,7 +843,7 @@ def main():
     if ( True ):
         print "\tComputing displacements",
         s = time.clock()
-        grids.computeSpeeds( minPt, size, res, R, frameSet, 1.0, GridFileSequence.BLIT_SPEED )
+        grids.computeSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED )
         print "Took", (time.clock() - s), "seconds"
         print "\tComputing displacement images",
         s = time.clock()
