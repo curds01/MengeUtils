@@ -483,7 +483,7 @@ class CrowdWindow( QtGui.QMainWindow):
         if ( speedAction == 1 or speedAction == 3 ):
             self.console.appendPlainText( 'Computing speeds...' )
             s = time.clock()
-            grids.computeSpeeds( domainMin, domainSize, res, dfunc, 3 * R, frameSet, float( cfg[ 'timeStep' ] ), int( cfg[ 'speedWindow' ] ) )
+            grids.computeSpeeds( domainMin, domainSize, res, 3 * R, frameSet, float( cfg[ 'timeStep' ] ), Crowd.GridFileSequence.BLIT_SPEED, int( cfg[ 'speedWindow' ] ) )
             self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )
         if ( speedAction >= 2 ):
             imageName = os.path.join( cfg[ 'outDir' ], 'speed_' )
