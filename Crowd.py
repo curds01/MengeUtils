@@ -359,10 +359,17 @@ class Grid:
             disp *= invDT
             center = self.getCenter( ag2.pos )
 
-            l = center[0] - 1
-            r = center[0] + 2
-            b = center[1] - 1
-            t = center[1] + 2
+            INFLATE = True # causes the agents to inflate more than a single cell
+            if ( INFLATE ):
+                l = center[0] - 1
+                r = l + 3
+                b = center[1] - 1
+                t = b + 3
+            else:
+                l = center[0]
+                r = l + 1
+                b = center[1]
+                t = b + 1
             
             if ( l < 0 ):
                 l = 0
@@ -570,6 +577,13 @@ class GridFileSequence:
 
     def computeSpeeds( self, minCorner, size, resolution, maxRad, frameSet, timeStep, speedType=NORM_CONTRIB_SPEED, timeWindow=1 ):
         """Computes the displacements from one cell to the next"""
+        print "Computing speeds:"
+        print "\tminCorner:  ", minCorner
+        print "\tsize:       ", size
+        print "\tresolution: ", resolution
+        print "\tmaxRad:     ", maxRad
+        print "\ttime step:  ", timeStep
+        print "\ttime window:", timeWindow
         outFile = open( self.outFileName + '.speed', 'wb' )
         outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
         outFile.write( struct.pack( 'i', 0 ) )                              # grid count
@@ -797,7 +811,16 @@ def main():
         size = Vector2( 150.0, 110.0 )
         minPt = Vector2( -70.0, -55.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
-        path = 'data/bigtawaf/playback.scb'
+        if ( True ):
+            path = '/projects/tawaf/sim/jun2011/13K_60sec.scb'
+            timeStep = 0.1
+        elif ( True ):
+            path = '/projects/tawaf/sim/jun2011/13K_2min_1Hz.scb'
+            timeStep = 1.0
+        elif ( False ):
+            path = '/projects/tawaf/sim/jun2011/13K_10min_1Hz.scb'
+            timeStep = 1.0
+##        path = 'data/bigtawaf/playback.scb'
 ##        MAX_AGENTS = 50
 ##        FRAME_STEP = 20
         MAX_FRAMES = 192
@@ -816,11 +839,12 @@ def main():
     print "res:", res
     frameSet = FrameSet( path, MAX_FRAMES, MAX_AGENTS, FRAME_STEP )
 
-    grids = GridFileSequence( 'junk' )
+    outPath = '/projects/tawaf/sim/jun2011'
+    grids = GridFileSequence( os.path.join( outPath, 'junk' ) )
     colorMap = FlameMap()
 
     R = 2.0
-    print "Density for %s with R = %f" % ( path, R )
+    
     def distFunc( dispX, dispY, radiusSqd ):
         """Constant distance function"""
         # This is the local density function provided by Helbing
@@ -829,7 +853,7 @@ def main():
     dfunc = lambda x, y: distFunc( x, y, R * R )
 
     if ( False ):
-        print "\tComputing density"
+        print "\tComputing density with R = %f" % R
         s = time.clock()
         grids.computeDensity(  minPt, size, res, dfunc, 3 * R, frameSet )
         print "\t\tTotal computation time: ", (time.clock() - s), "seconds"
@@ -847,7 +871,7 @@ def main():
         print "Took", (time.clock() - s), "seconds"
         print "\tComputing displacement images",
         s = time.clock()
-        imageName = 'data/speed'
+        imageName = os.path.join( outPath, 'speed' )
         grids.speedImages( colorMap, imageName )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
