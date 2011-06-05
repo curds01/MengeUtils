@@ -699,6 +699,7 @@ class GridFileSequence:
             w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
             print "%s images in range:" % ( ext ), minVal, maxVal
             gridSize = w * h * 4
+            digits = int( np.ceil( np.log10( count ) ) )
             g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h) )
             for i in range( count ):
                 data = f.read( gridSize )
@@ -708,7 +709,8 @@ class GridFileSequence:
                 except MemoryError:
                     print "Error on frame", i
                     raise
-                pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
+                pygame.image.save( s, '{0}{1:0{2}d}.png'.format( fileBase, i, digits ) )
+##                pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
             f.close()
 
     def computeAdvecFlow( self, minCorner, size, resolution, distFunc, maxDist, kernelSize, frameSet, lines ):
