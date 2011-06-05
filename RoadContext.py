@@ -354,8 +354,7 @@ class FieldStrokeContext( VFieldContext ):
                 pX, pY = view.screenToWorld( event.pos )
                 dX = pX - self.downX
                 dY = pY - self.downY
-                blendDirectionPoint( self.field, ( dX, dY ), self.brushPos, self.brushSize )
-
+                blendDirectionStroke( self.field, ( dX, dY ), ( self.downX, self.downY ), self.brushPos, self.brushSize )
                 # TODO: instead of instantaneous values, filter this by skipping events                
                 self.downX = pX
                 self.downY = pY

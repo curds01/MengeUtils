@@ -1,6 +1,7 @@
 '''A set of tools, classes and utilities for manipulating a vector field'''
 from OpenGL.GL import *
 import numpy as np
+import vField as VF
 
 class Path:
     '''A 2D sequence of points creating a path'''
@@ -62,24 +63,50 @@ def boundCircle( field, center, radius ):
     minima = cells.min( axis=0 )
     maxima = cells.max( axis=0 ) + 1
     return minima, maxima
-    
-def blendDirectionPoint( field, dir, gaussCenter, gaussRadius ):
-    '''Given a field, a direction, and the definition of a gaussian region of influence, update
-    the direction of the field at that gauss, using the gauss as the influence weight.
 
-    @param field: a VectorField object.  The field to be modified.
-    @param dir: a 2-tuple of floats. The desired direction (not necessarily normalized).
-    @param gaussCenter: a 2-tuple of floats.  The center of the 2D-gaussian function (in the same
-        space as the field.
-    @param gaussRadius: a float.  The total radius of influence of the gaussian function.
-        sigma = gaussRadius / 3.0
+def boundStroke( field, p0, p1, radius ):
+    '''Given a center and radius, returns the indices of the cells in the field that bound the circle.
+
+        @param field: a VectorField.  The field in which the circle is inscribed.
+        @param p1: a 2-tuple of floats.  The beginning of the stroke.
+        @param p2: a 2-tuple of floats.  The end of the stroke.
+        @param radius: a float.  The radius of the circle to be bound.
+
+        @return: a 2-tuple of arrays of two floats.  Returns indices of the cells which bound it: ( (i, j), (I, J) )
+            such that the region that bounds the circle can be found with: field[ i:I, j:J ].  ** Note that
+            it is NOT inclusive for I and J.
+        '''
+    # compute the x/y extents, determine the cells for each of them, and then extract the cell id extrema from
+    #   those cells (plus 1 on the maximum side)
+    extrema = np.array( ( ( p0[0] - radius, p0[1] - radius ),
+                          ( p0[0] + radius, p0[1] - radius ),
+                          ( p0[0] - radius, p0[1] + radius ),
+                          ( p0[0] + radius, p0[1] + radius ),
+                          ( p1[0] - radius, p1[1] - radius ),
+                          ( p1[0] + radius, p1[1] - radius ),
+                          ( p1[0] - radius, p1[1] + radius ),
+                          ( p1[0] + radius, p1[1] + radius )
+                        ) )
+    cells = field.getCells( extrema )
+    minima = cells.min( axis=0 )
+    maxima = cells.max( axis=0 ) + 1
+    return minima, maxima
+    
+
+def blendFromDistance( field, dir, minima, maxima, distances, radius ):
+    '''Given a field, a region of that field defined by minima and maxima, and an arbitrary distance field,
+    blends the given dir into the vector field using distance as weights.
+
+    @param field: A VectorField.getCell
+    @param dir: a 2-tuple-like value. The direction to be blended in.
+    @param minima: a 2-tuple-like value.  The minimum indices in field over which the work is being done.
+    @param maxima: a 2-tuple-like value.  The maximum indices in field over which the work is being done.
+    @param distances: an M X N array of floats.  The distance field of size maxima - minima.
+    @param radius: the radius used to compute weights.  The radius serves in a gaussian where sigma = radius / 3.0
     '''
-    # compute the weights
-    minima, maxima = boundCircle( field, gaussCenter, gaussRadius )
-    distances = field.cellDistances( minima, maxima, gaussCenter )
-    sigma = gaussRadius / 3.0
+    sigma = radius / 3.0
     sigma2 = 2.0 * sigma * sigma
-    weights = np.exp( -(distances * distances) / sigma2 ) #/ ( np.sqrt( np.pi * sigma2) )
+    weights = np.exp( -(distances * distances) / sigma2 ) 
     # get the region
     region = field.subRegion( minima, maxima )
     magnitude = np.sqrt( np.sum( region * region, axis=2 ) )
@@ -99,7 +126,38 @@ def blendDirectionPoint( field, dir, gaussCenter, gaussRadius ):
     region[:,:,0] = c
     region[:, :, 1] = s
     confirmRegion = field.subRegion( minima, maxima )
-    field.fieldChanged()
+    field.fieldChanged() 
+    
+def blendDirectionPoint( field, dir, gaussCenter, gaussRadius ):
+    '''Given a field, a direction, and the definition of a gaussian region of influence, update
+    the direction of the field at that gauss, using the gauss as the influence weight.
 
-            
-            
+    @param field: a VectorField object.  The field to be modified.
+    @param dir: a 2-tuple of floats. The desired direction (not necessarily normalized).
+    @param gaussCenter: a 2-tuple of floats.  The center of the 2D-gaussian function (in the same
+        space as the field.
+    @param gaussRadius: a float.  The total radius of influence of the gaussian function.
+        sigma = gaussRadius / 3.0
+    '''
+    # compute the weights
+    minima, maxima = boundCircle( field, gaussCenter, gaussRadius )
+    distances = field.cellDistances( minima, maxima, gaussCenter )
+
+    blendFromDistance( field, dir, minima, maxima, distances, gaussRadius )
+
+
+def blendDirectionStroke( field, dir, p1, p2, radius ):
+    '''Given a field, a direction, and the definition stroke with width, update
+    the direction of the field along the stroke, using the gauss as the influence weight.
+
+    @param field: a VectorField object.  The field to be modified.
+    @param dir: a 2-tuple of floats. The desired direction (not necessarily normalized).
+    @param p1: a 2-tuple of floats.  The beginning of the stroke.
+    @param p2: a 2-tuple of floats.  The end of the stroke.
+    @param radius: a float.  The total radius of influence of the stroke.
+        sigma = gaussRadius / 3.0
+    '''
+    # compute the weights
+    minima, maxima = boundStroke( field, p1, p2, radius )
+    distances = field.cellSegmentDistance( minima, maxima, p1, p2 )
+    blendFromDistance( field, dir, minima, maxima, distances, radius )

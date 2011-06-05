@@ -2,6 +2,7 @@
 
 import numpy as np
 from OpenGL.GL import *
+from primitives import Vector2
 
 FLOAT = np.float32
 
@@ -96,6 +97,53 @@ class VectorField:
         @return: a 2-tuple of (I-i) x (J-j) array of floats.  The positions of the cells in the indicated range.
         '''
         return self.centers[ minima[0]:maxima[0], minima[1]:maxima[1], : ]
+
+    def cellSegmentDistance( self, minima, maxima, p1, p2 ):
+        '''Returns a 2D array of distances from a line segment: (p1, p2).
+
+        @param minima: a 2-tuple-like object of ints.  The indices (i, j) represent the smallest indices of
+        the region to compute.
+        @param maxima: a 2-tuple-like object of ints.  The indices (I, J) represent the largest indices of the
+        region to compute.  The region is defined as field[ i:I, j:J ].
+        @param p1: a 2-tuple of floats.  The first end point of the segment.
+        @param p2: a 2-tuple of floats.  The second end point of the segment.
+
+        @return: a (I-i) x (J-j) array of floats.  The distances from each cell center to point.
+        '''
+        centers = self.cellCenters( minima, maxima )
+        # create the implicit equation of the line
+        A = p1[1] - p2[1]
+        B = p2[0] - p1[0]
+        mag = np.sqrt( A * A + B * B )
+        A /= mag
+        B /= mag
+        C = ( p1[0] * p2[1] - p2[0] * p1[1] ) / mag
+
+        # create a vector in the direction of the line.  Use this to determine which points are near the
+        #   line segment and which are near the end points
+        dir = Vector2( p2[0], p2[1] ) - Vector2( p1[0], p1[1] )
+        mag = dir.magnitude()
+        dir = dir / mag
+        dir = np.array( ( dir[0], dir[1] ) )
+        relCenters = centers - np.array( p1 )
+        projection = np.sum( relCenters * dir, axis=2 )
+        nearP1 = projection < 0
+        nearP2 = projection > mag
+        nearSeg = ~( nearP1 | nearP2 )
+        
+        segDist = np.abs( A * centers[ nearSeg, 0 ] + B * centers[ nearSeg, 1 ] + C )
+        dX = centers[ nearP1, 0 ] - p1[0]
+        dY = centers[ nearP1, 1 ] - p1[1]
+        p1Dist = np.sqrt( dX * dX + dY * dY )
+        dX = centers[ nearP2, 0 ] - p2[0]
+        dY = centers[ nearP2, 1 ] - p2[1]
+        p2Dist = np.sqrt( dX * dX + dY * dY )
+        distances = np.zeros( ( centers.shape[:-1] ) )
+        distances[ nearSeg ] = segDist
+        distances[ nearP1 ] = p1Dist
+        distances[ nearP2 ] = p2Dist
+
+        return distances        
 
     def cellDistances( self, minima, maxima, point ):
         '''Returns a 2D array of distances from a point.
