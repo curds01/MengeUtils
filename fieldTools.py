@@ -40,7 +40,30 @@ class Path:
             glVertex3f( x, y, 0 )
         glEnd()
 
-def blendDirection( field, dir, gaussCenter, gaussRadius ):
+def boundCircle( field, center, radius ):
+    '''Given a center and radius, returns the indices of the cells in the field that bound the circle.
+
+        @param field: a VectorField.  The field in which the circle is inscribed.
+        @param center: a 2-tuple of floats.  The center of the circle in the same space as the field.
+        @param radius: a float.  The radius of the circle to be bound.
+
+        @return: a 2-tuple of arrays of two floats.  Returns indices of the cells which bound it: ( (i, j), (I, J) )
+            such that the region that bounds the circle can be found with: field[ i:I, j:J ].  ** Note that
+            it is NOT inclusive for I and J.
+        '''
+    # compute the x/y extents, determine the cells for each of them, and then extract the cell id extrema from
+    #   those cells (plus 1 on the maximum side)
+    extrema = np.array( ( ( center[0] - radius, center[1] - radius ),
+                          ( center[0] + radius, center[1] - radius ),
+                          ( center[0] - radius, center[1] + radius ),
+                          ( center[0] + radius, center[1] + radius )
+                        ) )
+    cells = field.getCells( extrema )
+    minima = cells.min( axis=0 )
+    maxima = cells.max( axis=0 ) + 1
+    return minima, maxima
+    
+def blendDirectionPoint( field, dir, gaussCenter, gaussRadius ):
     '''Given a field, a direction, and the definition of a gaussian region of influence, update
     the direction of the field at that gauss, using the gauss as the influence weight.
 
@@ -52,7 +75,7 @@ def blendDirection( field, dir, gaussCenter, gaussRadius ):
         sigma = gaussRadius / 3.0
     '''
     # compute the weights
-    minima, maxima = field.boundCircle( gaussCenter, gaussRadius )
+    minima, maxima = boundCircle( field, gaussCenter, gaussRadius )
     distances = field.cellDistances( minima, maxima, gaussCenter )
     sigma = gaussRadius / 3.0
     sigma2 = 2.0 * sigma * sigma

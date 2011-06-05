@@ -73,28 +73,6 @@ class VectorField:
         index[ :, 1 ] = np.clip( index[ :, 1 ], 0, self.resolution[ 1 ] - 0.00001 )
         return np.array( np.floor( index[:,::-1] ), dtype=np.int )
 
-    def boundCircle( self, center, radius ):
-        '''Given a center and radius, returns the indices of the cells that bound the circle.
-
-        @param center: a 2-tuple of floats.  The center of the circle in the same space as the field.
-        @param radius: a float.  The radius of the circle to be bound.
-
-        @return: a 2-tuple of arrays of two floats.  Returns indices of the cells which bound it: ( (i, j), (I, J) )
-            such that the region that bounds the circle can be found with: field[ i:I, j:J ].  ** Note that
-            it is NOT inclusive for I and J.
-        '''
-        # compute the x/y extents, determine the cells for each of them, and then extract the cell id extrema from
-        #   those cells (plus 1 on the maximum side)
-        extrema = np.array( ( ( center[0] - radius, center[1] - radius ),
-                              ( center[0] + radius, center[1] - radius ),
-                              ( center[0] - radius, center[1] + radius ),
-                              ( center[0] + radius, center[1] + radius )
-                            ) )
-        cells = self.getCells( extrema )
-        minima = cells.min( axis=0 )
-        maxima = cells.max( axis=0 ) + 1
-        return minima, maxima
-
     def subRegion( self, minima, maxima ):
         '''Returns a portion of the field, defined by the index minima and maxima.
 
