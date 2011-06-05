@@ -445,8 +445,8 @@ class CrowdWindow( QtGui.QMainWindow):
         self.console.appendPlainText( '\nStarting processing' )
         cfg = self.collectFullConfig()
         cellSize = float( cfg[ 'cellSize' ] )
-        domainSize = Crowd.Point( float( cfg[ 'sizeX' ] ), float( cfg[ 'sizeY' ] ) )
-        domainMin = Crowd.Point( float( cfg[ 'minPtX' ] ), float( cfg[ 'minPtY' ] ) )
+        domainSize = Crowd.Vector2( float( cfg[ 'sizeX' ] ), float( cfg[ 'sizeY' ] ) )
+        domainMin = Crowd.Vector2( float( cfg[ 'minPtX' ] ), float( cfg[ 'minPtY' ] ) )
         res = (int( domainSize.x / cellSize ), int( domainSize.y / cellSize ) )
         scbFile = cfg[ 'SCB' ] 
 
