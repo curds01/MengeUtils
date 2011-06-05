@@ -70,13 +70,6 @@ def blendDirection( field, dir, gaussCenter, gaussRadius ):
     if ( tgtAngle < 0 ):
         change = -2.0 * np.pi
     angles[ problems ] += change
-##    tooSmall = delta < -np.pi
-##    tooBig = delta > np.pi
-##    print "too small", tooSmall
-##    print "too big", tooBig
-##    angles[ tooSmall ] += 2.0 * np.pi
-##    angles[ tooBig ] -= 2.0 * np.pi
-##    print "modified", angles
     newAngles = weights * tgtAngle + ( 1 - weights ) * angles
     c = np.cos( newAngles ) * magnitude
     s = np.sin( newAngles ) * magnitude
@@ -84,6 +77,6 @@ def blendDirection( field, dir, gaussCenter, gaussRadius ):
     region[:, :, 1] = s
     confirmRegion = field.subRegion( minima, maxima )
     field.fieldChanged()
-##    field.gridChanged()
+
             
             

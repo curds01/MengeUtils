@@ -27,13 +27,7 @@ class VectorField:
         self.setDimensions( size )
         self.data = np.zeros( ( self.resolution[1], self.resolution[0], 2 ), dtype=FLOAT )
         self.data[ :, :, 0 ] = 1.0
-        self.centers = np.zeros( ( self.resolution[1], self.resolution[0], 2 ), dtype=FLOAT )
-        xValues = self.minPoint[0] + ( np.arange( self.resolution[1] ) + 0.5 ) * self.cellSize
-        yValues = self.minPoint[1] + ( np.arange( self.resolution[0] ) + 0.5 ) * self.cellSize
-        X, Y = np.meshgrid( xValues, yValues )
-        self.centers[ :, :, 0 ] = X
-        self.centers[ :, :, 1 ] = Y
-        self.endPoints = self.centers + self.data * self.cellSize * 0.4
+        self.gridChanged()
 
     def setDimensions( self, size ):
         '''Given a physical size and a cell size, modifies the physical size such that
@@ -124,12 +118,7 @@ class VectorField:
         @return: a 2-tuple of (I-i) x (J-j) array of floats.  The positions of the cells in the indicated range.
         '''
         return self.centers[ minima[0]:maxima[0], minima[1]:maxima[1], : ]
-##        size = maxima - minima
-##        xValues = self.minPoint[0] + ( minima[1] + np.arange( size[1] ) + 0.5 ) * self.cellSize
-##        yValues = self.minPoint[1] + ( minima[0] + np.arange( size[0] ) + 0.5 ) * self.cellSize
-##        
-##        return np.meshgrid( xValues, yValues )
-##
+
     def cellDistances( self, minima, maxima, point ):
         '''Returns a 2D array of distances from a point.
 
@@ -151,14 +140,24 @@ class VectorField:
         '''Reports a change to the field data'''
         self.endPoints = self.centers + self.data * self.cellSize * 0.4
     
-    def writeField( self, fileName, ascii=True ):
+    def write( self, fileName, ascii=True ):
         '''Writes the field out to the indicated file'''
         if ( ascii ):
-            self.writeAsciiField( fileName )
+            self.writeAscii( fileName )
         else:
-            self.writeBinaryField( fileName )
+            self.writeBinary( fileName )
 
-    def writeAsciiField( self, fileName ):
+    def gridChanged( self ):
+        '''Updated when the grid parameters change'''
+        self.centers = np.zeros( ( self.resolution[1], self.resolution[0], 2 ), dtype=FLOAT )
+        xValues = self.minPoint[0] + ( np.arange( self.resolution[1] ) + 0.5 ) * self.cellSize
+        yValues = self.minPoint[1] + ( np.arange( self.resolution[0] ) + 0.5 ) * self.cellSize
+        X, Y = np.meshgrid( xValues, yValues )
+        self.centers[ :, :, 0 ] = X
+        self.centers[ :, :, 1 ] = Y
+        self.endPoints = self.centers + self.data * self.cellSize * 0.4
+
+    def writeAscii( self, fileName ):
         '''Writes the field out in ascii format to the indicated file'''
         f = open( fileName, 'w' )
         # resolution
@@ -173,18 +172,19 @@ class VectorField:
                 f.write( '{0} {1}\n'.format( self.data[y, x, 0], self.data[y, x, 1] ) )
         f.close()
 
-    def writeBinaryField( self, fileName ):
+    def writeBinary( self, fileName ):
         '''Writes the field out in ascii format to the indicated file'''
         raise AttributeError, "Binary vector field format not supported yet"
 
-    def readField( self, fileName, ascii=True ):
+    def read( self, fileName, ascii=True ):
         '''Reads the vector field contained in the file'''
         if ( ascii ):
-            self.readAsciiField( fileName )
+            self.readAscii( fileName )
         else:
-            self.readinaryField( fileName )
+            self.readinary( fileName )
+        self.gridChanged()
 
-    def readAsciiField( self, fileName ):
+    def readAscii( self, fileName ):
         '''Reads the field out in ascii format to the indicated file'''
         f = open( fileName, 'r' )
         line = f.readline()
@@ -198,7 +198,7 @@ class VectorField:
                 self.data[ y, x, : ] = map( lambda x: float(x), f.readline().split() )
         f.close()
 
-    def readbinaryField( self, fileName ):
+    def readbinary( self, fileName ):
         '''Reads the field out in ascii format to the indicated file'''
         raise AttributeError, "Binary vector field format not supported yet"
 

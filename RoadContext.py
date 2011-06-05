@@ -249,7 +249,9 @@ class FieldEditContext( VFieldContext ):
         noMods = not( hasShift or hasCtrl or hasAlt )
 
         if ( event.type == pygame.KEYDOWN ):
-            if ( event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT ):
+            if ( event.key == pygame.K_s and hasCtrl ):
+                self.field.write( 'field.txt' )
+            elif ( event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT ):
                 if ( self.activeContext ):
                     self.activeContext.deactivate()
                 self.activeContext = FieldBoundaryContext( self.field )
@@ -352,16 +354,14 @@ class FieldStrokeContext( VFieldContext ):
                 pX, pY = view.screenToWorld( event.pos )
                 dX = pX - self.downX
                 dY = pY - self.downY
-                # now apply the direction implied by ( dX, dY ) with the brush centered
-                # at ( self.downX, self.downY ) to the field
                 blendDirection( self.field, ( dX, dY ), self.brushPos, self.brushSize )
+
                 # TODO: instead of instantaneous values, filter this by skipping events                
                 self.downX = pX
                 self.downY = pY
                 result.set( True, True )
         elif ( event.type == pygame.MOUSEBUTTONUP ):
             if ( self.dragging and event.button == LEFT ):
-##                self.field.fieldChanged()
                 self.dragging = False
                 result.set( True, True )
         elif ( event.type == pygame.MOUSEBUTTONDOWN ):

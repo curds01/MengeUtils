@@ -17,8 +17,7 @@ from xml.sax import make_parser, handler
 NO_EDIT = 0
 GRAPH_EDIT = 1
 OBSTACLE_EDIT = 2
-FIELD_EDIT = 3
-EDIT_STATE_COUNT = 4
+EDIT_STATE_COUNT = 3
 editState = NO_EDIT
 
 class Agent:
@@ -836,8 +835,6 @@ def handleKey( event, context, view, graph, obstacles, agents, field ):
                 f = open('obstacles.txt', 'w' )
                 f.write( '%s' % obstacles.sjguy() )
                 f.close()
-            elif ( editState == FIELD_EDIT ):
-                field.writeField( 'field.txt' )
         elif ( event.key == pygame.K_e ):
             editState = ( editState + 1 ) % EDIT_STATE_COUNT
             result.setNeedsRedraw( True )
@@ -1073,8 +1070,6 @@ def updateMsg( agtCount ):
         return "Edit roadmap"
     elif ( editState == OBSTACLE_EDIT ):
         return "Edit obstacle"
-    elif ( editState == FIELD_EDIT ):
-        return "Edit guidance field"
     else:
         return "Invalid edit state"
 
@@ -1134,7 +1129,7 @@ def main():
 
     if ( fieldName ):
         field = GLVectorField( (0,0), (1, 1), 1 )
-        field.readField( fieldName )
+        field.read( fieldName )
     else:
         print "Instantiate vector field from geometry:", bb
         bbSize = bb.max - bb.min    
