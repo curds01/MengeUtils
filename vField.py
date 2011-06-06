@@ -26,7 +26,7 @@ class VectorField:
         self.resolution = np.zeros( 2, dtype=np.int )
         self.cellSize = cellSize
         self.setDimensions( size )
-        self.data = np.zeros( ( self.resolution[1], self.resolution[0], 2 ), dtype=FLOAT )
+        self.data = np.zeros( ( self.resolution[0], self.resolution[1], 2 ), dtype=FLOAT )
         self.data[ :, :, 0 ] = 1.0
         self.gridChanged()
 
@@ -39,7 +39,7 @@ class VectorField:
         @param cellSize: a float.  The length of a square cell's side.
         '''
         size = np.array( size, dtype=FLOAT )
-        self.resolution = np.array( np.ceil( size / self.cellSize ), dtype=np.int )
+        self.resolution = np.array( np.ceil( size / self.cellSize ), dtype=np.int )[::-1]
         self.size = self.resolution * self.cellSize
 
     def getCell( self, pt ):
@@ -58,7 +58,7 @@ class VectorField:
         index[0] = np.clip( index[0], 0, self.resolution[1] - 0.00001 )
         index[1] = np.clip( index[1], 0, self.resolution[0] - 0.00001 )
         index = np.array( np.floor( index ),dtype=np.int )
-        return index
+        return index[ ::-1 ]
 
     def getCells( self, points ):
         '''Given a point in space, determines the value of the vector field at that point.
@@ -70,8 +70,8 @@ class VectorField:
         '''
         offset = points - self.minPoint
         index = offset / self.cellSize
-        index[ :, 0 ] = np.clip( index[ :, 0 ], 0, self.resolution[ 0 ] - 0.00001 )
-        index[ :, 1 ] = np.clip( index[ :, 1 ], 0, self.resolution[ 1 ] - 0.00001 )
+        index[ :, 0 ] = np.clip( index[ :, 0 ], 0, self.resolution[ 1 ] - 0.00001 )
+        index[ :, 1 ] = np.clip( index[ :, 1 ], 0, self.resolution[ 0 ] - 0.00001 )
         return np.array( np.floor( index[:,::-1] ), dtype=np.int )
 
     def subRegion( self, minima, maxima ):
@@ -175,7 +175,7 @@ class VectorField:
 
     def gridChanged( self ):
         '''Updated when the grid parameters change'''
-        self.centers = np.zeros( ( self.resolution[1], self.resolution[0], 2 ), dtype=FLOAT )
+        self.centers = np.zeros( ( self.resolution[0], self.resolution[1], 2 ), dtype=FLOAT )
         xValues = self.minPoint[0] + ( np.arange( self.resolution[1] ) + 0.5 ) * self.cellSize
         yValues = self.minPoint[1] + ( np.arange( self.resolution[0] ) + 0.5 ) * self.cellSize
         X, Y = np.meshgrid( xValues, yValues )
@@ -285,9 +285,9 @@ class GLVectorField( VectorField ):
         
     def genGridDL( self ):
         minX = self.minPoint[0]
-        maxX = minX + self.size[0]
+        maxX = minX + self.size[1]
         minY = self.minPoint[1]
-        maxY = minY + self.size[1]
+        maxY = minY + self.size[0]
 
         self.gridID = glGenLists(1)
         glNewList( self.gridID, GL_COMPILE )
