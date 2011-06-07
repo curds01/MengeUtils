@@ -412,6 +412,47 @@ class Grid:
             if ( callBack ):
                 callBack( disp )
 
+    def rasterizeOmegaBlit( self, kernel, f2, f1, distFunc, maxRad, timeStep, callBack=None ):
+        """Given two frames of agents, computes per-agent angular speed and rasterizes the whole frame"""
+        invDT = 1.0 / timeStep
+        RAD_TO_ANGLE = 180.0 / np.pi * invDT
+        for i in range( len ( f2.agents ) ):
+            # compute the angle around the origin
+            ag2 = f2.agents[ i ]
+            ag1 = f1.agents[ i ]
+            dir2 = ag2.pos.normalize()
+            dir1 = ag1.pos.normalize()
+            angle = np.arccos( dir2.dot( dir1 ) ) * RAD_TO_ANGLE
+            cross = dir1.det( dir2 )
+            if ( cross < 0 ):
+                angle = -angle
+                
+            center = self.getCenter( ag2.pos )
+            INFLATE = True # causes the agents to inflate more than a single cell
+            if ( INFLATE ):
+                l = center[0] - 1
+                r = l + 3
+                b = center[1] - 1
+                t = b + 3
+            else:
+                l = center[0]
+                r = l + 1
+                b = center[1]
+                t = b + 1
+            
+            if ( l < 0 ):
+                l = 0
+            if ( b < 0 ):
+                b = 0
+            if ( r >= self.resolution[0] ):
+                r = self.resolution[0]
+            if ( t >= self.resolution[1] ):
+                t = self.resolution[1]
+            self.cells[ l:r, b:t ] =  angle
+            if ( callBack ):
+                callBack( angle )
+
+
     def rasterizeDenseSpeed( self, denseFile, kernel, f2, f1, distFunc, maxRad, timeStep ):
         '''GIven two frames of agents, computes per-agent speed and rasterizes the whole frame.agents
         Divides the rasterized speeds by density from the denseFile'''
@@ -532,6 +573,10 @@ class Grid:
     def surface( self, map, minVal, maxVal ):
         """Creates a pygame surface"""
         return map.colorOnSurface( (minVal, maxVal ), self.cells )
+
+    def swapValues( self, oldVal, newVal ):
+        """Replaces all cells with the value oldVal with newVal"""
+        self.cells[ self.cells == oldVal ] = newVal
 
 class GridFileSequence:
     """Creates a grid sequence from a frame file and streams the resulting grids to
@@ -691,6 +736,98 @@ class GridFileSequence:
         outFile.write( struct.pack( 'ff', minVal, maxVal ) )
         outFile.close()
         return stats
+
+    def computeAngularSpeeds( self, minCorner, size, resolution, maxRad, frameSet, timeStep, speedType=BLIT_SPEED, timeWindow=1 ):
+        """Computes the displacements from one cell to the next"""
+        print "Computing angular speed:"
+        print "\tminCorner:  ", minCorner
+        print "\tsize:       ", size
+        print "\tresolution: ", resolution
+        print "\tmaxRad:     ", maxRad
+        print "\ttime step:  ", timeStep
+        print "\ttime window:", timeWindow
+        outFile = open( self.outFileName + '.omega', 'wb' )
+        outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
+        outFile.write( struct.pack( 'i', 0 ) )                              # grid count
+        outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
+        maxVal = -1e6
+        minVal = 1e6
+        gridCount = 0
+        gridSize = resolution[0] * resolution[1]
+        cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )
+        frameSet.setNext( 0 )        
+        data = [ frameSet.next() for i in range( timeWindow + 1 ) ]
+        # continue while the index of the last frame on the queue is greater than the index of the first frame
+
+        distFunc = lambda x, y: np.exp( -( (x * x + y *y) / ( maxRad * maxRad ) ) )
+        print "Speedy type:", speedType
+        if ( speedType == GridFileSequence.BLIT_SPEED ):
+            speedFunc = Grid.rasterizeOmegaBlit
+            kernel = None
+            gridFunc = lambda: Grid( minCorner, size, resolution, 720.0 )
+        elif ( speedType == GridFileSequence.NORM_SPEED ):
+            raise ValueError, "Compute Angular speed doesn't support normalized angular speed"
+##            speedFunc = Grid.rasterizeSpeedGauss
+##            kernel = Kernel( maxRad, distFunc, cellSize )
+##            gridFunc = lambda: Grid( minCorner, size, resolution )
+        elif ( speedType == GridFileSequence.UNNORM_SPEED ):
+            raise ValueError, "Compute Angular speed doesn't support unnormalized angular speed"
+##            speedFunc = Grid.rasterizeSpeedGauss
+##            kernel = Kernel( maxRad, distFunc, cellSize, False )
+##            gridFunc = lambda: Grid( minCorner, size, resolution )
+        elif ( speedType == GridFileSequence.NORM_DENSE_SPEED ):
+            raise ValueError, "Compute Angular speed doesn't support normalized density angular speed"
+##            try:
+##                denseFile = open( self.outFileName + ".density", "rb" )
+##            except:
+##                print "Can't open desnity file: %.density" % ( self.outFileName )
+##                raise
+##            else:
+##                w, h, count, minVal, maxVal = struct.unpack( 'iiiff', denseFile.read( GridFileSequence.HEADER_SIZE ) )
+##                assert( w == resolution[0] and h == resolution[1] )
+##            speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeDenseSpeed( g, denseFile, k, f2, f1, dist, rad, step )
+##            kernel = Kernel( maxRad, distFunc, cellSize )
+##            gridFunc = lambda: Grid( minCorner, size, resolution )
+        elif ( speedType == GridFileSequence.NORM_CONTRIB_SPEED ):
+            raise ValueError, "Compute Angular speed doesn't support normalized contribution angular speed"
+##            speedFunc = Grid.rasterizeContribSpeed
+##            kernel = Kernel( maxRad, distFunc, cellSize )
+##            gridFunc = lambda: Grid( minCorner, size, resolution )
+        elif ( speedType == GridFileSequence.LAPLACE_SPEED ):
+            raise ValueError, "Compute Angular speed doesn't support laplacian angular speed"
+##            distFunc = lambda x, y: 1.0 / ( np.pi * maxRad * maxRad ) * ((x * x + y * y - maxRad * maxRad) / (0.25 * maxRad ** 4 ) ) * np.exp( -( (x * x + y *y) / ( maxRad * maxRad ) ) )
+##            gridFunc = lambda: Grid( minCorner, size, resolution )
+##            X = np.zeros( resolution, dtype=np.float32 )
+##            Y = np.zeros( resolution, dtype=np.float32 )
+##            speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeVelocity( g, X, Y, k, f2, f1, dist, rad, step )
+##            kernel = Kernel( maxRad, distFunc, cellSize, False )
+
+        stats = StatRecord( frameSet.agentCount() )            
+        while ( data[ -1 ][0] ): 
+            f1, i1 = data.pop(0)
+            f2, i2 = data[ -1 ]
+            g = gridFunc() 
+            speedFunc( g, kernel, f2, f1, distFunc, maxRad, timeStep * timeWindow, stats )
+            m = g.minVal()
+            if ( m < minVal ):
+                minVal = m
+            # swap out 720.0 value for -720
+            g.swapValues( 720.0, -720.0 )
+            M = g.maxVal()
+            if ( M > maxVal ):
+                maxVal = M
+            outFile.write( g.binaryString() )
+            gridCount += 1
+            data.append( frameSet.next() )
+            stats.nextFrame()
+
+##        if ( speedType != GridFileSequence.LAPLACE_SPEED ):
+##            minVal = 0
+        # add the additional information about grid count and maximum values            
+        outFile.seek( 8 )
+        outFile.write( struct.pack( 'i', gridCount ) )
+        outFile.write( struct.pack( 'ff', minVal, maxVal ) )
+        outFile.close()
         return stats
 
     def readGrid( self, g, file, gridSize, index ):
@@ -829,6 +966,7 @@ def main():
     MAX_AGENTS = -1
     MAX_FRAMES = -1
     FRAME_STEP = 1
+    FRAME_WINDOW = 1
     # I want cell-size to be approximately 0.4 - i.e. a single person
     timeStep = 1.0
     if ( False ):
@@ -857,8 +995,9 @@ def main():
             timeStep = 1.0
 ##        path = 'data/bigtawaf/playback.scb'
 ##        MAX_AGENTS = 50
-##        FRAME_STEP = 20
-        MAX_FRAMES = 192
+        FRAME_STEP = 10
+##        MAX_FRAMES = 10
+##        MAX_FRAMES = 600
     elif ( False ):
         size = Vector2( 15, 5 )
         minPt = Vector2( -1.0, -2.5 )
@@ -872,9 +1011,11 @@ def main():
     print "Size:", size
     print "minPt:", minPt
     print "res:", res
+    timeStep *= FRAME_STEP
     frameSet = FrameSet( path, MAX_FRAMES, MAX_AGENTS, FRAME_STEP )
 
-    outPath = '/projects/tawaf/sim/jun2011'
+##    outPath = '/projects/tawaf/sim/jun2011'
+    outPath = 'omega'
     grids = GridFileSequence( os.path.join( outPath, 'junk' ) )
     colorMap = FlameMap()
 
@@ -909,6 +1050,20 @@ def main():
         s = time.clock()
         imageName = os.path.join( outPath, 'speed' )
         grids.speedImages( colorMap, imageName )
+        pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
+        print "Took", (time.clock() - s), "seconds"
+
+    if ( True ):
+        print "\tComputing omega",
+        s = time.clock()
+        stats = grids.computeAngularSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED, FRAME_WINDOW )
+        stats.write( os.path.join( outPath, 'omegaStat.txt' ) )
+        print "Took", (time.clock() - s), "seconds"
+        print "\tComputing omega images",
+        s = time.clock()
+        imageName = os.path.join( outPath, 'omega' )
+        colorMap = RedBlueMap()
+        grids.makeImages( colorMap, imageName, 'omega' )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
