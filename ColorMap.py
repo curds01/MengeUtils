@@ -76,7 +76,7 @@ class GreyScaleMap( ColorMap ):
         color[:,:,1] = normData * 255
         color[:,:,2] = normData * 255
         
-        return pygame.surfarray.make_surface( color )
+        return pygame.surfarray.make_surface( color[:,::-1,:] )
     
 class BlackBodyMap( ColorMap ):
     """Maps the data to a black-body color map"""
@@ -100,7 +100,7 @@ class BlackBodyMap( ColorMap ):
         bgMask = self.bgMask( data, dataRange )
         color[ bgMask ] = 128
         
-        return pygame.surfarray.make_surface( color )
+        return pygame.surfarray.make_surface( color[:,::-1,:] )
 
 class FlameMap( ColorMap ):
     """Maps the data to a black-body color map"""
@@ -128,7 +128,7 @@ class FlameMap( ColorMap ):
         
         bgMask = self.bgMask( data, dataRange )
         color[ bgMask ] = 128
-        return pygame.surfarray.make_surface( color )
+        return pygame.surfarray.make_surface( color[:,::-1,:] )
     
 class StephenBlackBodyMap( BlackBodyMap ):
     """This is stephen's black body map which clamps the data range to a
@@ -175,13 +175,50 @@ class BandedBlackBodyMap( BlackBodyMap ):
         color[:,:,0] = ( normData * 2.5 ).clip( 0.0, 1.0 ) * 255
         color[:,:,1] = ( ( normData - 0.4 ) / 0.35 ).clip( 0.0, 1.0 ) * 255
         color[:,:,2] = ( ( normData - 0.75 ) / 0.25 ).clip( 0.0, 1.0 ) * 255
-        return pygame.surfarray.make_surface( color )
+        return pygame.surfarray.make_surface( color[:,::-1,:] )
+
+class RedBlueMap( ColorMap ):
+    '''Color map which is white at 0 and verges to red and blue at the extreme values.  The map is
+    symmetric.  So, the range at which the colors reach red and blue is the maximum( min, max).'''
+    def __init__( self ):
+        """Color map goes from blue->white->red"""
+        ColorMap.__init__( self )
+
+    def bipolarRange( self, (minVal, maxVal) ):
+        '''Normalizes this for the bipolar map.  Remaps the values such that 0.0 -> 0.5, abs( maxVal, minVal) maps
+        to 1 and -abs(maxVal, minVal) maps to 0.'''
+        maxVal = max( abs( minVal ), abs( maxVal ) )
+        minVal = -maxVal
+        return minVal, maxVal
+        
+    def colorOnSurface( self, dataRange, data ):
+        """Creates a greyscale map the same size as the data"""
+        assert( len( data.shape ) == 2 )
+        self.dataRange = self.bipolarRange( dataRange )
+        normData = self._normalize( data, self.dataRange )
+        color = np.ones( ( data.shape[0], data.shape[1], 3 ), dtype=np.uint8 ) * 255
+
+        redMask = normData > 0.5
+        blueMask = normData < 0.5
+
+        vals = ( 2.0 * normData[ blueMask ] ) * 255
+        color[ blueMask, 0 ] = vals
+        color[ blueMask, 1 ] = vals
+        vals = ( 1.0 - 2.0 * normData[ redMask ] ) * 255
+        color[ redMask, 1 ] = vals
+        color[ redMask, 2 ] = vals
+        
+        # use balck as the default bg color
+        bgMask = self.bgMask( data, dataRange )
+        color[ bgMask ] = 0
+        return pygame.surfarray.make_surface( color[:,::-1,:] )
 
 # a dictionary from available color map namess to color map classes
 COLOR_MAPS = { "Grey scale":GreyScaleMap,
                "Black body":BlackBodyMap,
                "Flame":FlameMap,
-               "Log Black body":LogBlackBodyMap
+               "Log Black body":LogBlackBodyMap,
+               "Red Blue":RedBlueMap
                }
 
             
