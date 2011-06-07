@@ -66,7 +66,10 @@ class FrameSet:
         self.ids = []       # in scb2.0 we support ids for each agent.
         self.simStepSize = -0.1
         # generic attributes
-        self.maxFrames = maxFrames
+        if ( maxFrames == -1 ):
+            self.maxFrames = 0x7FFFFFFF
+        else:
+            self.maxFrames = maxFrames
         self.file = open( scbFile, 'rb' )
         self.version = self.file.read( 4 )
         print "SCB file version:", self.version
@@ -119,6 +122,8 @@ class FrameSet:
 
     def next( self, updateFrame=None ):
         """Returns the next frame in sequence from current point"""
+        if ( self.currFrameIndex >= self.maxFrames ):
+            return None, self.currFrameIndex
         self.currFrameIndex += 1
         if ( not updateFrame or self.currFrame == None):
             self.currFrame = Frame( self.readAgtCount )
@@ -144,6 +149,7 @@ class FrameSet:
         """Sets the set so that the call to next frame will return frame index"""
         if ( index < 0 ):
             index = 0
+        # TODO: if index > self.maxFrames
         self.currFrameIndex = index
         byteAddr = self.currFrameIndex * self.frameSize + self.headerOffset()      # +8 is the header offset
         self.file.seek( byteAddr )
@@ -153,15 +159,22 @@ class FrameSet:
         """Reports the total number of frames in the file"""
         # does this by scanning the whole file
         currentPos = self.file.tell()
+        #TODO: make this dependent on the version
         self.file.seek( 8 ) # scan to the end of the head
         frameCount = 0
         data = self.file.read( self.frameSize )
         while ( len( data ) == self.frameSize ):
             frameCount += 1
+            self.file.seek( self.readDelta, 1 ) # advance to next frame
             self.file.seek( self.strideDelta, 1 ) # advance according to stride
             data = self.file.read( self.frameSize )
         self.file.seek( currentPos )
-        return frameCount
+
+        if ( frameCount > self.maxFrames ):
+            return self.maxFrames
+        else:
+            return frameCount
+
     def agentCount( self ):
         '''Returns the agent count'''
         # NOTE: it returns the number of read agents, not total agents, in case
