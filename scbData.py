@@ -162,6 +162,11 @@ class FrameSet:
             data = self.file.read( self.frameSize )
         self.file.seek( currentPos )
         return frameCount
+    def agentCount( self ):
+        '''Returns the agent count'''
+        # NOTE: it returns the number of read agents, not total agents, in case
+        #   I'm only reading a sub-set
+        return self.readAgtCount
         
 class NPFrameSet( FrameSet ):
     """A frame set that uses numpy arrays instead of frames as the underlying structure"""

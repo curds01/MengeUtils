@@ -29,6 +29,35 @@ from primitives import Vector2
 from scbData import FrameSet
 from trace import renderTraces
 
+class StatRecord:
+    '''A simple, callable object for accumulating statistical information about the
+    quanity being computed and rasterized'''
+    def __init__( self, agentCount ):
+        # frame data is an N x 2 array.  N = number of times it is called.
+        # It contains the following data:
+        #   mean, std deviation, min, max
+        self.frameData = []
+        # agent data is the data for all of the agents in a single frame
+        self.agentData = np.zeros( agentCount, dtype=np.float32 )
+        self.currAgent = 0
+
+    def __call__( self, value ):
+        '''Assign the current value to the current agent'''
+        self.agentData[ self.currAgent ] = value
+        self.currAgent += 1
+
+    def nextFrame( self ):
+        '''Prepares the data for the next frame'''
+        self.frameData.append( ( self.agentData.mean(), self.agentData.std(), self.agentData.min(), self.agentData.max() ) )
+        self.currAgent = 0
+
+    def write( self, fileName ):
+        '''Outputs the data into a text file'''
+        f = open( fileName, 'w' )
+        for m, s, minVal, maxVal in self.frameData:
+            f.write( '{0:>15}{1:>15}{2:>15}{3:>15}\n'.format( m, s, minVal, maxVal ) )
+        f.close()
+        
 class RasterReport:
     """Simple class to return the results of rasterization"""
     def __init__( self ):
@@ -349,7 +378,7 @@ class Grid:
         self.cells /= countCells
         print "Max speed:", maxSpd, "max cell", self.cells.max()
 
-    def rasterizeSpeedBlit( self, kernel, f2, f1, distFunc, maxRad, timeStep ):
+    def rasterizeSpeedBlit( self, kernel, f2, f1, distFunc, maxRad, timeStep, callBack=None ):
         """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
         invDT = 1.0 / timeStep
         for i in range( len ( f2.agents ) ):
@@ -379,8 +408,9 @@ class Grid:
                 r = self.resolution[0]
             if ( t >= self.resolution[1] ):
                 t = self.resolution[1]
-            self.cells[ l:r, b:t ] =  disp            
-##            self.cells[ center[0], center[1] ] = disp
+            self.cells[ l:r, b:t ] =  disp
+            if ( callBack ):
+                callBack( disp )
 
     def rasterizeDenseSpeed( self, denseFile, kernel, f2, f1, distFunc, maxRad, timeStep ):
         '''GIven two frames of agents, computes per-agent speed and rasterizes the whole frame.agents
@@ -634,12 +664,14 @@ class GridFileSequence:
             Y = np.zeros( resolution, dtype=np.float32 )
             speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeVelocity( g, X, Y, k, f2, f1, dist, rad, step )
             kernel = Kernel( maxRad, distFunc, cellSize, False )
-            
+
+        # TODO: This will probably break for some other speed vis method
+        stats = StatRecord( frameSet.agentCount() )              
         while ( data[ -1 ][0] ): 
             f1, i1 = data.pop(0)
             f2, i2 = data[ -1 ]
             g = gridFunc() 
-            speedFunc( g, kernel, f2, f1, distFunc, maxRad, timeStep * timeWindow )
+            speedFunc( g, kernel, f2, f1, distFunc, maxRad, timeStep * timeWindow, stats )
             M = g.maxVal()
             if ( M > maxVal ):
                 maxVal = M
@@ -649,6 +681,7 @@ class GridFileSequence:
             outFile.write( g.binaryString() )
             gridCount += 1
             data.append( frameSet.next() )
+            stats.nextFrame()
 
         if ( speedType != GridFileSequence.LAPLACE_SPEED ):
             minVal = 0
@@ -656,7 +689,9 @@ class GridFileSequence:
         outFile.seek( 8 )
         outFile.write( struct.pack( 'i', gridCount ) )
         outFile.write( struct.pack( 'ff', minVal, maxVal ) )
-        outFile.close()            
+        outFile.close()
+        return stats
+        return stats
 
     def readGrid( self, g, file, gridSize, index ):
         """Returns the index grid from the given file"""
@@ -865,9 +900,10 @@ def main():
         print "Took", (time.clock() - s), "seconds"
 
     if ( True ):
-        print "\tComputing displacements",
+        print "\tComputing speeds",
         s = time.clock()
-        grids.computeSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED )
+        stats = grids.computeSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED )
+        stats.write( os.path.join( outPath, 'speedStat.txt' ) )
         print "Took", (time.clock() - s), "seconds"
         print "\tComputing displacement images",
         s = time.clock()
@@ -888,6 +924,7 @@ def main():
         grids.makeImages( colorMap, imageName, 'advec' )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
+        
     if ( False ):
         # flow lines
                      
