@@ -389,6 +389,62 @@ class Grid:
         self.cells /= countCells
         print "Max speed:", maxSpd, "max cell", self.cells.max()
 
+    def rasterizeProgress( self, f2, initFrame, prevProgress, callBack=None ):
+        '''Given the current frame and the initial frame, computes the fraction of the circle that
+        each agent has travelled around the kaabah.'''
+        # TODO: don't let this be periodic.
+        TWO_PI = 2.0 * np.pi
+        for i in range( len( f2.agents ) ):
+            # first compute progress based on angle between start and current position
+            ag2 = f2.agents[ i ]
+            ag1 = initFrame.agents[ i ]
+            dir2 = ag2.pos.normalize()
+            dir1 = ag1.pos.normalize()
+            angle = np.arccos( dir2.dot( dir1 ) )
+            cross = dir1.det( dir2 )
+            if ( cross < 0 ):
+                angle = TWO_PI - angle
+            progress = angle / TWO_PI
+
+            # now determine direction from best progress so far
+            
+            if ( progress > prevProgress[i,2] ):
+                best = Vector2( prevProgress[i,0], prevProgress[i,1] )
+                cross = best.det( dir2 )
+                if ( cross < 0 ):
+                    # if I'm moving backwards from best progress BUT I'm apparently improving progress
+                    #   I've backed over the 100% line.
+                    progress = 0.0
+                else:
+                    prevProgress[ i, 2 ] = progress
+                    prevProgress[ i, 0 ] = dir2.x
+                    prevProgress[ i, 1 ] = dir2.y
+
+            center = self.getCenter( ag2.pos )
+            INFLATE = True # causes the agents to inflate more than a single cell
+            if ( INFLATE ):
+                l = center[0] - 1
+                r = l + 3
+                b = center[1] - 1
+                t = b + 3
+            else:
+                l = center[0]
+                r = l + 1
+                b = center[1]
+                t = b + 1
+            
+            if ( l < 0 ):
+                l = 0
+            if ( b < 0 ):
+                b = 0
+            if ( r >= self.resolution[0] ):
+                r = self.resolution[0]
+            if ( t >= self.resolution[1] ):
+                t = self.resolution[1]
+            self.cells[ l:r, b:t ] =  progress
+            if ( callBack ):
+                callBack( progress )            
+
     def rasterizeSpeedBlit( self, kernel, f2, f1, distFunc, maxRad, timeStep, callBack=None ):
         """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
         invDT = 1.0 / timeStep
@@ -748,6 +804,72 @@ class GridFileSequence:
         outFile.close()
         return stats
 
+
+    def initProgress( self, frame ):
+        '''A helper function for the progress compuation.  Creates an N x 3 array.ArrayType
+        Columns 0 & 1 are normalized vectors pointing to the direction of the agents and
+        column2 is the best progress.'''
+        agtCount = len( frame.agents )
+        progress = np.zeros( ( agtCount, 3 ), dtype=np.float32 )
+        for i in range( agtCount ):
+            agt = frame.agents[ i ]
+            dir = agt.pos.normalize()
+            progress[ i, 0] = dir.x
+            progress[ i, 1] = dir.y
+        return progress
+    
+    def computeProgress( self, minCorner, size, resolution, maxRad, frameSet, timeStep, timeWindow=1 ):
+        """Computes the progress from one frame to the next - progress is measured in the fraction
+        of the circle traversed from the initial position"""
+        print "Computing progress:"
+        print "\tminCorner:  ", minCorner
+        print "\tsize:       ", size
+        print "\tresolution: ", resolution
+        print "\tmaxRad:     ", maxRad
+        print "\ttime step:  ", timeStep
+        print "\ttime window:", timeWindow
+        outFile = open( self.outFileName + '.progress', 'wb' )
+        outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
+        outFile.write( struct.pack( 'i', 0 ) )                              # grid count
+        outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
+        maxVal = -1e6
+        minVal = 1e6
+        gridCount = 0
+        gridSize = resolution[0] * resolution[1]
+        cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )
+        frameSet.setNext( 0 )        
+        data = [ frameSet.next() for i in range( timeWindow + 1 ) ]
+
+        stats = StatRecord( frameSet.agentCount() )
+        initFrame, initIndex = data[0]
+        progress = self.initProgress( initFrame )
+        while ( data[ -1 ][0] ):
+            print '.',
+            f1, i1 = data.pop(0)
+            f2, i2 = data[ -1 ]
+            g = Grid( minCorner, size, resolution, 100.0 ) 
+            g.rasterizeProgress( f2, initFrame, progress, stats )
+
+            m = g.minVal()
+            if ( m < minVal ):
+                minVal = m
+            g.swapValues( 100.0, -100.0 )
+            M = g.maxVal()
+            if ( M > maxVal ):
+                maxVal = M            
+            
+            outFile.write( g.binaryString() )
+            gridCount += 1
+            data.append( frameSet.next() )
+            stats.nextFrame()
+        print
+        # add the additional information about grid count and maximum values            
+        outFile.seek( 8 )
+        outFile.write( struct.pack( 'i', gridCount ) )
+        outFile.write( struct.pack( 'ff', minVal, maxVal ) )
+        outFile.close()
+        return stats
+
     def computeAngularSpeeds( self, minCorner, size, resolution, maxRad, frameSet, timeStep, speedType=BLIT_SPEED, timeWindow=1 ):
         """Computes the displacements from one cell to the next"""
         print "Computing angular speed:"
@@ -1045,6 +1167,8 @@ def main():
         os.makedirs( os.path.join( outPath, 'flow' ) )
     if ( not os.path.exists( os.path.join( outPath, 'advec' ) ) ):
         os.makedirs( os.path.join( outPath, 'advec' ) )
+    if ( not os.path.exists( os.path.join( outPath, 'progress' ) ) ):
+        os.makedirs( os.path.join( outPath, 'progress' ) )
 
     R = 2.0
     
@@ -1093,6 +1217,21 @@ def main():
         imageName = os.path.join( outPath, 'omega', 'omega' )
         colorMap = RedBlueMap()
         grids.makeImages( colorMap, imageName, 'omega' )
+        pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
+        print "Took", (time.clock() - s), "seconds"
+
+    if ( False ):
+        print "\tComputing progress",
+        s = time.clock()
+        stats = grids.computeProgress( minPt, size, res, R, frameSet, timeStep, FRAME_WINDOW )
+        stats.write( os.path.join( outPath, 'progress', 'stat.txt' ) )
+        stats.savePlot( os.path.join( outPath, 'progress', 'stat.png'), 'Average progress around Kaabah' ) 
+        print "Took", (time.clock() - s), "seconds"
+        print "\tComputing progress images",
+        s = time.clock()
+        imageName = os.path.join( outPath, 'progress', 'progress' )
+        colorMap = FlameMap( (0.0, 1.0) )
+        grids.makeImages( colorMap, imageName, 'progress' )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
