@@ -93,7 +93,7 @@ def boundStroke( field, p0, p1, radius ):
     return minima, maxima
     
 
-def blendFromDistance( field, dir, minima, maxima, distances, radius ):
+def blendDirFromDistance( field, dir, minima, maxima, distances, radius ):
     '''Given a field, a region of that field defined by minima and maxima, and an arbitrary distance field,
     blends the given dir into the vector field using distance as weights.
 
@@ -125,7 +125,7 @@ def blendFromDistance( field, dir, minima, maxima, distances, radius ):
     s = np.sin( newAngles ) * magnitude
     region[:,:,0] = c
     region[:, :, 1] = s
-    confirmRegion = field.subRegion( minima, maxima )
+
     field.fieldChanged() 
     
 def blendDirectionPoint( field, dir, gaussCenter, gaussRadius ):
@@ -143,8 +143,7 @@ def blendDirectionPoint( field, dir, gaussCenter, gaussRadius ):
     minima, maxima = boundCircle( field, gaussCenter, gaussRadius )
     distances = field.cellDistances( minima, maxima, gaussCenter )
 
-    blendFromDistance( field, dir, minima, maxima, distances, gaussRadius )
-
+    blendDirFromDistance( field, dir, minima, maxima, distances, gaussRadius )
 
 def blendDirectionStroke( field, dir, p1, p2, radius ):
     '''Given a field, a direction, and the definition stroke with width, update
@@ -160,4 +159,47 @@ def blendDirectionStroke( field, dir, p1, p2, radius ):
     # compute the weights
     minima, maxima = boundStroke( field, p1, p2, radius )
     distances = field.cellSegmentDistance( minima, maxima, p1, p2 )
-    blendFromDistance( field, dir, minima, maxima, distances, radius )
+    blendDirFromDistance( field, dir, minima, maxima, distances, radius )
+
+def blendLengthStroke( field, length, p1, p2, radius ):
+    '''Given a field, a scale factor, and the definition stroke with width, update
+    the scale of the field along the stroke, using the gauss as the influence weight.
+
+    @param field: a VectorField object.  The field to be modified.
+    @param length: a float. The target length of the vector.
+    @param p1: a 2-tuple of floats.  The beginning of the stroke.
+    @param p2: a 2-tuple of floats.  The end of the stroke.
+    @param radius: a float.  The total radius of influence of the stroke.
+        sigma = gaussRadius / 3.0
+    '''
+    # compute the weights
+    minima, maxima = boundStroke( field, p1, p2, radius )
+    distances = field.cellSegmentDistance( minima, maxima, p1, p2 )
+    blendLengthFromDistance( field, length, minima, maxima, distances, radius )
+
+def blendLengthFromDistance( field, length, minima, maxima, distances, radius ):
+    '''Given a field, a region of that field defined by minima and maxima, and an arbitrary distance field,
+    blends the given vector length into the vector field using distance as weights.
+
+    @param field: A VectorField.getCell
+    @param length: a float. The target vector magnitude.
+    @param minima: a 2-tuple-like value.  The minimum indices in field over which the work is being done.
+    @param maxima: a 2-tuple-like value.  The maximum indices in field over which the work is being done.
+    @param distances: an M X N array of floats.  The distance field of size maxima - minima.
+    @param radius: the radius used to compute weights.  The radius serves in a gaussian where sigma = radius / 3.0
+    '''
+    sigma = radius / 3.0
+    sigma2 = 2.0 * sigma * sigma
+    weights = np.exp( -(distances * distances) / sigma2 )
+    weights.shape = ( weights.shape[0], weights.shape[1], 1 )
+    # get the region
+    region = field.subRegion( minima, maxima )
+    magnitude = np.sqrt( np.sum( region * region, axis=2 ) )
+    magnitude.shape = ( magnitude.shape[0], -1, 1 )
+    tgtLength = region * length / magnitude
+
+    newVectors = weights * tgtLength + ( 1 - weights ) * region
+    region[:,:,:] =  newVectors
+
+    field.fieldChanged() 
+    
