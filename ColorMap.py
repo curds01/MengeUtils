@@ -24,14 +24,14 @@ class ColorMap:
         """Draws the bar for the last mapped data"""
         data = np.zeros( ( ColorMap.BAR_WIDTH, ColorMap.BAR_HEIGHT ), dtype=np.float32 )
         vals = np.arange( ColorMap.BAR_HEIGHT, dtype=np.float32 ) / ( ColorMap.BAR_HEIGHT - 1 )
-        domain = self.dataRange[1] - self.dataRange[0] 
-        vals = ( vals * domain ) + self.dataRange[0]
+        domain = dataRange[1] - dataRange[0] 
+        vals = ( vals * domain ) + dataRange[0]
         data += vals
-        bar = self.colorOnSurface( self.dataRange, data[ :, ::-1] )
+        bar = self.colorOnSurface( dataRange, data[ :, ::-1] )
         barRect = bar.get_rect()
         labelDelta = domain / ( labelCount - 1 )
-        labels = [ '%.2g' % ( i * labelDelta + self.dataRange[0] ) for i in range( labelCount - 1 ) ]
-        labels.append( '>= %.2g' % self.dataRange[1] )
+        labels = [ '%.2g' % ( i * labelDelta + dataRange[0] ) for i in range( labelCount - 1 ) ]
+        labels.append( '>= %.2g' % dataRange[1] )
         labelSrf = [ ColorMap.FONT.render( x, True, (255, 255, 255) ) for x in labels ]
         labelHeight = labelSrf[0].get_rect().height
         labelWidth = max( [ srf.get_rect().width for srf in labelSrf ] )
