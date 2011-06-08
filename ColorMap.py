@@ -27,7 +27,7 @@ class ColorMap:
         domain = self.dataRange[1] - self.dataRange[0] 
         vals = ( vals * domain ) + self.dataRange[0]
         data += vals
-        bar = self.colorOnSurface( self.dataRange, data )
+        bar = self.colorOnSurface( self.dataRange, data[ :, ::-1] )
         barRect = bar.get_rect()
         labelDelta = domain / ( labelCount - 1 )
         labels = [ '%.2g' % ( i * labelDelta + self.dataRange[0] ) for i in range( labelCount - 1 ) ]
