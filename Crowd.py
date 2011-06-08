@@ -28,6 +28,7 @@ from flow import *
 from primitives import Vector2
 from scbData import FrameSet
 from trace import renderTraces
+import pylab as plt
 
 class StatRecord:
     '''A simple, callable object for accumulating statistical information about the
@@ -57,6 +58,16 @@ class StatRecord:
         for m, s, minVal, maxVal in self.frameData:
             f.write( '{0:>15}{1:>15}{2:>15}{3:>15}\n'.format( m, s, minVal, maxVal ) )
         f.close()
+
+    def savePlot( self, fileName, title ):
+        '''Saves a plot of the data to the specified filename'''
+        plt.figure()
+        data = np.array( self.frameData )
+        x = np.arange( data.shape[0] ) + 1
+        plt.errorbar( x, data[:,0], data[:,1] )
+        plt.ylim( ( data[:,2].min(), data[:,3].max() ) )
+        plt.title( title )
+        plt.savefig( fileName )
         
 class RasterReport:
     """Simple class to return the results of rasterization"""
@@ -1045,6 +1056,7 @@ def main():
         s = time.clock()
         stats = grids.computeSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED )
         stats.write( os.path.join( outPath, 'speedStat.txt' ) )
+        stats.savePlot( os.path.join( outPath, 'speed', 'stat.png' ), 'Average speed per step' )
         print "Took", (time.clock() - s), "seconds"
         print "\tComputing displacement images",
         s = time.clock()
@@ -1058,6 +1070,7 @@ def main():
         s = time.clock()
         stats = grids.computeAngularSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED, FRAME_WINDOW )
         stats.write( os.path.join( outPath, 'omegaStat.txt' ) )
+        stats.savePlot( os.path.join( outPath, 'omega', 'stat.png'), 'Average radial velocity per step' ) 
         print "Took", (time.clock() - s), "seconds"
         print "\tComputing omega images",
         s = time.clock()
