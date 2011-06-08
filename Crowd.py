@@ -1118,16 +1118,19 @@ def main():
         size = Vector2( 150.0, 110.0 )
         minPt = Vector2( -70.0, -55.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
-        srcFile = '13KNew'
-        srcFile = '13KNoAgg'
+##        srcFile = '13KNew'
+##        srcFile = '13KNoAgg'
 ##        srcFile = '25KNew'
-        timeStep = 0.025
-        FRAME_STEP = 40
+##        timeStep = 0.025
+##        FRAME_STEP = 40
         
-##        srcFile = '13K'
-##        timeStep = 0.1
-##        FRAME_STEP = 10
-##        MAX_FRAMES = 50
+        srcFile = '13KNewObs'
+        srcFile = '13KNewObsNoAgg'
+        srcFile = '13KSame'
+        srcFile = '13KSameNoAgg'
+        timeStep = 0.1
+        FRAME_STEP = 10
+##        MAX_FRAMES = 240
         outPath = os.path.join( '/projects','tawaf','sim','jun2011' )
         path = os.path.join( outPath, '{0}.scb'.format( srcFile ) )
         outPath = os.path.join( outPath, srcFile )
@@ -1149,6 +1152,7 @@ def main():
     print "res:", res
     timeStep *= FRAME_STEP
     frameSet = FrameSet( path, MAX_FRAMES, MAX_AGENTS, FRAME_STEP )
+    print "Total frames:", frameSet.totalFrames()
 
     grids = GridFileSequence( os.path.join( outPath, 'junk' ) )
     colorMap = FlameMap()
@@ -1179,7 +1183,7 @@ def main():
 
     dfunc = lambda x, y: distFunc( x, y, R * R )
 
-    if ( True ):
+    if ( False ):
         print "\tComputing density with R = %f" % R
         s = time.clock()
         grids.computeDensity(  minPt, size, res, dfunc, 3 * R, frameSet )
@@ -1205,7 +1209,7 @@ def main():
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
-    if ( True ):
+    if ( False ):
         print "\tComputing omega",
         s = time.clock()
         stats = grids.computeAngularSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED, FRAME_WINDOW )
