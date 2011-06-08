@@ -224,8 +224,7 @@ class FieldEditContext( VFieldContext ):
     '''The context which allows various kinds of edits on a vector field'''
     def __init__( self, vfield ):
         VFieldContext.__init__( self, vfield )
-##        self.activeContext = FieldStrokeDirContext( self.field )
-        self.activeContext = FieldStrokeLenContext( self.field )
+        self.activeContext = FieldStrokeDirContext( self.field )
 
     def activate( self ):
         VFieldContext.activate( self )
@@ -252,12 +251,15 @@ class FieldEditContext( VFieldContext ):
         if ( event.type == pygame.KEYDOWN ):
             if ( event.key == pygame.K_s and hasCtrl ):
                 self.field.write( 'field.txt' )
-            elif ( event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT ):
-                if ( self.activeContext ):
-                    self.activeContext.deactivate()
-                self.activeContext = FieldBoundaryContext( self.field )
-                self.activeContext.activate()
-                result.set( True, True )
+            elif ( noMods ):
+                if ( event.key == pygame.K_1 ):
+                    if ( self.activeContext.__class__ != FieldStrokeDirContext ):
+                        self.activeContext = FieldStrokeDirContext( self.field )
+                        result.set( True, True )
+                elif ( event.key == pygame.K_2 ):
+                    if ( self.activeContext.__class__ != FieldStrokeLenContext ):
+                        self.activeContext = FieldStrokeLenContext( self.field )
+                        result.set( True, True )
         elif ( event.type == pygame.KEYUP ):
              if ( event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT ):
                 if ( self.activeContext and self.activeContext.__class__ == FieldBoundaryContext ):
@@ -279,7 +281,8 @@ class FieldEditContext( VFieldContext ):
         if ( self.activeContext ):
             self.activeContext.drawGL( view )
         else:
-            view.printText( self.getTitle(), (10,10) )        
+            view.printText( self.getTitle(), (10,10) )
+            
     def newGLContext( self ):
         '''Update the OpenGL context'''
         if ( self.activeContext ):
@@ -375,7 +378,7 @@ class FieldStrokeDirContext( VFieldContext ):
         # TODO: THIS IS FRAGILE
         #   It would be better for the text printer to handle new lines and do smart layout for
         #   a big block of text
-        t = VFieldContext.getTitle( self )
+        t = self.getTitle()
         view.printText( t, (10,10) )
         view.printText( 'Brush direction', (10, 30 ) )
         glPushAttrib( GL_POLYGON_BIT | GL_COLOR_BUFFER_BIT )
@@ -485,7 +488,7 @@ class FieldStrokeLenContext( VFieldContext ):
         # TODO: THIS IS FRAGILE
         #   It would be better for the text printer to handle new lines and do smart layout for
         #   a big block of text
-        t = VFieldContext.getTitle( self )
+        t = self.getTitle()
         view.printText( t, (10,10) )
         view.printText( 'Brush length: length = {0:.2f}'.format( self.factor ), (10, 30 ) )
         glPushAttrib( GL_POLYGON_BIT | GL_COLOR_BUFFER_BIT )
