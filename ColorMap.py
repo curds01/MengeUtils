@@ -11,8 +11,13 @@ class ColorMap:
     LABEL_COUNT = 11     # number of numerical labels to apply to bar
     LABEL_PAD = 4       # the number of pixels between bar and labels
     FONT = None
-    def __init__( self ):
-        self.dataRange = [0.0, 10.0]
+    def __init__( self, dataRange=None ):
+        if ( dataRange == None ):
+            self.dataRange = [0.0, 10.0]
+            self.fixedRange = False
+        else:
+            self.dataRange = dataRange
+            self.fixedRange = True
         if ( ColorMap.FONT == None ):
             ColorMap.FONT = pygame.font.Font( 'arialn.ttf', 12 )
 
@@ -20,8 +25,8 @@ class ColorMap:
         """Creates a surface with the data colored onto it"""
         raise AttributeError, "ColorMap class can't be called"
 
-    def lastMapBar( self, labelCount=LABEL_COUNT ):
-        """Draws the bar for the last mapped data"""
+    def mapBar( self, dataRange, labelCount=LABEL_COUNT ):
+        '''Create a bar map for the given range'''
         data = np.zeros( ( ColorMap.BAR_WIDTH, ColorMap.BAR_HEIGHT ), dtype=np.float32 )
         vals = np.arange( ColorMap.BAR_HEIGHT, dtype=np.float32 ) / ( ColorMap.BAR_HEIGHT - 1 )
         domain = dataRange[1] - dataRange[0] 
@@ -50,6 +55,10 @@ class ColorMap:
             labelTop += labelDistance
         
         return map
+        
+    def lastMapBar( self, labelCount=LABEL_COUNT ):
+        """Draws the bar for the last mapped data"""
+        return self.mapBar( self.dataRange, labelCount )
 
     def _normalize( self, data, (minVal, maxVal) ):
         """Returns an affine mapped version of the data based on the data range provided"""
@@ -63,14 +72,15 @@ class ColorMap:
     
 class GreyScaleMap( ColorMap ):
     """Maps the data to a grey scale map"""
-    def __init__( self ):
-        ColorMap.__init__( self )
+    def __init__( self, dataRange=None ):
+        ColorMap.__init__( self, dataRange )
 
     def colorOnSurface( self, dataRange, data ):
         """Creates a greyscale map the same size as the data"""
         assert( len( data.shape ) == 2 )
-        self.dataRange = dataRange
-        normData = self._normalize( data, dataRange )
+        if ( not self.fixedRange ):
+            self.dataRange = dataRange
+        normData = self._normalize( data, self.dataRange )
         color = np.zeros( ( data.shape[0], data.shape[1], 3 ), dtype=np.uint8 )
         color[:,:,0] = normData * 255
         color[:,:,1] = normData * 255
@@ -80,9 +90,9 @@ class GreyScaleMap( ColorMap ):
     
 class BlackBodyMap( ColorMap ):
     """Maps the data to a black-body color map"""
-    def __init__( self, red=0.4, yellow=0.75 ):
+    def __init__( self, red=0.4, yellow=0.75, dataRange=None ):
         """Allows configuration of the red and yellow points of the map"""
-        ColorMap.__init__( self )
+        ColorMap.__init__( self, dataRange )
         assert( yellow > red )
         self.red = red
         self.yellow = yellow
@@ -90,8 +100,9 @@ class BlackBodyMap( ColorMap ):
     def colorOnSurface( self, dataRange, data ):
         """Creates a greyscale map the same size as the data"""
         assert( len( data.shape ) == 2 )
-        self.dataRange = dataRange
-        normData = self._normalize( data, dataRange )
+        if ( not self.fixedRange ):
+            self.dataRange = dataRange
+        normData = self._normalize( data, self.dataRange )
         color = np.zeros( ( data.shape[0], data.shape[1], 3 ), dtype=np.uint8 )
         color[:,:,0] = ( normData * 2.0 ).clip( 0.0, 1.0 ) * 255
         color[:,:,1] = ( ( normData - 0.25 ) * 2 ).clip( 0.0, 1.0 ) * 255
@@ -104,15 +115,16 @@ class BlackBodyMap( ColorMap ):
 
 class FlameMap( ColorMap ):
     """Maps the data to a black-body color map"""
-    def __init__( self ):
+    def __init__( self, dataRange=None ):
         """Color map goes from black->blue->red->orange->yellow"""
-        ColorMap.__init__( self )
+        ColorMap.__init__( self, dataRange )
         
     def colorOnSurface( self, dataRange, data ):
         """Creates a greyscale map the same size as the data"""
         assert( len( data.shape ) == 2 )
-        self.dataRange = dataRange
-        normData = self._normalize( data, dataRange )
+        if ( not self.fixedRange ):
+            self.dataRange = dataRange
+        normData = self._normalize( data, self.dataRange )
         color = np.zeros( ( data.shape[0], data.shape[1], 3 ), dtype=np.uint8 )
         color[:,:,0] = ( ( normData - 0.25 ) * 4.0 ).clip( 0.0, 1.0 ) * 255
         color[:,:,1] = ( ( normData - 0.5 ) * 4.0 ).clip( 0.0, 1.0 ) * 255
@@ -133,8 +145,8 @@ class FlameMap( ColorMap ):
 class StephenBlackBodyMap( BlackBodyMap ):
     """This is stephen's black body map which clamps the data range to a
     maximum value of 6.0"""
-    def __init__( self, maxValue=6.0, red=0.4, yellow=0.75 ):
-        BlackBodyMap.__init__( self, red, yellow )
+    def __init__( self, maxValue=6.0, red=0.4, yellow=0.75, dataRange=None ):
+        BlackBodyMap.__init__( self, red, yellow, dataRange )
         self.maxVal = maxValue
 
     def colorOnSurface( self, dataRange, data ):
@@ -146,8 +158,8 @@ class StephenBlackBodyMap( BlackBodyMap ):
 class LogBlackBodyMap( BlackBodyMap ):
     """First takes the log of the data before performing a black body
     coloring of the data"""
-    def __init__( self, maxValue=6.0, red=0.4, yellow=0.75 ):
-        BlackBodyMap.__init__( self, red, yellow )
+    def __init__( self, maxValue=6.0, red=0.4, yellow=0.75, dataRange=None ):
+        BlackBodyMap.__init__( self, red, yellow, dataRange )
         
     def colorOnSurface( self, dataRange, data ):
         """Creates a greyscale map the same size as the data"""
@@ -155,20 +167,22 @@ class LogBlackBodyMap( BlackBodyMap ):
         dRange = ( np.log( dataRange[0] + 0.001 ), np.log( dataRange[1] + 0.001 ) )
         print "Log BlackBodyMap", dRange
         s =  BlackBodyMap.colorOnSurface( self, dRange, np.log( data + 0.001 ) )
-        self.dataRange = dataRange
+        if ( not self.fixedRange ):
+            self.dataRange = dataRange
         return s
     
 class BandedBlackBodyMap( BlackBodyMap ):
     """Maps the data to a black-body color map"""
-    def __init__( self, bandCount=10, red=0.4, yellow=0.75 ):
-        BlackBodyMap.__init__( self, red, yellow )
+    def __init__( self, bandCount=10, red=0.4, yellow=0.75, dataRange=None ):
+        BlackBodyMap.__init__( self, red, yellow, dataRange )
         self.bandCount = bandCount
 
     def colorOnSurface( self, dataRange, data ):
         """Creates a greyscale map the same size as the data"""
         assert( len( data.shape ) == 2 )
-        self.dataRange = dataRange
-        normData = self._normalize( data, dataRange )
+        if ( not self.fixedRange ):
+            self.dataRange = dataRange
+        normData = self._normalize( data, self.dataRange )
         normData = np.ceil( normData * self.bandCount ) / self.bandCount
         
         color = np.zeros( ( data.shape[0], data.shape[1], 3 ), dtype=np.uint8 )
@@ -180,9 +194,9 @@ class BandedBlackBodyMap( BlackBodyMap ):
 class RedBlueMap( ColorMap ):
     '''Color map which is white at 0 and verges to red and blue at the extreme values.  The map is
     symmetric.  So, the range at which the colors reach red and blue is the maximum( min, max).'''
-    def __init__( self ):
+    def __init__( self, dataRange=None ):
         """Color map goes from blue->white->red"""
-        ColorMap.__init__( self )
+        ColorMap.__init__( self, dataRange )
 
     def bipolarRange( self, (minVal, maxVal) ):
         '''Normalizes this for the bipolar map.  Remaps the values such that 0.0 -> 0.5, abs( maxVal, minVal) maps
@@ -194,7 +208,8 @@ class RedBlueMap( ColorMap ):
     def colorOnSurface( self, dataRange, data ):
         """Creates a greyscale map the same size as the data"""
         assert( len( data.shape ) == 2 )
-        self.dataRange = self.bipolarRange( dataRange )
+        if ( not self.fixedRange ):
+            self.dataRange = self.bipolarRange( dataRange )
         normData = self._normalize( data, self.dataRange )
         color = np.ones( ( data.shape[0], data.shape[1], 3 ), dtype=np.uint8 ) * 255
 
