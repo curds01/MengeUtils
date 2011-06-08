@@ -980,6 +980,7 @@ def main():
     FRAME_WINDOW = 1
     # I want cell-size to be approximately 0.4 - i.e. a single person
     timeStep = 1.0
+    outPath = '.'
     if ( False ):
         size = Vector2(12.0, 12.0 )
         minPt = Vector2( size.x / -2.0, size.y / -2.0 )
@@ -995,20 +996,22 @@ def main():
         size = Vector2( 150.0, 110.0 )
         minPt = Vector2( -70.0, -55.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
-        if ( True ):
-            path = '/projects/tawaf/sim/jun2011/13K_60sec.scb'
-            timeStep = 0.1
-        elif ( True ):
-            path = '/projects/tawaf/sim/jun2011/13K_2min_1Hz.scb'
-            timeStep = 1.0
-        elif ( False ):
-            path = '/projects/tawaf/sim/jun2011/13K_10min_1Hz.scb'
-            timeStep = 1.0
-##        path = 'data/bigtawaf/playback.scb'
+        srcFile = '13KNew'
+        srcFile = '13KNoAgg'
+##        srcFile = '25KNew'
+        timeStep = 0.025
+        FRAME_STEP = 40
+        
+##        srcFile = '13K'
+##        timeStep = 0.1
+##        FRAME_STEP = 10
+##        MAX_FRAMES = 50
+        outPath = os.path.join( '/projects','tawaf','sim','jun2011' )
+        path = os.path.join( outPath, '{0}.scb'.format( srcFile ) )
+        outPath = os.path.join( outPath, srcFile )
+        
 ##        MAX_AGENTS = 50
-        FRAME_STEP = 10
-##        MAX_FRAMES = 10
-##        MAX_FRAMES = 600
+##        MAX_FRAMES = 50
     elif ( False ):
         size = Vector2( 15, 5 )
         minPt = Vector2( -1.0, -2.5 )
@@ -1025,10 +1028,23 @@ def main():
     timeStep *= FRAME_STEP
     frameSet = FrameSet( path, MAX_FRAMES, MAX_AGENTS, FRAME_STEP )
 
-##    outPath = '/projects/tawaf/sim/jun2011'
-    outPath = 'omega'
     grids = GridFileSequence( os.path.join( outPath, 'junk' ) )
     colorMap = FlameMap()
+
+    # output the parameters used to create the data
+    # todo:    
+
+    # confirm folders exist
+    if ( not os.path.exists( os.path.join( outPath, 'speed' ) ) ):
+        os.makedirs( os.path.join( outPath, 'speed' ) )
+    if ( not os.path.exists( os.path.join( outPath, 'dense' ) ) ):
+        os.makedirs( os.path.join( outPath, 'dense' ) )
+    if ( not os.path.exists( os.path.join( outPath, 'omega' ) ) ):
+        os.makedirs( os.path.join( outPath, 'omega' ) )
+    if ( not os.path.exists( os.path.join( outPath, 'flow' ) ) ):
+        os.makedirs( os.path.join( outPath, 'flow' ) )
+    if ( not os.path.exists( os.path.join( outPath, 'advec' ) ) ):
+        os.makedirs( os.path.join( outPath, 'advec' ) )
 
     R = 2.0
     
@@ -1039,14 +1055,14 @@ def main():
 
     dfunc = lambda x, y: distFunc( x, y, R * R )
 
-    if ( False ):
+    if ( True ):
         print "\tComputing density with R = %f" % R
         s = time.clock()
         grids.computeDensity(  minPt, size, res, dfunc, 3 * R, frameSet )
         print "\t\tTotal computation time: ", (time.clock() - s), "seconds"
         print "\tComputing density images",
         s = time.clock()
-        imageName = 'data/dense'
+        imageName = os.path.join( outPath, 'dense', 'dense' )
         grids.densityImages( colorMap, imageName )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
@@ -1055,12 +1071,12 @@ def main():
         print "\tComputing speeds",
         s = time.clock()
         stats = grids.computeSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED )
-        stats.write( os.path.join( outPath, 'speedStat.txt' ) )
+        stats.write( os.path.join( outPath, 'speed', 'stat.txt' ) )
         stats.savePlot( os.path.join( outPath, 'speed', 'stat.png' ), 'Average speed per step' )
         print "Took", (time.clock() - s), "seconds"
         print "\tComputing displacement images",
         s = time.clock()
-        imageName = os.path.join( outPath, 'speed' )
+        imageName = os.path.join( outPath, 'speed', 'speed' )
         grids.speedImages( colorMap, imageName )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
@@ -1069,12 +1085,12 @@ def main():
         print "\tComputing omega",
         s = time.clock()
         stats = grids.computeAngularSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED, FRAME_WINDOW )
-        stats.write( os.path.join( outPath, 'omegaStat.txt' ) )
+        stats.write( os.path.join( outPath, 'omega', 'stat.txt' ) )
         stats.savePlot( os.path.join( outPath, 'omega', 'stat.png'), 'Average radial velocity per step' ) 
         print "Took", (time.clock() - s), "seconds"
         print "\tComputing omega images",
         s = time.clock()
-        imageName = os.path.join( outPath, 'omega' )
+        imageName = os.path.join( outPath, 'omega', 'omega' )
         colorMap = RedBlueMap()
         grids.makeImages( colorMap, imageName, 'omega' )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
@@ -1088,7 +1104,7 @@ def main():
         print "Took", (time.clock() - s), "seconds"
         print "\tComputing advection images",
         s = time.clock()
-        imageName = 'data/advec_'
+        imageName = os.path.join( outPath, 'advec', 'advec' )
         grids.makeImages( colorMap, imageName, 'advec' )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
@@ -1104,7 +1120,8 @@ def main():
                   GLLine( Vector2( -1.23406, -6.92567 ), Vector2( 1.13718, -51.18881  ) ),
                   GLLine( Vector2( 3.50842, -7.45261 ), Vector2( 44.08297, -45.65592 ) ) )
         flow = computeFlowLines( Vector2( 0, 0 ), lines, frameSet )
-        file = open( 'data/flow.txt', 'w' )
+        flowFile = os.path.join( outPath, 'flow', 'flow.txt' )
+        file = open( flowFile, 'w' )
         flow.write( file )
         file.close()
 
