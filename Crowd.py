@@ -1140,15 +1140,23 @@ def main():
         srcFile = '13KNewObsNoAgg'
         srcFile = '13KSame'
         srcFile = '13KSameNoAgg'
+        srcFile = '13KNew0'
+        srcFile = '13KNew20'
+        srcFile = '13K_custom'
+        srcFile = '13K_thingy'
+        srcFile = '25K_thingy'
+        srcFile = '25k_slower'
+        srcFile = '25k_slowest'
+        srcFile = '25k_evenSlower'
+##        srcFile = 'denseTest'
         timeStep = 0.1
         FRAME_STEP = 10
-##        MAX_FRAMES = 240
         outPath = os.path.join( '/projects','tawaf','sim','jun2011' )
         path = os.path.join( outPath, '{0}.scb'.format( srcFile ) )
         outPath = os.path.join( outPath, srcFile )
         
 ##        MAX_AGENTS = 50
-##        MAX_FRAMES = 50
+        MAX_FRAMES = 420
     elif ( False ):
         size = Vector2( 15, 5 )
         minPt = Vector2( -1.0, -2.5 )
@@ -1183,9 +1191,10 @@ def main():
 
     dfunc = lambda x, y: distFunc( x, y, R * R )
 
-    if ( False ):
+    if ( True ):
         if ( not os.path.exists( os.path.join( outPath, 'dense' ) ) ):
             os.makedirs( os.path.join( outPath, 'dense' ) )
+    
         print "\tComputing density with R = %f" % R
         s = time.clock()
         grids.computeDensity( minPt, size, res, dfunc, R, frameSet )
@@ -1197,9 +1206,10 @@ def main():
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
-    if ( True ):
+    if ( False ):
         if ( not os.path.exists( os.path.join( outPath, 'speed' ) ) ):
             os.makedirs( os.path.join( outPath, 'speed' ) )
+    
         print "\tComputing speeds",
         s = time.clock()
         stats = grids.computeSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED )
@@ -1217,6 +1227,7 @@ def main():
     if ( False ):
         if ( not os.path.exists( os.path.join( outPath, 'omega' ) ) ):
             os.makedirs( os.path.join( outPath, 'omega' ) )
+    
         print "\tComputing omega",
         s = time.clock()
         stats = grids.computeAngularSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED, FRAME_WINDOW )
@@ -1234,6 +1245,7 @@ def main():
     if ( False ):
         if ( not os.path.exists( os.path.join( outPath, 'progress' ) ) ):
             os.makedirs( os.path.join( outPath, 'progress' ) )
+
         print "\tComputing progress",
         s = time.clock()
         stats = grids.computeProgress( minPt, size, res, R, frameSet, timeStep, FRAME_WINDOW )
@@ -1251,6 +1263,7 @@ def main():
     if ( False ):
         if ( not os.path.exists( os.path.join( outPath, 'advec' ) ) ):
             os.makedirs( os.path.join( outPath, 'advec' ) )
+    
         lines = [ GLLine( Vector2(0.81592, 5.12050), Vector2( 0.96233, -5.27461) ) ]
         print "\tComputing advection",
         s = time.clock()
