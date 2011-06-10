@@ -9,6 +9,7 @@ import os
 from GLWidget import *
 from roadmapBuilder import readObstacles
 from Context import *
+from CrowdWork import CrowdAnalyzeThread
 
 class Config:
     """An analysis configuration state"""
@@ -39,6 +40,7 @@ class Config:
         
 class CrowdWindow( QtGui.QMainWindow):
     def __init__( self, configName='', parent = None ):
+        self.workThread = None
         QtGui.QMainWindow.__init__( self, parent )
         self.setWindowTitle( 'Crowd Analysis' )
         splitter = QtGui.QSplitter( self )
@@ -439,73 +441,37 @@ class CrowdWindow( QtGui.QMainWindow):
 
     def collectInputConfig( self ):
         '''Returns a Config object reflecting the configuration of the input panel'''
-        pass    
+        pass
+
+    def logMessage( self, msg ):
+        '''Append a message to the console'''
+        self.console.appendPlainText( msg )
+
+    def workDone( self ):
+        '''Work has finished, reactivate the button'''
+        self.goBtn.setEnabled( True )
+        QtCore.QObject.disconnect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )
+        self.workThread.processMessage.disconnect( self.logMessage )
+        self.workThread = None
+        
 
     def process( self ):
-        self.console.appendPlainText( '\nStarting processing' )
-        cfg = self.collectFullConfig()
-        cellSize = float( cfg[ 'cellSize' ] )
-        domainSize = Crowd.Vector2( float( cfg[ 'sizeX' ] ), float( cfg[ 'sizeY' ] ) )
-        domainMin = Crowd.Vector2( float( cfg[ 'minPtX' ] ), float( cfg[ 'minPtY' ] ) )
-        res = (int( domainSize.x / cellSize ), int( domainSize.y / cellSize ) )
-        scbFile = cfg[ 'SCB' ] 
+        if ( self.workThread == None ):
+            self.goBtn.setEnabled( False )
+            cfg = self.collectFullConfig()
+            cfg[ 'DENSE_ACTION' ] = self.doDensityGUI.currentIndex()
+            cfg[ 'SPEED_ACTION' ] = self.doSpeedGUI.currentIndex()
+            cfg[ 'ADVEC_ACTION' ] = self.doFlowAdvecGUI.currentIndex()
+            cfg[ 'ADVEC_LINES' ] = self.flowAdvecLineCtx.lines
+            self.workThread = CrowdAnalyzeThread( cfg )
+            # Make connections that allow the thread to inform the gui when finished and output messages
+            QtCore.QObject.connect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )
+            self.workThread.processMessage.connect( self.logMessage )
+            self.workThread.start()
+            self.console.appendPlainText( '\nStarting processing' )
+        else:
+            self.console.appendPlainText( 'Already running' )
 
-        frameSet = Crowd.FrameSet( scbFile )
-        print cfg['tempDir'], cfg['tempName']
-        tempFile = os.path.join( cfg[ 'tempDir' ], cfg[ 'tempName' ] )
-        grids = Crowd.GridFileSequence( tempFile )
-        colorMap = COLOR_MAPS[ cfg[ 'colorMap' ] ]()
-
-        R = cfg[ 'kernelSize' ]
-        
-        def distFunc( dist, radiusSqd ):
-            """Constant distance function"""
-            # This is the local density function provided by Helbing
-            return 1.0 / ( pi * radiusSqd ) * exp( - (dist * dist / radiusSqd ) )        
-
-        dfunc = lambda x: distFunc( x, R * R )
-
-        densityAction = self.doDensityGUI.currentIndex()
-        if ( densityAction == 1 or densityAction == 3 ):
-            self.console.appendPlainText( 'Computing densities...' )
-            s = time.clock()
-            grids.computeDensity( domainMin, domainSize, res, dfunc, 3 * R, frameSet )
-            self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )
-        if ( densityAction >= 2 ):
-            imageName = os.path.join( cfg[ 'outDir' ], 'density_' )
-            self.console.appendPlainText( 'Creating density images...' )
-            s = time.clock()
-            grids.makeImages( colorMap, imageName, 'density' )
-            pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
-            self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )
-
-        speedAction = self.doSpeedGUI.currentIndex()
-        if ( speedAction == 1 or speedAction == 3 ):
-            self.console.appendPlainText( 'Computing speeds...' )
-            s = time.clock()
-            grids.computeSpeeds( domainMin, domainSize, res, 3 * R, frameSet, float( cfg[ 'timeStep' ] ), Crowd.GridFileSequence.BLIT_SPEED, int( cfg[ 'speedWindow' ] ) )
-            self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )
-        if ( speedAction >= 2 ):
-            imageName = os.path.join( cfg[ 'outDir' ], 'speed_' )
-            self.console.appendPlainText( 'Creating speed images...' )
-            s = time.clock()
-            grids.makeImages( colorMap, imageName, 'speed' )
-            pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
-            self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )            
-
-        advecAction = self.doFlowAdvecGUI.currentIndex()
-        if ( advecAction == 1 or advecAction == 3 ):
-            self.console.appendPlainText( 'Computing advection...' )
-            s = time.clock()
-            grids.computeAdvecFlow( domainMin, domainSize, res, dfunc, 3.0, 3 * R, frameSet, self.flowAdvecLineCtx.lines )
-            self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )
-        if ( advecAction >= 2 ):
-            imageName = os.path.join( cfg[ 'outDir' ], 'advec_' )
-            self.console.appendPlainText( 'Creating flow advection images...' )
-            s = time.clock()
-            grids.makeImages( colorMap, imageName, 'advec' )
-            pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
-            self.console.appendPlainText( 'done in %.2f seconds' % ( time.clock() - s ) )            
 
     def loadObstacle( self ):
         """Causes the indicated obstacle file to be loaded into the OpenGL viewer"""
