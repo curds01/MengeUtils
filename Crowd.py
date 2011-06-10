@@ -105,7 +105,6 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet, minCorner, si
     while ( frame ):
         # create grid and rasterize
         g = Grid( minCorner, size, resolution )
-##        g.rasterizePosition2( frame, distFunc, maxRad )
         g.rasterizePosition( frame, distFunc, maxRad )
         # update log
         log.setMax( g.maxVal() )
@@ -139,7 +138,7 @@ def threadOutput( outFile, buffer, bufferLock, startTime ):
 
 class Kernel:
     """Distance function kernel"""
-    def __init__( self, radius, dFunc, cSize, normalize=True ):
+    def __init__( self, radius, dFunc, cSize ):
         """Creates a kernel to add into the grid.normalize
         The kernel is a 2d grid (with odd # of cells in both directions.)
         The cell count is determined by the radius and cell size.x
@@ -152,11 +151,18 @@ class Kernel:
             hCount += 1
         o = np.arange( -(hCount/2), hCount/2 + 1) * cSize.x
         X, Y = np.meshgrid( o, o )
-        #self.data = dFunc( X * X + Y * Y )
         self.data = dFunc( X, Y )
-        if ( normalize ):
-            self.data /= self.data.sum()
 
+
+    def max( self ):
+        return self.data.max()
+
+    def min( self ):
+        return self.data.min()
+
+    def sum( self ):
+        return self.data.sum()
+    
     def __str__( self ):
         return str( self.data )
 
@@ -257,6 +263,8 @@ class Grid:
     def rasterizePosition( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
         kernel = Kernel( maxRad, distFunc, self.cellSize )
+
+        # This assumes the kernel dimensions are ODD-sized        
         w, h = kernel.data.shape
         w /= 2
         h /= 2
@@ -751,7 +759,7 @@ class GridFileSequence:
             gridFunc = lambda: Grid( minCorner, size, resolution )
         elif ( speedType == GridFileSequence.UNNORM_SPEED ):
             speedFunc = Grid.rasterizeSpeedGauss
-            kernel = Kernel( maxRad, distFunc, cellSize, False )
+            kernel = Kernel( maxRad, distFunc, cellSize )
             gridFunc = lambda: Grid( minCorner, size, resolution )
         elif ( speedType == GridFileSequence.NORM_DENSE_SPEED ):
             try:
@@ -775,7 +783,7 @@ class GridFileSequence:
             X = np.zeros( resolution, dtype=np.float32 )
             Y = np.zeros( resolution, dtype=np.float32 )
             speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeVelocity( g, X, Y, k, f2, f1, dist, rad, step )
-            kernel = Kernel( maxRad, distFunc, cellSize, False )
+            kernel = Kernel( maxRad, distFunc, cellSize )
 
         # TODO: This will probably break for some other speed vis method
         stats = StatRecord( frameSet.agentCount() )              
@@ -906,7 +914,7 @@ class GridFileSequence:
         elif ( speedType == GridFileSequence.UNNORM_SPEED ):
             raise ValueError, "Compute Angular speed doesn't support unnormalized angular speed"
 ##            speedFunc = Grid.rasterizeSpeedGauss
-##            kernel = Kernel( maxRad, distFunc, cellSize, False )
+##            kernel = Kernel( maxRad, distFunc, cellSize )
 ##            gridFunc = lambda: Grid( minCorner, size, resolution )
         elif ( speedType == GridFileSequence.NORM_DENSE_SPEED ):
             raise ValueError, "Compute Angular speed doesn't support normalized density angular speed"
@@ -933,7 +941,7 @@ class GridFileSequence:
 ##            X = np.zeros( resolution, dtype=np.float32 )
 ##            Y = np.zeros( resolution, dtype=np.float32 )
 ##            speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeVelocity( g, X, Y, k, f2, f1, dist, rad, step )
-##            kernel = Kernel( maxRad, distFunc, cellSize, False )
+##            kernel = Kernel( maxRad, distFunc, cellSize )
 
         stats = StatRecord( frameSet.agentCount() )            
         while ( data[ -1 ][0] ): 
@@ -1100,7 +1108,7 @@ def main():
     MAX_FRAMES = -1
     FRAME_STEP = 1
     FRAME_WINDOW = 1
-    # I want cell-size to be approximately 0.4 - i.e. a single person
+    
     timeStep = 1.0
     outPath = '.'
     if ( False ):
@@ -1179,14 +1187,14 @@ def main():
     def distFunc( dispX, dispY, radiusSqd ):
         """Constant distance function"""
         # This is the local density function provided by Helbing
-        return np.exp( - ( (dispX * dispX + dispY * dispY) / radiusSqd ) )        
+        return np.exp( -(dispX * dispX + dispY * dispY) / (2.0 * radiusSqd ) ) / ( 2.0 * np.pi * radiusSqd )       
 
     dfunc = lambda x, y: distFunc( x, y, R * R )
 
     if ( False ):
         print "\tComputing density with R = %f" % R
         s = time.clock()
-        grids.computeDensity(  minPt, size, res, dfunc, 3 * R, frameSet )
+        grids.computeDensity( minPt, size, res, dfunc, R, frameSet )
         print "\t\tTotal computation time: ", (time.clock() - s), "seconds"
         print "\tComputing density images",
         s = time.clock()
