@@ -996,7 +996,7 @@ class GridFileSequence:
                 pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
             f.close()
 
-    def speedImages( self, colorMap, fileBase ):
+    def speedImages( self, colorMap, fileBase, limit, maxFrames=-1 ):
         """Outputs the density images"""
         try:
             f = open( self.outFileName + ".speed", "rb" )
@@ -1004,9 +1004,13 @@ class GridFileSequence:
             print "Can't open desnity file: %.speed" % ( self.outFileName )
         else:
             w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
+            maxVal = minVal + (maxVal - minVal) * limit
             print "Speed images in range:", minVal, maxVal
             gridSize = w * h * 4
             g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h) )
+            if ( maxFrames > -1 ):
+                if ( maxFrames < count ):
+                    count = maxFrames
             for i in range( count ):
 ##                g.cells = np.loadtxt( 'junk%d.speed' % i )
 
@@ -1205,7 +1209,8 @@ def main():
         print "\tComputing displacement images",
         s = time.clock()
         imageName = os.path.join( outPath, 'speed', 'speed' )
-        grids.speedImages( colorMap, imageName )
+        # the limit: 0.5 means the color map is saturated from from minVal to 50% of the range
+        grids.speedImages( colorMap, imageName, 0.5, MAX_FRAMES )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
