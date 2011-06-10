@@ -1169,19 +1169,7 @@ def main():
     # todo:    
 
     # confirm folders exist
-    if ( not os.path.exists( os.path.join( outPath, 'speed' ) ) ):
-        os.makedirs( os.path.join( outPath, 'speed' ) )
-    if ( not os.path.exists( os.path.join( outPath, 'dense' ) ) ):
-        os.makedirs( os.path.join( outPath, 'dense' ) )
-    if ( not os.path.exists( os.path.join( outPath, 'omega' ) ) ):
-        os.makedirs( os.path.join( outPath, 'omega' ) )
-    if ( not os.path.exists( os.path.join( outPath, 'flow' ) ) ):
-        os.makedirs( os.path.join( outPath, 'flow' ) )
-    if ( not os.path.exists( os.path.join( outPath, 'advec' ) ) ):
-        os.makedirs( os.path.join( outPath, 'advec' ) )
-    if ( not os.path.exists( os.path.join( outPath, 'progress' ) ) ):
-        os.makedirs( os.path.join( outPath, 'progress' ) )
-
+    
     R = 2.0
     
     def distFunc( dispX, dispY, radiusSqd ):
@@ -1192,6 +1180,8 @@ def main():
     dfunc = lambda x, y: distFunc( x, y, R * R )
 
     if ( False ):
+        if ( not os.path.exists( os.path.join( outPath, 'dense' ) ) ):
+            os.makedirs( os.path.join( outPath, 'dense' ) )
         print "\tComputing density with R = %f" % R
         s = time.clock()
         grids.computeDensity( minPt, size, res, dfunc, R, frameSet )
@@ -1204,6 +1194,8 @@ def main():
         print "Took", (time.clock() - s), "seconds"
 
     if ( True ):
+        if ( not os.path.exists( os.path.join( outPath, 'speed' ) ) ):
+            os.makedirs( os.path.join( outPath, 'speed' ) )
         print "\tComputing speeds",
         s = time.clock()
         stats = grids.computeSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED )
@@ -1218,6 +1210,8 @@ def main():
         print "Took", (time.clock() - s), "seconds"
 
     if ( False ):
+        if ( not os.path.exists( os.path.join( outPath, 'omega' ) ) ):
+            os.makedirs( os.path.join( outPath, 'omega' ) )
         print "\tComputing omega",
         s = time.clock()
         stats = grids.computeAngularSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED, FRAME_WINDOW )
@@ -1233,6 +1227,8 @@ def main():
         print "Took", (time.clock() - s), "seconds"
 
     if ( False ):
+        if ( not os.path.exists( os.path.join( outPath, 'progress' ) ) ):
+            os.makedirs( os.path.join( outPath, 'progress' ) )
         print "\tComputing progress",
         s = time.clock()
         stats = grids.computeProgress( minPt, size, res, R, frameSet, timeStep, FRAME_WINDOW )
@@ -1248,6 +1244,8 @@ def main():
         print "Took", (time.clock() - s), "seconds"
 
     if ( False ):
+        if ( not os.path.exists( os.path.join( outPath, 'advec' ) ) ):
+            os.makedirs( os.path.join( outPath, 'advec' ) )
         lines = [ GLLine( Vector2(0.81592, 5.12050), Vector2( 0.96233, -5.27461) ) ]
         print "\tComputing advection",
         s = time.clock()
@@ -1262,7 +1260,9 @@ def main():
         
     if ( False ):
         # flow lines
-                     
+        if ( not os.path.exists( os.path.join( outPath, 'flow' ) ) ):
+            os.makedirs( os.path.join( outPath, 'flow' ) )
+                 
         lines = ( GLLine( Vector2( 4.56230, -7.71608 ), Vector2( 81.49586, -4.55443  ) ),
                   GLLine( Vector2( 5.08924, 5.72094 ), Vector2( 82.28628, 8.61913  ) ),
                   GLLine( Vector2( 3.50842, 8.09218 ), Vector2( 2.71800, 51.30145  ) ),
