@@ -5,6 +5,14 @@
 import pygame
 import numpy as np
 
+def clip( value, minVal, maxVal ):
+    if ( value < minVal ):
+        return minVal
+    elif ( value > maxVal ):
+        return maxVal
+    else:
+        return value
+    
 class ColorMap:
     BAR_HEIGHT = 200    # height of the bar in pixels
     BAR_WIDTH = 20      # width of the bar
@@ -20,6 +28,11 @@ class ColorMap:
             self.fixedRange = True
         if ( ColorMap.FONT == None ):
             ColorMap.FONT = pygame.font.Font( 'arialn.ttf', 12 )
+
+    def getColor( self, value, (minVal, maxVal) ):
+        '''Given a range of values (minVal and maxVal) and a single value, returns
+        an RGB value for that value'''
+        raise AttributeError, "getColor not instantiated for this class: %s" % ( str( self.__class__ ) )
 
     def colorOnSurface( self, dataRange, data ):
         """Creates a surface with the data colored onto it"""
@@ -119,6 +132,21 @@ class FlameMap( ColorMap ):
         """Color map goes from black->blue->red->orange->yellow"""
         ColorMap.__init__( self, dataRange )
         
+    def getColor( self, value, (minVal, maxVal) ):
+        '''Given a range of values (minVal and maxVal) and a single value, returns
+        an RGB value for that value'''
+        normData = self._normalize( value, (minVal, maxVal ) )
+        color = [0, 0, 0]
+        color[0] = int( clip( ( ( normData - 0.25 ) * 4.0 ), 0.0, 1.0 ) * 255 )
+        color[1] = int( clip( ( ( normData - 0.5 ) * 4.0 ), 0.0, 1.0 ) * 255 )
+        if ( normData < 0.25 ):
+            color[2] = int( clip( normData * 4.0, 0.0, 1.0 ) * 255 )
+        elif ( normData > 0.75 ):
+            color[2] = int( clip( ( normData - 0.75 ) * 4.0, 0.0, 1.0 ) * 255 )
+        else:
+            color[2] = int( clip( 1.0 - ( normData - 0.25 ) * 4.0, 0.0, 1.0 ) * 255 )
+        return color
+
     def colorOnSurface( self, dataRange, data ):
         """Creates a greyscale map the same size as the data"""
         assert( len( data.shape ) == 2 )
