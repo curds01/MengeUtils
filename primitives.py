@@ -70,7 +70,7 @@ class Vector2:
         return "<%g, %g>" % (self.x, self.y )
 
     def __repr__( self ):
-        return str(self)        
+        return str(self)
 
 class Vector3:
     def __init__( self, x, y, z ):

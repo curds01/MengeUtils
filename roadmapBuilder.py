@@ -612,7 +612,7 @@ class View:
         self.resizeGL( ( self.wWidth, self.wHeight ) )
         
     def screenToWorld( self, (x, y ) ):
-        """Converts a screen-space value into a world-space value"""
+        """Converts a screen-space value into a world-space value - the result is a 2-TUPLE"""
         x_GL = x / float( self.wWidth ) * self.vWidth + self.vLeft
         y_GL = (1.0 - y / float( self.wHeight ) ) * self.vHeight + self.vBottom
         return x_GL, y_GL
@@ -1093,28 +1093,28 @@ def message( view, txt ):
 def writeRoadmap():
     pass
 
-def usage():
-    print "roadmapBuilder <-obst obstFile.xml> <-agt agtFile.txt> <-graph graphFile.txt> <-field fieldFile.txt>"
-    print "  Edit configuration for crowd simulation"
-    print "  Options (all are optional):"
-    print "    -obst obstFile.xml     - load the obstacle description from the xml file obstFile.xml"
-    print "    -agt agtFile.txt       - load the agent definitions from the agent description file."
-    print "    -graph graphFile.txt   - load a roadmap definition from graphFile.txt"
-    print "    -field fieldFile.txt   - load a vector field.  If none is given a default vector field is generated"
-    
-
 def main():
-    from commandline import SimpleParamManager
+    import optparse
+    parser = optparse.OptionParser()
+    parser.add_option( "-g", "--graph", help="Optional graph file to load",
+                       action="store", dest="graphName", default='' )
+    parser.add_option( "-o", "--obstacle", help="Optional obstacle file to load.",
+                       action="store", dest='obstName', default='' )
+    parser.add_option( "-a", "--agent", help="Optional agent position file to load.",
+                       action="store", dest='agtName', default='' )
+    parser.add_option( "-f", "--field", help="Optional vector field file to load.",
+                       action="store", dest='fieldName', default='' )
+    options, args = parser.parse_args()
 
-    try:
-        pMan = SimpleParamManager( sys.argv[1:], {'obst':'', 'agt':'', 'graph':'', 'field':'' } )
-    except IOError:
-        usage()
-
-    obstName = pMan[ 'obst' ]
-    agtName = pMan[ 'agt' ]
-    graphName = pMan[ 'graph' ]
-    fieldName = pMan[ 'field' ]
+    obstName = options.obstName
+    agtName = options.agtName
+    graphName = options.graphName
+    fieldName = options.fieldName
+    print "Arguments:"
+    print "\tobstacles:", obstName
+    print "\tagents:   ", agtName
+    print "\tgraph:    ", graphName
+    print "\tfield:    ", fieldName
     if ( obstName ):
         obstacles, bb = readObstacles( obstName )
     else:
@@ -1137,7 +1137,7 @@ def main():
     
     graph = Graph()
     if ( graphName ):
-        graph.initFromFile( sys.argv[3] )
+        graph.initFromFile( graphName )
 
     # create viewer
     pygame.init()
