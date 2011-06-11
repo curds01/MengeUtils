@@ -1,6 +1,6 @@
 from ObjReader import ObjFile
 from math import sqrt, atan2
-from primitives import Vector3
+from primitives import Vector3, Vector2
 
 class Plane:
     """The definition of a plane in R3 -- evaluating the plane returns distance"""
@@ -347,6 +347,7 @@ class Polygon:
             s += vertIndent + '<Vertex p_x="%f" p_y="%f" />\n' % ( v.x, v.z )
         s += baseIndent + '</Obstacle>'
         return s
+    
     def vertCount( self ):
         return len( self.vertices )
 
@@ -355,6 +356,36 @@ class Polygon:
         if ( not self.closed ):
             count -= 1
         return count
+
+    def pointInside( self, point ):
+        '''This assumes that the verticesa are Vector2 and the point is vector2'''
+        assert( point.__class__ == Vector2 )
+        assert( self.closed == True )
+        # the algorithm is as follows
+        #   for each segment
+        #       If the segment lies completely above or below the point, 
+        #           OR completely to the right
+        #           don't count it
+        #       else:
+        #           intersect a horizontal line with the segment starting at point and
+        #               moving to -infinity
+        #           Compute the x value of the line segment at y = point.y
+        #               If x < point.x, increment hit count
+        #   If hit count is odd, it is inside.  If it is even, it is outside
+        count = 0
+        for i in range( len( self.vertices ) ):
+            v1 = self.vertices[i-1]
+            v2 = self.vertices[i]
+            if ( ( v1.x > point.x and v2.x > point.x ) or
+                 ( v1.y < point.y and v2.y < point.y ) or
+                 ( v1.y > point.y and v2.y > point.y ) ):
+                 continue
+            dy = v2.y - v1.y
+            t = ( point.y - v1.y ) / dy
+            dx = t * ( v2.x - v1.x ) + v1.x
+            if ( dx < point.x ):
+                count += 1
+        return count % 2 == 1
                                                   
 def buildPolygons( segments, upDir ):
     """Builds a set of connected polygons from the list of segments"""
