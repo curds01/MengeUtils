@@ -29,6 +29,7 @@ from primitives import Vector2
 from scbData import FrameSet
 from trace import renderTraces
 import pylab as plt
+from ObjSlice import Polygon
 
 class StatRecord:
     '''A simple, callable object for accumulating statistical information about the
@@ -653,6 +654,76 @@ class Grid:
         """Replaces all cells with the value oldVal with newVal"""
         self.cells[ self.cells == oldVal ] = newVal
 
+
+##          HELPER FUNCTION FOR REGION TESTS
+def findCurrentRegion( frame, polygons ):
+    '''Given a frame, determines which region each agent is in.
+    Performs a brute-force search across all regions'''
+    regions = np.zeros( len( frame.agents ), dtype=np.int )
+    for a, agt in enumerate( frame.agents ):
+        poly = -1
+        for i, p in enumerate( polygons ):
+            if ( p.pointInside( agt.pos ) ):
+                poly = i
+                break
+        assert poly != -1
+        regions[a] = poly
+    return regions
+
+def updateRegion( currRegion, pos, polygons ):
+    '''Given a Vector2 (pos) and the expectation of its last known region, provides
+    a new region assignment.'''
+    if ( polygons[ currRegion ].pointInside( pos ) ):
+        return currRegion
+    else:
+        test = ( currRegion + 1 ) % len( polygons )
+        if ( polygons[ test ].pointInside( pos ) ):
+            return test
+        else:
+            return currRegion
+
+def findRegionSpeed( f1, f2, timeStep, polygons, regions=None ):
+    '''Given a frame of data, and a set of polygons computes the average region speed for
+    each region.  If regions is a Nx1 array (for N agents in frame) then it uses a smart
+    mechanism for determining which region the agent is in (and updates it accordingly)
+    Otherwise, it performs the brute-force search.
+    Returns an Mx1 array (for M polygons) and the regions object.'''
+    # if regions is defined, it's the location of the region for f1
+    #   This region accumulates the speed
+    if ( regions == None ):
+        regions = findCurrentRegion( f1, polygons )
+    speeds = np.zeros( len(polygons), dtype=np.float32 )
+    counts = np.zeros( len(polygons), dtype=np.int )
+    for a, ag1 in enumerate( f1.agents ):
+        # compute speed
+        p1 = ag1.pos
+        p2 = f2.agents[ a ].pos
+        disp = (p2 - p1).magnitude()
+        speed = disp / timeStep
+        
+        # increment counters and accumulators
+        speeds[ regions[a] ] += speed
+        counts[ regions[a] ] += 1
+        # update region
+        regions[ a ] = updateRegion( regions[a], p2, polygons )
+    mask = counts != 0
+    speeds[ mask ] /= counts[ mask ]
+    return speeds, regions
+    
+def regionSpeedImages( dataFile, imagePath, polygons, colorMap ):
+    data = np.loadtxt( dataFile )
+    data = data.mean( axis=0 )
+    print data
+    minVal = data.min()
+    maxVal = data.max()
+    print "\tmin:", minVal
+    print "\tmax:", maxVal
+    for p in xrange( data.size ):
+        print "Polygon", p, "has speed:", data[p], "and rgb:", colorMap.getColor( data[p], (minVal, maxVal) )
+
+    pygame.image.save( colorMap.mapBar( (minVal, maxVal), 7), '%sbar.png' % ( imagePath ) )    
+    
+    
 class GridFileSequence:
     """Creates a grid sequence from a frame file and streams the resulting grids to
        a file"""
@@ -725,6 +796,33 @@ class GridFileSequence:
         outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
         outFile.close()
 
+    def computeRegionSpeed( self, minCorner, size, resolution, frameSet, polygons, timeStep, timeWindow=1 ):
+        '''Given an ordered set of polygons, computes the average speed for all agents in each polygon
+        per time step.'''
+        # NOTE: This only really applies to the tawaf.
+        print "Computing regional speed:"
+        print "\tminCorner:       ", minCorner
+        print "\tsize:            ", size
+        print "\tresolution:      ", resolution
+        print "\ttime step:       ", timeStep
+        print "Number of polygons:", len(polygons)
+        gridSize = resolution[0] * resolution[1]
+        cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )
+        frameSet.setNext( 0 )        
+        data = [ frameSet.next() for i in range( timeWindow + 1 ) ]
+
+        regions = None
+        speeds = []
+        while ( data[ -1 ][0] ):
+            f1, i1 = data.pop(0)
+            f2, i2 = data[ -1 ]
+            frameSpeeds, regions = findRegionSpeed( f1, f2, timeStep * timeWindow, polygons, regions )
+            speeds.append( frameSpeeds )
+            data.append( frameSet.next() )
+        data = np.array( speeds )
+        np.savetxt( self.outFileName + ".region", data, fmt='%.5f' )
+            
+        
     def computeSpeeds( self, minCorner, size, resolution, maxRad, frameSet, timeStep, speedType=NORM_CONTRIB_SPEED, timeWindow=1 ):
         """Computes the displacements from one cell to the next"""
         print "Computing speeds:"
@@ -1144,9 +1242,9 @@ def main():
         srcFile = '13KNew20'
         srcFile = '13K_custom'
         srcFile = '13K_thingy'
-        srcFile = '25K_thingy'
-        srcFile = '25k_slower'
-        srcFile = '25k_slowest'
+##        srcFile = '25K_thingy'
+##        srcFile = '25k_slower'
+##        srcFile = '25k_slowest'
         srcFile = '25k_evenSlower'
 ##        srcFile = 'denseTest'
         timeStep = 0.1
@@ -1180,8 +1278,6 @@ def main():
     # output the parameters used to create the data
     # todo:    
 
-    # confirm folders exist
-    
     R = 2.0
     
     def distFunc( dispX, dispY, radiusSqd ):
@@ -1191,7 +1287,7 @@ def main():
 
     dfunc = lambda x, y: distFunc( x, y, R * R )
 
-    if ( True ):
+    if ( False ):
         if ( not os.path.exists( os.path.join( outPath, 'dense' ) ) ):
             os.makedirs( os.path.join( outPath, 'dense' ) )
     
@@ -1267,7 +1363,7 @@ def main():
         lines = [ GLLine( Vector2(0.81592, 5.12050), Vector2( 0.96233, -5.27461) ) ]
         print "\tComputing advection",
         s = time.clock()
-        grids.computeAdvecFlow( minPt, size, res, dfunc, 3.0, 3 * R, frameSet, lines )
+        grids.computeAdvecFlow( minPt, size, res, dfunc, 3.0, R, frameSet, lines )
         print "Took", (time.clock() - s), "seconds"
         print "\tComputing advection images",
         s = time.clock()
@@ -1275,6 +1371,51 @@ def main():
         grids.makeImages( colorMap, imageName, 'advec' )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
+
+    if ( True ):
+        if ( not os.path.exists( os.path.join( outPath, 'regionSpeed' ) ) ):
+            os.makedirs( os.path.join( outPath, 'regionSpeed' ) )
+        print "\tComputing region speeds"
+        s = time.clock()
+        vertices = ( Vector2( -0.551530, 0.792406 ),
+                     Vector2( 3.736435, -58.246524 ),
+                     Vector2( 42.376927, -56.160723 ),
+                     Vector2( 5.681046, -6.353232 ),
+                     Vector2( 92.823337, -4.904953 ),
+                     Vector2( 5.376837, 6.823865 ),
+                     Vector2( 92.526405, 9.199321 ),
+                     Vector2( 88.517822, -48.850902 ),
+                     Vector2( 6.416100, 53.293737 ),
+                     Vector2( -5.906582, 6.230001 ),
+                     Vector2( -6.203514, 53.739135 ),
+                     Vector2( 62.833196, 57.896184 ),
+                     Vector2( 93.268736, 43.643444 ),
+                     Vector2( -41.686899, -61.322050 ),
+                     Vector2( -74.794826, -25.838665 ),
+                     Vector2( -75.388691, 49.582085 )
+                     )
+        vIDs = ( (0, 3, 4, 6, 5),
+                 (5, 6, 12, 11, 8),
+                 (5, 8, 10, 9, 0),
+                 (0, 9, 10, 15, 14, 13),
+                 (0, 13, 1),
+                 (0, 1, 2, 3),
+                 (3, 2, 7, 4)
+                 )
+        polygons = []
+        
+        for ids in vIDs:
+            p = Polygon()
+            p.closed = True
+            for id in ids:
+                p.vertices.append( vertices[id] )
+            polygons.append( p )
+        grids.computeRegionSpeed( minPt, size, res, frameSet, polygons, timeStep )
+        print "Took", (time.clock() - s), "seconds"
+        # output image
+        imagePath = os.path.join( outPath, 'regionSpeed', 'region' )
+        colorMap = FlameMap()
+        regionSpeedImages( grids.outFileName + ".region", imagePath, polygons, colorMap )
         
     if ( False ):
         # flow lines
@@ -1285,7 +1426,7 @@ def main():
                   GLLine( Vector2( 5.08924, 5.72094 ), Vector2( 82.28628, 8.61913  ) ),
                   GLLine( Vector2( 3.50842, 8.09218 ), Vector2( 2.71800, 51.30145  ) ),
                   GLLine( Vector2( -5.97654, 5.72094 ), Vector2( -8.87472, 51.56492  ) ),
-                  GLLine( Vector2( -6.50348, -7.18914 ), Vector2( -40.75473, -53.56005  ) ),
+                  GLLine( Vector2( -6.50348, -7.18914 ), Vector2(  -40.75473, -53.56005 ) ),
                   GLLine( Vector2( -1.23406, -6.92567 ), Vector2( 1.13718, -51.18881  ) ),
                   GLLine( Vector2( 3.50842, -7.45261 ), Vector2( 44.08297, -45.65592 ) ) )
         flow = computeFlowLines( Vector2( 0, 0 ), lines, frameSet )
