@@ -1102,8 +1102,10 @@ class GridFileSequence:
             print "Can't open desnity file: %.speed" % ( self.outFileName )
         else:
             w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
+            print "Speed images:"
+            print "\tFull range:          ", minVal, maxVal
             maxVal = minVal + (maxVal - minVal) * limit
-            print "Speed images in range:", minVal, maxVal
+            print "\tClamped visual range:", minVal, maxVal
             gridSize = w * h * 4
             g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h) )
             if ( maxFrames > -1 ):
