@@ -358,7 +358,7 @@ class ObstXMLParser(handler.ContentHandler):
             self.currObst = GLPoly()
             if ( int( attrs[ 'closed' ] ) != 0 ):
                 self.currObst.closed = True
-        elif ( name == 'Vertex' ):
+        elif ( name == 'Vertex' and self.currObst != None ):
             x = float( attrs['p_x'] )
             y = float( attrs['p_y'] )
             self.currObst.vertices.append( Vector3( x, y, 0 ) )
@@ -367,6 +367,7 @@ class ObstXMLParser(handler.ContentHandler):
         if ( name == "Obstacle" ):
             self.obstacles.append( self.currObst )
             self.bb.expand( self.currObst.vertices )
+            self.currObst = None
             
     def endDocument(self):
         print "Found %d obstacles" % ( len( self.obstacles ) )
