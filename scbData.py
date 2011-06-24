@@ -191,10 +191,19 @@ class NPFrameSet( FrameSet ):
         self.currFrameIndex += 1
         if ( not updateFrame or self.currFrame == None):
             self.currFrame = np.empty( ( self.readAgtCount, 3 ), dtype=np.float32 )
-        self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.frameSize ), np.float32, self.readAgtCount * 3 ), ( self.readAgtCount, 3 ) )
-        # seek forward based on skipping
-        self.file.seek( self.readDelta, 1 ) # advance to next frame
-        self.file.seek( self.strideDelta, 1 ) # advance according to stride
+        try:
+            self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.frameSize ), np.float32, self.readAgtCount * 3 ), ( self.readAgtCount, 3 ) )
+            # seek forward based on skipping
+            self.file.seek( self.readDelta, 1 ) # advance to next frame
+            self.file.seek( self.strideDelta, 1 ) # advance according to stride
+        except ValueError:
+            # this will happen when the file runs out
+            self.setNext( 0 )
+            self.currFrameIndex = 1
+            self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.frameSize ), np.float32, self.readAgtCount * 3 ), ( self.readAgtCount, 3 ) )
+            # seek forward based on skipping
+            self.file.seek( self.readDelta, 1 ) # advance to next frame
+            self.file.seek( self.strideDelta, 1 ) # advance according to stride
         
         return self.currFrame, self.currFrameIndex
 
