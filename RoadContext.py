@@ -5,6 +5,7 @@ import pygame
 from fieldTools import *
 import numpy as np
 from OpenGL.GL import *
+import scbData
 
 # This is here instead of Context.py because this is pygame dependent and that is QT dependent.
 #   I need to unify those.
@@ -101,6 +102,66 @@ class MouseEnabled:
         self.downX = 0
         self.downY = 0
         self.dragging = False
+
+class SCBContext( BaseContext ):
+    '''Plays back an scb file'''
+    def __init__( self, scbFileName ):
+        BaseContext.__init__( self )
+        self.scbData = None
+        self.frameCount = 0
+        self.currFrame = None
+        self.loadSCBData( scbFileName )
+        
+        print "SCBContext"
+        print "\tFrame count: ", self.frameCount
+        print "\tInitial frame: ", self.currFrame
+        print "\tFrame shape:", self.currFrame.shape
+
+    def loadSCBData( self, fileName ):
+        if ( fileName ):
+            self.scbData = scbData.NPFrameSet( fileName )
+            self.frameCount = self.scbData.totalFrames()
+            self.currFrame, self.currFrameID = self.scbData.next()
+
+    def drawAgents( self ):
+        if ( self.scbData ):
+            glPushAttrib( GL_COLOR_BUFFER_BIT | GL_POINT_BIT )
+            glPointSize( 3.0 )
+            glColor3f( 0.5, 1.0, 0.0 )
+            glBegin( GL_POINTS )
+            for row in self.currFrame:
+                glVertex3f( row[0], row[1], 0.0 )
+            glEnd()
+            glPopAttrib()
+
+    def drawGL( self, view ):
+        '''Draws the agent context into the view'''
+        self.drawAgents()
+        title = "Play SCB -- "
+        if ( self.scbData ):
+            title += "frame %d (%d agents)" % (self.currFrameID, self.scbData.agtCount )
+        else:
+            title += "no scb file loaded"
+        view.printText( title,  (10,10) )            
+            
+    def handleKeyboard( self, event, view ):
+        """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
+        result = ContextResult()
+        mods = pygame.key.get_mods()
+        hasCtrl = mods & pygame.KMOD_CTRL
+        hasAlt = mods & pygame.KMOD_ALT
+        hasShift = mods & pygame.KMOD_SHIFT
+        noMods = not( hasShift or hasCtrl or hasAlt )
+        if ( event.type == pygame.KEYDOWN ):
+            if ( event.key == pygame.K_RIGHT and noMods ):
+                if ( self.scbData ):
+                    self.currFrame, self.currFrameID = self.scbData.next()
+                    result.set( True, True )
+            elif ( event.key == pygame.K_DELETE and noMods ):
+                result.set( True, self.agents.deleteActiveAgent() )
+        return result
+
+    
         
 class AgentContext( BaseContext, MouseEnabled ):
     '''A context for adding agents-goal pairs and editing existing pairs'''

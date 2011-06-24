@@ -8,7 +8,7 @@ from primitives import Vector3
 from vField import GLVectorField
 
 # contexts
-from RoadContext import ContextSwitcher, AgentContext, FieldEditContext
+from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext
 from Context import ContextResult
 
 # sax parser for obstacles
@@ -1104,17 +1104,21 @@ def main():
                        action="store", dest='agtName', default='' )
     parser.add_option( "-f", "--field", help="Optional vector field file to load.",
                        action="store", dest='fieldName', default='' )
+    parser.add_option( "-s", "--scb", help="Optional scb file to load.",
+                       action="store", dest='scbName', default='' )
     options, args = parser.parse_args()
 
     obstName = options.obstName
     agtName = options.agtName
     graphName = options.graphName
     fieldName = options.fieldName
+    scbName = options.scbName
     print "Arguments:"
     print "\tobstacles:", obstName
     print "\tagents:   ", agtName
     print "\tgraph:    ", graphName
     print "\tfield:    ", fieldName
+    print "\tscbName:  ", scbName
     if ( obstName ):
         obstacles, bb = readObstacles( obstName )
     else:
@@ -1157,6 +1161,7 @@ def main():
     context = ContextSwitcher()
     context.addContext( AgentContext( agents ), pygame.K_a )
     context.addContext( FieldEditContext( field ), pygame.K_f )
+    context.addContext( SCBContext( scbName ), pygame.K_s )
 
     redraw = True
     running = True
