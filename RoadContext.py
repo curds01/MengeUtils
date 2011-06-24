@@ -157,8 +157,15 @@ class SCBContext( BaseContext ):
                 if ( self.scbData ):
                     self.currFrame, self.currFrameID = self.scbData.next()
                     result.set( True, True )
-            elif ( event.key == pygame.K_DELETE and noMods ):
-                result.set( True, self.agents.deleteActiveAgent() )
+            elif ( event.key == pygame.K_LEFT and noMods ):
+                if ( self.scbData ):
+                    self.currFrame, self.currFrameID = self.scbData.prev()
+                    result.set( True, True )
+            elif ( event.key == pygame.K_UP and noMods ):
+                if ( self.scbData ):
+                    self.scbData.setNext( 0 )
+                    self.currFrame, self.currFrameID = self.scbData.next()
+                    result.set( True, True )
         return result
 
     
