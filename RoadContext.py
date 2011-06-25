@@ -198,9 +198,31 @@ class SCBContext( BaseContext ):
                     self.scbData.setNext( 0 )
                     self.currFrame, self.currFrameID = self.scbData.next()
                     result.set( True, True )
+            elif ( event.key == pygame.K_s and hasCtrl ):
+                if ( self.scbData ):
+                    self.saveFrameXML()
         return result
 
-    
+    def saveFrameXML( self ):
+        '''Save the current frame as an xml file for running a simulation'''
+        # HARD-CODED FILE NAME
+        f = open( 'scene.xml', 'w' )
+        HEADER = '''<?xml version="1.0"?>
+
+<Experiment time_step="0.05" gridSizeX="82" gridSizeY="82" visualization="1" useProxies="1" neighbor_dist="5">
+
+'''
+        f.write( HEADER )
+        keys = self.classes.keys()
+        keys.sort()
+        for idClass in keys:
+            f.write( '\t<AgentSet class="%d">\n' % idClass )
+            for idx in self.classes[ idClass ]:
+                x, y = self.currFrame[ idx, :2 ]
+                f.write( '\t\t<Agent p_x="%f" p_y="%f" />\n' % ( x, y ) )
+            f.write( '\t</AgentSet>' )
+        f.write( '</Experiment>' )
+        f.close()
         
 class AgentContext( BaseContext, MouseEnabled ):
     '''A context for adding agents-goal pairs and editing existing pairs'''
