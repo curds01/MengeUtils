@@ -100,6 +100,7 @@ class FrameSet:
         '''Reads the header for a version 1.0 scb file'''
         data = self.file.read( 4 )
         self.agtCount = struct.unpack( 'i', data )[0]
+        self.ids = [ 0 for i in range( self.agtCount ) ]
 
     def readHeader2_0( self, scbFile ):
         '''Reads the header for a version 1.0 scb file'''
@@ -111,6 +112,16 @@ class FrameSet:
         for i in range( self.agtCount ):
             data = self.file.read( 4 )
             self.ids[ i ] = struct.unpack( 'i', data )[0]
+
+    def getClasses( self ):
+        '''Returns a dictionary mapping class id to each agent with that class'''
+        ids = {}
+        for i, id in enumerate( self.ids ):
+            if ( not ids.has_key( id ) ):
+                ids[ id ] = [ i ]
+            else:
+                ids[ id ].append( i )
+        return ids
 
     def headerOffset( self ):
         '''Reports the number of bytes for the header'''
