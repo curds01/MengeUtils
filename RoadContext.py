@@ -105,38 +105,70 @@ class MouseEnabled:
 
 class SCBContext( BaseContext ):
     '''Plays back an scb file'''
-    def __init__( self, scbFileName ):
+    COLORS = ( (0.7, 0.0, 0.0 ),  # red
+               (0.7, 0.35, 0.0 ), # orange
+               (0.7, 0.7, 0.0 ),  # yellow
+               (0.35, 0.7, 0.0 ), # chartreuse
+               (0.0, 0.7, 0.0 ),  # green
+               (0.0, 0.7, 0.35),  # teal
+               (0.0, 0.7, 0.7),   # cyan
+               (0.0, 0.35, 0.7),  # aqua
+               (0.0, 0.0, 0.7),   # blue
+               (0.35, 0.0, 0.7),  # purple
+               (0.7, 0.0, 0.7),   # magenta
+               (0.7, 0.0, 0.35),  # burgandy
+               )
+    COLOR_COUNT = len( COLORS )
+    def __init__( self, scbFileName, agentRadius=0.25 ):
         BaseContext.__init__( self )
         self.scbData = None
         self.frameCount = 0
         self.currFrame = None
         self.loadSCBData( scbFileName )
+        self.radius=0.25    # assumes uniform radius
         
         print "SCBContext"
         print "\tFrame count: ", self.frameCount
         print "\tInitial frame: ", self.currFrame
         print "\tFrame shape:", self.currFrame.shape
-
+        print "Found agents with the following ids:", self.classes.keys()
+        
     def loadSCBData( self, fileName ):
         if ( fileName ):
             self.scbData = scbData.NPFrameSet( fileName )
             self.frameCount = self.scbData.totalFrames()
             self.currFrame, self.currFrameID = self.scbData.next()
+            self.classes = self.scbData.getClasses()
 
-    def drawAgents( self ):
+    def drawAgents( self, view ):
         if ( self.scbData ):
-            glPushAttrib( GL_COLOR_BUFFER_BIT | GL_POINT_BIT )
-            glPointSize( 3.0 )
-            glColor3f( 0.5, 1.0, 0.0 )
-            glBegin( GL_POINTS )
-            for row in self.currFrame:
-                glVertex3f( row[0], row[1], 0.0 )
-            glEnd()
+            # this draws agents as points
+            #   it changes the size of the points according to current view
+            #   parameters and rounds the points using point smothing
+            glPushAttrib( GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT | GL_POINT_BIT )
+            glDisable( GL_DEPTH_TEST )
+            glDepthMask( False )
+            glPointSize( 2.0 * self.radius / view.pixelSize )
+            glEnable( GL_POINT_SMOOTH )
+            glEnable( GL_BLEND )
+            glAlphaFunc( GL_GEQUAL, 0.5 )
+            CLASS_COUNT = len( self.classes.keys() )
+            COLOR_STRIDE = self.COLOR_COUNT / CLASS_COUNT
+            keys = self.classes.keys()
+            keys.sort()
+            for i, idClass in enumerate( keys ):
+                color = self.COLORS[ ( i * COLOR_STRIDE ) % self.COLOR_COUNT ]
+                glColor3f( color[0], color[1], color[2] )
+                glBegin( GL_POINTS )
+                for idx in self.classes[ idClass ]:
+                    x, y = self.currFrame[ idx, :2 ]
+                    glVertex2f( x, y )
+                glEnd()
             glPopAttrib()
 
     def drawGL( self, view ):
         '''Draws the agent context into the view'''
-        self.drawAgents()
+        self.drawAgents( view )
         title = "Play SCB -- "
         if ( self.scbData ):
             title += "frame %d (%d agents)" % (self.currFrameID, self.scbData.agtCount )
