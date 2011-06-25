@@ -1163,6 +1163,7 @@ def main():
     context.addContext( AgentContext( agents ), pygame.K_a )
     context.addContext( FieldEditContext( field ), pygame.K_f )
     context.addContext( SCBContext( scbName ), pygame.K_s )
+    context.newGLContext()
 
     redraw = True
     running = True
