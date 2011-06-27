@@ -126,12 +126,12 @@ class SCBContext( BaseContext ):
         self.currFrame = None
         self.loadSCBData( scbFileName )
         self.radius=0.25    # assumes uniform radius
-        
-        print "SCBContext"
-        print "\tFrame count: ", self.frameCount
-        print "\tInitial frame: ", self.currFrame
-        print "\tFrame shape:", self.currFrame.shape
-        print "Found agents with the following ids:", self.classes.keys()
+        if ( self.scbData ):
+            print "SCBContext"
+            print "\tFrame count: ", self.frameCount
+            print "\tInitial frame: ", self.currFrame
+            print "\tFrame shape:", self.currFrame.shape
+            print "Found agents with the following ids:", self.classes.keys()
         
     def loadSCBData( self, fileName ):
         if ( fileName ):
