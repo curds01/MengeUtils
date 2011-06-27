@@ -68,7 +68,7 @@ class ContextSwitcher( BaseContext ):
         if ( self.contexts.has_key( key ) ):
             print "Key {0} is already mapped to the context {1}.  It will be remapped".format( key, self.contexts[ key ].__class__.__name__ )
         self.contexts[ key ] = context
-        print "Adding context {0} to key {1}".format( context, key )
+        print "Adding context {0} to key {1}".format( context, pygame.key.name( key ) )
 
     def switchContexts( self, context ):
         '''Switch the active context to this context.
