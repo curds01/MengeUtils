@@ -97,7 +97,15 @@ class AABB:
         if ( plane.evaluate( Vector3( self.min.x, self.max.y, self.max.z ) ) * sign < 0.0 ):
             return True
         return False
-        
+    def pointInside( self, point ):
+        '''Performs an inside test on the AABB with a point.  Only the x,y values are used'''
+        return point.x >= self.min.x and point.x <= self.max.x and point.y >= self.min.y and point.y <= self.max.y
+
+    def area2D( self ):
+        '''Computes the area based on the x, y values'''
+        size = self.max - self.min
+        return size.x * size.y
+               
 class Segment:
     """Line segment in R3"""
     def __init__( self, A, B ):
