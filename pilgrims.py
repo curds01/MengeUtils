@@ -42,7 +42,6 @@ def agentHexArea( radius ):
     #                   - the length of x is radius / sqrt(3)
     #                   - the area of this tri is R * R / sqrt(3) / 2
     #                   - there are 12 of these tris total area: 6 * R * R / sqrt(3)
-    print "Maximum density for radius: %f = %f" % ( radius, 2.0 / ( radius * radius * 4 * np.sqrt(3) ) )
     return 6.0 * radius * radius / np.sqrt( 3.0 )
     
 def addAgents( agtCount, agtRadius, obstacles ):
@@ -50,13 +49,27 @@ def addAgents( agtCount, agtRadius, obstacles ):
     # pack them in as tightly as possible
     #   lay them out as hexes
     #   Make the radius as small as possible
+    print "Maximum density for radius: %f = %f" % ( agtRadius, 2.0 / ( agtRadius * agtRadius * 4 * np.sqrt(3) ) )
+    agtRadius *= 1.075   # 15% breathing room on both sides
+    
     agtArea = agentHexArea( agtRadius ) * agtCount
     obstArea = 0.0
     for o, bb in obstacles:
         obstArea += o.area2D()
     totalArea = agtArea + obstArea
     R = np.sqrt( totalArea / np.pi )
-    R2 = R * R
+    MAX_RADIUS = 48.0
+    if ( R > MAX_RADIUS ):
+        print "\n*** Tried to create a radius bigger than would fit: %f reduced to %f ***\n" % ( R, MAX_RADIUS )
+        R = MAX_RADIUS
+        B = R
+        A = totalArea / ( np.pi * R )
+    else:
+        A = R
+        B = R
+    A2 = A * A
+    B2 = B * B
+##    R2 = R * R
     
     # now start laying down agents
     #   - start on the horizontal axis working left to right, then work above and below
@@ -65,10 +78,13 @@ def addAgents( agtCount, agtRadius, obstacles ):
     y = 0.0
     row = 0
     positions = []
-    while ( y < R):
-        if ( len(positions) >= agtCount ): break
+    while ( y < B):
+        if ( len(positions) >= agtCount ):
+            print "Reached %d agents with y = %f" % ( len( positions ), y )
+            break
         # determine circle width at this y value
-        width = 2.0 * np.sqrt( R2 - y *y )
+##        width = 2.0 * np.sqrt( R2 - y *y )
+        width = 2.0 * np.sqrt( A2 * (1 - (y*y)/B2 ) )
         # even rows get odd number of agents, odd rowd get even number
         #   in other words, the row number plus the number that fit should always be odd
         hexFit = int( width / HEX_WIDTH )
@@ -94,6 +110,7 @@ def addAgents( agtCount, agtRadius, obstacles ):
                     positions.append( p )
         row += 1
         y += ROW_DISP
+    print "\n*** %d total agents ***\n" % ( len(positions ) )
     return positions
     
 
