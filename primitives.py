@@ -113,6 +113,19 @@ class Vector3:
     def __mul__( self, s ):
         return Vector3( self.x * s, self.y * s, self.z * s )
 
+    def __imul__( self, s ):
+        self.x *= s
+        self.y *= s
+        self.z *= s
+        return self
+    
+    def __iadd__( self, v ):
+        self.x += v.x
+        self.y += v.y
+        self.z += v.z
+        return self
+    
+
     def asTuple( self ):
         return (self.x, self.y, self.z)
 
