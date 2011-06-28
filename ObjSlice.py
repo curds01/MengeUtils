@@ -1,5 +1,5 @@
 from ObjReader import ObjFile
-from math import sqrt, atan2
+from math import sqrt, atan2, acos
 from primitives import Vector3, Vector2
 
 class Plane:
@@ -394,7 +394,66 @@ class Polygon:
             if ( dx < point.x ):
                 count += 1
         return count % 2 == 1
-                                                  
+
+    def inflate( self, amount ):
+        '''This approximates the minkowski sum with a disk by expanding the polygon outwards by
+        amount'''
+        # this BOUNDS the minkowski sum - the corners are not rounded
+        # 1. Compute a direction of displacement for each edge
+        displacements = []
+        start = 0
+        if ( self.closed ):
+            start = -1
+        for i in range( start, len(self.vertices) - 1 ):
+            v1 = self.vertices[ i ]
+            v2 = self.vertices[ i + 1 ]
+            disp = v2 - v1
+            disp.normalize_ip()
+            # rotate around the z-axis
+            displacements.append( Vector3( disp.y, -disp.x, disp.z ) * amount )
+
+        # now displace the vertices by the amount
+        for i in range( start, len( self.vertices ) - 1 ):
+            disp = displacements[ i - start ]
+            self.vertices[ i ] += disp
+            self.vertices[ i + 1 ] += disp
+
+        # NOTE: this COULD lead to self-intersections in the polygon, I'm not checking for this.            
+            
+
+    def close( self ):
+        '''If this isn't marked as closed, this tests to see if it SHOULD be closed'''
+        if ( not self.closed ):
+            disp = (self.vertices[0] - self.vertices[-1]).length()
+            if ( disp < 0.001 ):
+                self.vertices.pop(-1)
+                self.closed = True
+    def getBB( self ):
+        '''Returns a AABB for the polygon'''
+        bb = AABB()
+        bb.expand( self.vertices )
+        return bb
+
+    def area2D( self ):
+        '''Compute the area of the polygon - only works if it is convex'''
+        v0 = self.vertices[0]
+        vCount = len( self.vertices )
+        area = 0.0
+        for i in range( 1, vCount - 1 ):
+            e1 = self.vertices[ i ] - v0
+            e2 = self.vertices[ i + 1 ] - v0
+            e1Mag = e1.length()
+            e2Mag = e2.length()
+            e1 *= 1.0 / e1Mag
+            e2 *= 1.0 / e2Mag
+            dp = e1.x * e2.x + e1.y * e2.y 
+            hyp = e1Mag
+            base = e1Mag * dp
+            height = sqrt( hyp * hyp - base * base )
+            area += base * height * 0.5
+        return area
+            
+            
 def buildPolygons( segments, upDir ):
     """Builds a set of connected polygons from the list of segments"""
     polys = []
