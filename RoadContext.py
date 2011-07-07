@@ -533,14 +533,6 @@ class FieldStrokeContext( VFieldContext ):
                     result.set( True, True )
         return result
 
-            
-
-    
-class FieldStrokeDirContext( FieldStrokeContext ):
-    '''A context for editing the DIRECTION field by applying "instantaneous" strokes'''
-    def __init__( self, vfield ):
-        FieldStrokeContext.__init__( self, vfield )
-
     def handleMouse( self, event, view ):
         """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
         result = ContextResult()
@@ -557,8 +549,8 @@ class FieldStrokeDirContext( FieldStrokeContext ):
             if ( self.dragging ):
                 dX = pX - self.downX
                 dY = pY - self.downY
-                blendDirectionStroke( self.field, ( dX, dY ), ( self.downX, self.downY ), self.brushPos, self.brushSize )
                 # TODO: instead of instantaneous values, filter this by skipping events                
+                self.doWork( (dX, dY ) )
                 self.downX = pX
                 self.downY = pY
                 result.set( True, True )
@@ -571,8 +563,20 @@ class FieldStrokeDirContext( FieldStrokeContext ):
                 self.downX, self.downY = view.screenToWorld( event.pos )
                 self.dragging = True
                 result.set( True, True )
-                
         return result
+
+    def doWork( self, mouseDelta ):
+        '''Perofrm the work of the stroke based on the given mouse movement'''
+        pass
+        
+class FieldStrokeDirContext( FieldStrokeContext ):
+    '''A context for editing the DIRECTION field by applying "instantaneous" strokes'''
+    def __init__( self, vfield ):
+        FieldStrokeContext.__init__( self, vfield )
+
+    def doWork( self, mouseDelta ):
+        '''Perofrm the work of the stroke based on the given mouse movement'''
+        blendDirectionStroke( self.field, mouseDelta, ( self.downX, self.downY ), self.brushPos, self.brushSize )
 
     def drawText( self, view ):
         '''Draws the text to be displayed by this context'''
@@ -612,36 +616,9 @@ class FieldStrokeLenContext( FieldStrokeContext ):
                     result.set( True, True )
         return result
 
-    def handleMouse( self, event, view ):
-        """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
-        result = ContextResult()
-        mods = pygame.key.get_mods()
-        hasCtrl = mods & pygame.KMOD_CTRL
-        hasAlt = mods & pygame.KMOD_ALT
-        hasShift = mods & pygame.KMOD_SHIFT
-        noMods = not( hasShift or hasCtrl or hasAlt )
-
-        pX, pY = view.screenToWorld( event.pos )
-        self.brushPos = ( pX, pY )
-        result.set( False, True )  # this should be conditional
-        if (event.type == pygame.MOUSEMOTION ):
-            if ( self.dragging ):
-                blendLengthStroke( self.field, self.factor, ( self.downX, self.downY ), self.brushPos, self.brushSize )
-                # TODO: instead of instantaneous values, filter this by skipping events                
-                self.downX = pX
-                self.downY = pY
-                result.set( True, True )
-        elif ( event.type == pygame.MOUSEBUTTONUP ):
-            if ( self.dragging and event.button == LEFT ):
-                self.dragging = False
-                result.set( True, True )
-        elif ( event.type == pygame.MOUSEBUTTONDOWN ):
-            if ( event.button == LEFT and noMods ):
-                self.downX, self.downY = view.screenToWorld( event.pos )
-                self.dragging = True
-                result.set( True, True )
-                
-        return result
+    def doWork( self, mouseDelta ):
+        '''Perofrm the work of the stroke based on the given mouse movement'''
+        blendLengthStroke( self.field, self.factor, ( self.downX, self.downY ), self.brushPos, self.brushSize )
 
     def drawText( self, view ):
         # TODO: THIS IS FRAGILE
