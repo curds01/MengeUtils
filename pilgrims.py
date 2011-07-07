@@ -16,7 +16,7 @@ def writeXML( fileName, positions, agtRadius, obstacles ):
 
 <Experiment time_step="0.05" gridSizeX="82" gridSizeY="82" visualization="1" useProxies="1" neighbor_dist="5">
 
-  <AgentSet process="1" vel_sample_count="250" neighbor_dist="20" max_neighbors="10" r="%f" class="0" g_r="3.0" pref_speed="1.04" ttc="0.5" max_speed="2.0" max_accel="10.0" or="0.0" safety_factor="1.5">
+  <AgentSet obstacleSet="3" process="1" vel_sample_count="250" neighbor_dist="20" max_neighbors="10" r="%f" class="0" g_r="3.0" pref_speed="1.04" ttc="0.5" max_speed="2.0" max_accel="10.0" or="0.0" safety_factor="1.5">
 ''' % agtRadius
     f = open( fileName, 'w' )
     f.write( HEADER )
@@ -25,7 +25,7 @@ def writeXML( fileName, positions, agtRadius, obstacles ):
     TAIL = '  </AgentSet>\n'
     f.write( TAIL )
     for o in obstacles.polys:
-        f.write( '  <Obstacle closed="%d" boundingbox="0">\n' % o.closed )
+        f.write( '  <Obstacle closed="%d" boundingbox="0" class="1">\n' % o.closed )
         for v in o.vertices:
             f.write( '    <Vertex p_x="%f" p_y="%f" />\n' % ( v.x, v.y ) )
         f.write( '  </Obstacle>\n' )
@@ -140,7 +140,7 @@ def main():
     random.shuffle( positions )
 
     obstacles, junk = readObstacles( options.obstName )
-    writeXML( 'matafFloor.xml', positions, options.agtRadius, obstacles )    
+    writeXML( 'allMatafObst.xml', positions, options.agtRadius, obstacles )    
     
 if __name__ == '__main__':
     main()
