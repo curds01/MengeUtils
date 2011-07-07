@@ -132,12 +132,12 @@ class FrameSet:
             return 8 + 4 + 4 * self.agtCount
         raise ValueError, "Can't compute header for version: %s" % ( self.version )
 
-    def next( self, updateFrame=None ):
+    def next( self, stride=1 ):
         """Returns the next frame in sequence from current point"""
         if ( self.currFrameIndex >= self.maxFrames - 1 ):
             return None, self.currFrameIndex
-        self.currFrameIndex += 1
-        if ( not updateFrame or self.currFrame == None):
+        self.currFrameIndex += stride
+        if ( self.currFrame == None):
             self.currFrame = Frame( self.readAgtCount )
         for i in range( self.readAgtCount ):
             data = self.file.read( 12 ) # three 4-byte floats
@@ -197,13 +197,16 @@ class NPFrameSet( FrameSet ):
     def __init__( self, scbFile, startFrame=0, maxFrames=-1, maxAgents=-1, frameStep=1 ):
         FrameSet.__init__( self, scbFile, startFrame, maxFrames, maxAgents, frameStep )
 
-    def next( self, updateFrame=None ):
+    def next( self, stride=1 ):
         """Returns the next frame in sequence from current point"""
-        if ( not updateFrame or self.currFrame == None):
+        if ( self.currFrame == None):
             self.currFrame = np.empty( ( self.readAgtCount, 3 ), dtype=np.float32 )
         try:
+            skipAmount = stride - 1
+            if ( skipAmount ):
+                self.file.seek( skipAmount * ( self.readDelta + self.strideDelta+ self.frameSize ), 1 )
             self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.frameSize ), np.float32, self.readAgtCount * 3 ), ( self.readAgtCount, 3 ) )
-            self.currFrameIndex += 1
+            self.currFrameIndex += stride
             # seek forward based on skipping
             self.file.seek( self.readDelta, 1 ) # advance to next frame
             self.file.seek( self.strideDelta, 1 ) # advance according to stride
@@ -212,12 +215,12 @@ class NPFrameSet( FrameSet ):
 
         return self.currFrame, self.currFrameIndex
 
-    def prev( self, updateFrame=None ):
+    def prev( self, stride=1 ):
         """Returns the next frame in sequence from current point"""
-        if ( self.currFrameIndex > 0 ):
-            self.currFrameIndex -= 1
-            self.file.seek( -2 * ( self.readDelta + self.strideDelta+ self.frameSize ), 1 )
-            if ( not updateFrame or self.currFrame == None):
+        if ( self.currFrameIndex >= stride ):
+            self.currFrameIndex -= stride
+            self.file.seek( -(stride+1) * ( self.readDelta + self.strideDelta+ self.frameSize ), 1 )
+            if ( self.currFrame == None):
                 self.currFrame = np.empty( ( self.readAgtCount, 3 ), dtype=np.float32 )
 
             self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.frameSize ), np.float32, self.readAgtCount * 3 ), ( self.readAgtCount, 3 ) )
