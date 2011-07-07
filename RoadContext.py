@@ -429,15 +429,21 @@ class FieldEditContext( VFieldContext ):
             elif ( noMods ):
                 if ( event.key == pygame.K_1 ):
                     if ( self.activeContext.__class__ != FieldStrokeDirContext ):
+                        self.activeContext.deactivate()
                         self.activeContext = FieldStrokeDirContext( self.field )
+                        self.activeContext.activate()
                         result.set( True, True )
                 elif ( event.key == pygame.K_2 ):
                     if ( self.activeContext.__class__ != FieldStrokeLenContext ):
+                        self.activeContext.deactivate()
                         self.activeContext = FieldStrokeLenContext( self.field )
+                        self.activeContext.activate()
                         result.set( True, True )
                 elif ( event.key == pygame.K_3 ):
                     if ( self.activeContext.__class__ != FieldStrokeSmoothContext ):
+                        self.activeContext.deactivate()
                         self.activeContext = FieldStrokeSmoothContext( self.field )
+                        self.activeContext.activate()
                         result.set( True, True )
         elif ( event.type == pygame.KEYUP ):
              if ( event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT ):
@@ -577,6 +583,16 @@ class FieldStrokeContext( VFieldContext ):
     def doWork( self, mouseDelta ):
         '''Perofrm the work of the stroke based on the given mouse movement'''
         pass
+
+    def activate( self ):
+        '''Called when the context is first activated'''
+        VFieldContext.activate( self )
+        pygame.mouse.set_visible( False )
+
+    def deactivate( self ):
+        '''Called when the context is first activated'''
+        VFieldContext.deactivate( self )
+        pygame.mouse.set_visible( True )        
         
 class FieldStrokeDirContext( FieldStrokeContext ):
     '''A context for editing the DIRECTION field by applying "instantaneous" strokes'''
@@ -601,6 +617,19 @@ class FieldStrokeSmoothContext( FieldStrokeContext ):
         FieldStrokeContext.__init__( self, vfield )
         self.smoothStrength = 1.0
         self.kernelSize = 1.0   # in meters
+        
+    def drawGL( self, view ):
+        '''Draws the brush size and the kernel size in the window'''
+        FieldStrokeContext.drawGL( self, view )
+        glPushAttrib( GL_POLYGON_BIT | GL_COLOR_BUFFER_BIT )
+        glPushMatrix()
+        glColor3f( 0.25, 0.25, 1.0 )
+        glTranslatef( self.brushPos[0], self.brushPos[1], 0 )
+        s = self.kernelSize / self.brushSize
+        glScalef( s, s, s )
+        glCallList( self.brushID )
+        glPopMatrix()
+        glPopAttrib()
 
     def handleKeyboard( self, event, view ):
         result = FieldStrokeContext.handleKeyboard( self, event, view )
