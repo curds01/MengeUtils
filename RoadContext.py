@@ -431,6 +431,10 @@ class FieldEditContext( VFieldContext ):
                     if ( self.activeContext.__class__ != FieldStrokeLenContext ):
                         self.activeContext = FieldStrokeLenContext( self.field )
                         result.set( True, True )
+                elif ( event.key == pygame.K_3 ):
+                    if ( self.activeContext.__class__ != FieldStrokeSmoothContext ):
+                        self.activeContext = FieldStrokeSmoothContext( self.field )
+                        result.set( True, True )
         elif ( event.type == pygame.KEYUP ):
              if ( event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT ):
                 if ( self.activeContext and self.activeContext.__class__ == FieldBoundaryContext ):
@@ -587,8 +591,53 @@ class FieldStrokeDirContext( FieldStrokeContext ):
 
 class FieldStrokeSmoothContext( FieldStrokeContext ):
     '''A context for SMOOTHING the field by applying "instantaneous" strokes'''
+    STRENGTH_CHANGE = 0.01
+    KERNEL_CHANGE = 0.25
     def __init__( self, vfield ):
         FieldStrokeContext.__init__( self, vfield )
+        self.smoothStrength = 1.0
+        self.kernelSize = 1.0   # in meters
+
+    def handleKeyboard( self, event, view ):
+        result = FieldStrokeContext.handleKeyboard( self, event, view )
+
+        if ( result.isHandled() ): return result        
+
+        mods = pygame.key.get_mods()
+        hasCtrl = mods & pygame.KMOD_CTRL
+        hasAlt = mods & pygame.KMOD_ALT
+        hasShift = mods & pygame.KMOD_SHIFT
+        noMods = not( hasShift or hasCtrl or hasAlt )
+
+        if ( noMods ):
+            if ( event.type == pygame.KEYDOWN ):
+                if ( event.key == pygame.K_RIGHT ):
+                    self.smoothStrength += self.STRENGTH_CHANGE
+                    result.set( True, True )
+                elif ( event.key == pygame.K_LEFT ):
+                    if ( self.smoothStrength > self.STRENGTH_CHANGE ):
+                        self.smoothStrength -= self.STRENGTH_CHANGE
+                        result.set( True, True )
+                elif ( event.key == pygame.K_RIGHTBRACKET ):
+                    self.kernelSize += self.KERNEL_CHANGE
+                    result.set( True, True )
+                elif ( event.key == pygame.K_LEFTBRACKET ):
+                    if ( self.kernelSize > self.KERNEL_CHANGE ):
+                        self.kernelSize -= self.KERNEL_CHANGE
+                        result.set( True, True )
+        return result
+
+    def doWork( self, mouseDelta ):
+        '''Perofrm the work of the stroke based on the given mouse movement'''
+        blendSmoothStroke( self.field, self.smoothStrength, self.kernelSize, ( self.downX, self.downY ), self.brushPos, self.brushSize )
+
+    def drawText( self, view ):
+        # TODO: THIS IS FRAGILE
+        #   It would be better for the text printer to handle new lines and do smart layout for
+        #   a big block of text
+        t = self.getTitle()
+        view.printText( t, (10,10) )
+        view.printText( 'Brush smooth: strength = {0:.2f}, kernelSize = {1:.3f}'.format( self.smoothStrength, self.kernelSize ), (10, 30 ) )        
         
 class FieldStrokeLenContext( FieldStrokeContext ):
     '''A context for editing the MAGNITUDE of the field by applying "instantaneous" strokes'''

@@ -203,3 +203,19 @@ def blendLengthFromDistance( field, length, minima, maxima, distances, radius ):
 
     field.fieldChanged() 
     
+def blendSmoothStroke( field, strength, kernelSize, p1, p2, radius ):
+    '''Given a field, a scale factor, and the definition stroke with width, update
+    the scale of the field along the stroke, using the gauss as the influence weight.
+
+    @param field: a VectorField object.  The field to be modified.
+    @param strength: a float. The strength of the smooth.
+    @param p1: a 2-tuple of floats.  The beginning of the stroke.
+    @param p2: a 2-tuple of floats.  The end of the stroke.
+    @param radius: a float.  The total radius of influence of the stroke.
+        sigma = gaussRadius / 3.0
+    '''
+    # compute the weights
+    minima, maxima = boundStroke( field, p1, p2, radius )
+    distances = field.cellSegmentDistance( minima, maxima, p1, p2 )
+    blendLengthFromDistance( field, strength, minima, maxima, distances, radius )
+
