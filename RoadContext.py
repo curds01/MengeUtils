@@ -459,8 +459,8 @@ class FieldEditContext( VFieldContext ):
         if ( self.activeContext ):
             self.activeContext.newGLContext()
             
-class FieldStrokeDirContext( VFieldContext ):
-    '''A context for editing the DIRECTION field by applying "instantaneous" strokes'''
+class FieldStrokeContext( VFieldContext ):
+    '''The basic context for editing fields with instantaneous strokes'''
     def __init__( self, vfield ):
         VFieldContext.__init__( self, vfield )
         self.brushID = 0        # opengl brush id
@@ -493,6 +493,27 @@ class FieldStrokeDirContext( VFieldContext ):
         glEnd()
         glEndList()
 
+    def drawText( self, view ):
+        '''Draws the text to be displayed by this context'''
+        t = self.getTitle()
+        view.printText( t, (10,10) )
+    
+    def drawGL( self, view ):
+        # TODO: THIS IS FRAGILE
+        #   It would be better for the text printer to handle new lines and do smart layout for
+        #   a big block of text
+        self.drawText( view )
+        glPushAttrib( GL_POLYGON_BIT | GL_COLOR_BUFFER_BIT )
+        glPushMatrix()
+        if ( self.dragging ):
+            glColor3f( 0.0, 1.0, 0.0 )
+        else:
+            glColor3f( 1.0, 1.0, 1.0 )
+        glTranslatef( self.brushPos[0], self.brushPos[1], 0 )
+        glCallList( self.brushID )
+        glPopMatrix()
+        glPopAttrib()
+
     def handleKeyboard( self, event, view ):
         result = ContextResult()
 
@@ -511,6 +532,14 @@ class FieldStrokeDirContext( VFieldContext ):
                     self.setBrushSize( self.brushSize - 0.5 )
                     result.set( True, True )
         return result
+
+            
+
+    
+class FieldStrokeDirContext( FieldStrokeContext ):
+    '''A context for editing the DIRECTION field by applying "instantaneous" strokes'''
+    def __init__( self, vfield ):
+        FieldStrokeContext.__init__( self, vfield )
 
     def handleMouse( self, event, view ):
         """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
@@ -545,61 +574,27 @@ class FieldStrokeDirContext( VFieldContext ):
                 
         return result
 
-    def drawGL( self, view ):
-        # TODO: THIS IS FRAGILE
-        #   It would be better for the text printer to handle new lines and do smart layout for
-        #   a big block of text
+    def drawText( self, view ):
+        '''Draws the text to be displayed by this context'''
         t = self.getTitle()
         view.printText( t, (10,10) )
         view.printText( 'Brush direction', (10, 30 ) )
-        glPushAttrib( GL_POLYGON_BIT | GL_COLOR_BUFFER_BIT )
-        glPushMatrix()
-        if ( self.dragging ):
-            glColor3f( 0.0, 1.0, 0.0 )
-        else:
-            glColor3f( 1.0, 1.0, 1.0 )
-        glTranslatef( self.brushPos[0], self.brushPos[1], 0 )
-        glCallList( self.brushID )
-        glPopMatrix()
-        glPopAttrib()
 
-class FieldStrokeLenContext( VFieldContext ):
+class FieldStrokeSmoothContext( FieldStrokeContext ):
+    '''A context for SMOOTHING the field by applying "instantaneous" strokes'''
+    def __init__( self, vfield ):
+        FieldStrokeContext.__init__( self, vfield )
+        
+class FieldStrokeLenContext( FieldStrokeContext ):
     '''A context for editing the MAGNITUDE of the field by applying "instantaneous" strokes'''
     def __init__( self, vfield ):
-        VFieldContext.__init__( self, vfield )
-        self.brushID = 0        # opengl brush id
-        self.brushPos = (0.0, 0.0)  # position, in world space of the brush
-        self.setBrushSize( 2.0 ) # size of brush (in meters)
+        FieldStrokeContext.__init__( self, vfield )
         self.factor = 1.0
 
-    def setBrushSize( self, size ):
-        '''This sets the size of the brush - the absolute radius of the brush'''
-        self.brushSize = size
-        self.newGLContext()
-
-    def activate( self ):
-        # compute the initial position of the mouse
-        px, py = pygame.mouse.get_pos()
-        #TODO: This is NOT the world position of the mouse, but the screen position
-##        self.brushPos = ( px, py )
-        
-    def newGLContext( self ):
-        '''Update gl context'''
-        SAMPLES = 30
-        self.brushID = glGenLists( 1 )
-        points = np.arange( 0, SAMPLES, dtype=np.float32 ) * ( np.pi * 2 / SAMPLES )
-        c = np.cos( points ) * self.brushSize
-        s = np.sin( points ) * self.brushSize
-        glNewList( self.brushID, GL_COMPILE )
-        glBegin( GL_LINE_STRIP )
-        for i in xrange( SAMPLES ):
-            glVertex3f( c[i], s[i], 0 )
-        glVertex3f( c[0], s[0], 0 )
-        glEnd()
-        glEndList()
-
     def handleKeyboard( self, event, view ):
-        result = ContextResult()
+        result = FieldStrokeContext.handleKeyboard( self, event, view )
+
+        if ( result.isHandled() ): return result        
 
         mods = pygame.key.get_mods()
         hasCtrl = mods & pygame.KMOD_CTRL
@@ -608,14 +603,7 @@ class FieldStrokeLenContext( VFieldContext ):
         noMods = not( hasShift or hasCtrl or hasAlt )
 
         if ( noMods ):
-            if ( event.key == pygame.K_UP ):
-                self.setBrushSize( self.brushSize + 0.5 )
-                result.set( True, True )
-            elif ( event.key == pygame.K_DOWN ):
-                if ( self.brushSize > 1.0 ):
-                    self.setBrushSize( self.brushSize - 0.5 )
-                    result.set( True, True )
-            elif ( event.key == pygame.K_RIGHT ):
+            if ( event.key == pygame.K_RIGHT ):
                 self.factor += 0.05
                 result.set( True, True )
             elif ( event.key == pygame.K_LEFT ):
@@ -655,23 +643,13 @@ class FieldStrokeLenContext( VFieldContext ):
                 
         return result
 
-    def drawGL( self, view ):
+    def drawText( self, view ):
         # TODO: THIS IS FRAGILE
         #   It would be better for the text printer to handle new lines and do smart layout for
         #   a big block of text
         t = self.getTitle()
         view.printText( t, (10,10) )
         view.printText( 'Brush length: length = {0:.2f}'.format( self.factor ), (10, 30 ) )
-        glPushAttrib( GL_POLYGON_BIT | GL_COLOR_BUFFER_BIT )
-        glPushMatrix()
-        if ( self.dragging ):
-            glColor3f( 0.0, 1.0, 0.0 )
-        else:
-            glColor3f( 1.0, 1.0, 1.0 )
-        glTranslatef( self.brushPos[0], self.brushPos[1], 0 )
-        glCallList( self.brushID )
-        glPopMatrix()
-        glPopAttrib()
 
 class FieldPathContext( VFieldContext ):
     '''A context for editing the field by applying paths'''
