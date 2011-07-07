@@ -524,13 +524,14 @@ class FieldStrokeContext( VFieldContext ):
         noMods = not( hasShift or hasCtrl or hasAlt )
 
         if ( noMods ):
-            if ( event.key == pygame.K_UP ):
-                self.setBrushSize( self.brushSize + 0.5 )
-                result.set( True, True )
-            elif ( event.key == pygame.K_DOWN ):
-                if ( self.brushSize > 1.0 ):
-                    self.setBrushSize( self.brushSize - 0.5 )
+            if ( event.type == pygame.KEYDOWN ):
+                if ( event.key == pygame.K_UP ):
+                    self.setBrushSize( self.brushSize + 0.5 )
                     result.set( True, True )
+                elif ( event.key == pygame.K_DOWN ):
+                    if ( self.brushSize > 1.0 ):
+                        self.setBrushSize( self.brushSize - 0.5 )
+                        result.set( True, True )
         return result
 
     def handleMouse( self, event, view ):
@@ -607,13 +608,14 @@ class FieldStrokeLenContext( FieldStrokeContext ):
         noMods = not( hasShift or hasCtrl or hasAlt )
 
         if ( noMods ):
-            if ( event.key == pygame.K_RIGHT ):
-                self.factor += 0.05
-                result.set( True, True )
-            elif ( event.key == pygame.K_LEFT ):
-                if ( self.factor > 0.05 ):
-                    self.factor -= 0.05
+            if ( event.type == pygame.KEYDOWN ):
+                if ( event.key == pygame.K_RIGHT ):
+                    self.factor += 0.05
                     result.set( True, True )
+                elif ( event.key == pygame.K_LEFT ):
+                    if ( self.factor > 0.05 ):
+                        self.factor -= 0.05
+                        result.set( True, True )
         return result
 
     def doWork( self, mouseDelta ):
