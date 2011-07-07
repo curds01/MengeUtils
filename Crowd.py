@@ -462,6 +462,7 @@ class Grid:
             ag1 = f1.agents[ i ]
             disp = ( ag2.pos - ag1.pos ).magnitude()
             disp *= invDT
+            if ( disp > 3.0 ): continue
             center = self.getCenter( ag2.pos )
 
             INFLATE = True # causes the agents to inflate more than a single cell
