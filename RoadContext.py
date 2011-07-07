@@ -212,10 +212,16 @@ class SCBContext( BaseContext ):
         hasShift = mods & pygame.KMOD_SHIFT
         noMods = not( hasShift or hasCtrl or hasAlt )
         if ( event.type == pygame.KEYDOWN ):
-            if ( event.key == pygame.K_RIGHT and noMods ):
-                if ( self.scbData ):
-                    self.currFrame, self.currFrameID = self.scbData.next()
-                    result.set( True, True )
+            if ( event.key == pygame.K_RIGHT ):
+                if ( noMods ):
+                    if ( self.scbData ):
+                        self.currFrame, self.currFrameID = self.scbData.next()
+                        result.set( True, True )
+                elif ( hasCtrl and ( not hasAlt and not hasShift ) ):
+                    if ( self.scbData ):
+                        for i in xrange( 10 ):
+                            self.currFrame, self.currFrameID = self.scbData.next()
+                        result.set( True, True )
             elif ( event.key == pygame.K_LEFT and noMods ):
                 if ( self.scbData ):
                     self.currFrame, self.currFrameID = self.scbData.prev()
