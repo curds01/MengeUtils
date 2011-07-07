@@ -1213,6 +1213,7 @@ def main():
     MAX_FRAMES = -1
     FRAME_STEP = 1
     FRAME_WINDOW = 1
+    START_FRAME = 0
     
     timeStep = 1.0
     outPath = '.'
@@ -1272,7 +1273,7 @@ def main():
     print "minPt:", minPt
     print "res:", res
     timeStep *= FRAME_STEP
-    frameSet = FrameSet( path, MAX_FRAMES, MAX_AGENTS, FRAME_STEP )
+    frameSet = FrameSet( path, START_FRAME, MAX_FRAMES, MAX_AGENTS, FRAME_STEP )
     print "Total frames:", frameSet.totalFrames()
 
     grids = GridFileSequence( os.path.join( outPath, 'junk' ) )

@@ -53,7 +53,7 @@ class Frame:
 
 class FrameSet:
     """A pseudo iterator for frames in an scb file"""
-    def __init__( self, scbFile, maxFrames=-1, maxAgents=-1, frameStep=1 ):
+    def __init__( self, scbFile, startFrame=0, maxFrames=-1, maxAgents=-1, frameStep=1 ):
         """Initializes an interator for walking through a an scb file.close
         By default, it creates a frame for every frame in the scb file, each
         frame consisting of all agents.
@@ -65,6 +65,7 @@ class FrameSet:
         # version 2.0 data
         self.ids = []       # in scb2.0 we support ids for each agent.
         self.simStepSize = -0.1
+        self.startFrame = startFrame
         # generic attributes
         if ( maxFrames == -1 ):
             self.maxFrames = 0x7FFFFFFF
@@ -133,7 +134,7 @@ class FrameSet:
 
     def next( self, updateFrame=None ):
         """Returns the next frame in sequence from current point"""
-        if ( self.currFrameIndex >= self.maxFrames ):
+        if ( self.currFrameIndex >= self.maxFrames - 1 ):
             return None, self.currFrameIndex
         self.currFrameIndex += 1
         if ( not updateFrame or self.currFrame == None):
@@ -153,7 +154,6 @@ class FrameSet:
         # seek forward based on skipping
         self.file.seek( self.readDelta, 1 ) # advance to next frame
         self.file.seek( self.strideDelta, 1 ) # advance according to stride
-        
         return self.currFrame, self.currFrameIndex
 
     def setNext( self, index ):
@@ -162,7 +162,7 @@ class FrameSet:
             index = 0
         # TODO: if index > self.maxFrames
         self.currFrameIndex = index
-        byteAddr = self.currFrameIndex * self.frameSize + self.headerOffset()      # +8 is the header offset
+        byteAddr = ( self.startFrame + self.currFrameIndex ) * self.frameSize + self.headerOffset()      # +8 is the header offset
         self.file.seek( byteAddr )
         self.currFrameIndex -= 1
 
@@ -194,8 +194,8 @@ class FrameSet:
         
 class NPFrameSet( FrameSet ):
     """A frame set that uses numpy arrays instead of frames as the underlying structure"""
-    def __init__( self, scbFile, maxFrames=-1, maxAgents=-1, frameStep=1 ):
-        FrameSet.__init__( self, scbFile, maxFrames, maxAgents, frameStep )
+    def __init__( self, scbFile, startFrame=0, maxFrames=-1, maxAgents=-1, frameStep=1 ):
+        FrameSet.__init__( self, scbFile, startFrame, maxFrames, maxAgents, frameStep )
 
     def next( self, updateFrame=None ):
         """Returns the next frame in sequence from current point"""
