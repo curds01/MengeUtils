@@ -126,6 +126,7 @@ class SCBContext( BaseContext ):
         self.currFrame = None
         self.loadSCBData( scbFileName )
         self.radius=0.25    # assumes uniform radius
+        self.selected = -1
         if ( self.scbData ):
             print "SCBContext"
             print "\tFrame count: ", self.frameCount
@@ -164,6 +165,12 @@ class SCBContext( BaseContext ):
                     x, y = self.currFrame[ idx, :2 ]
                     glVertex2f( x, y )
                 glEnd()
+            if ( self.selected != -1 ):
+                glBegin( GL_POINTS );
+                glColor3f( 1.0, 1.0, 1.0 )
+                x, y = self.currFrame[ self.selected, :2 ]
+                glVertex2f( x, y )
+                glEnd()
             glPopAttrib()
 
     def drawGL( self, view ):
@@ -174,8 +181,28 @@ class SCBContext( BaseContext ):
             title += "frame %d (%d agents)" % (self.currFrameID, self.scbData.agtCount )
         else:
             title += "no scb file loaded"
+        if ( self.selected != -1 ):
+            title += " (Agent %d selected)" % ( self.selected )
         view.printText( title,  (10,10) )            
-            
+
+    def findAgent( self, pX, pY ):
+        '''Finds the closest agent to the point'''
+        radSqd = self.radius * self.radius
+        p = np.array( (pX, pY) )
+        disp = self.currFrame[:, :2] - p
+        dispSqd = np.sum( disp * disp, axis=1 )
+        id = np.argmin( dispSqd )
+##        dist = np.sqrt( dispSqd[ id ] )
+        changed = False
+        if ( dispSqd[ id ] < radSqd ):
+            changed = self.selected != id
+            self.selected = id
+        else:
+            changed = self.selected != -1
+            self.selected = -1
+##        print "Distance:", dist
+        return changed
+        
     def handleKeyboard( self, event, view ):
         """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
         result = ContextResult()
@@ -203,6 +230,22 @@ class SCBContext( BaseContext ):
                     self.saveFrameXML()
         return result
 
+    def handleMouse( self, event, view ):
+        """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
+        result = ContextResult()
+        mods = pygame.key.get_mods()
+        hasCtrl = mods & pygame.KMOD_CTRL
+        hasAlt = mods & pygame.KMOD_ALT
+        hasShift = mods & pygame.KMOD_SHIFT
+        noMods = not( hasShift or hasCtrl or hasAlt )
+        
+        if ( event.type == pygame.MOUSEBUTTONDOWN ):
+            if ( noMods and event.button == LEFT ):
+                pX, pY = view.screenToWorld( event.pos )        
+##                print "world position", pX, pY
+                result.setNeedsRedraw( self.findAgent( pX, pY ) )
+        return result
+    
     def saveFrameXML( self ):
         '''Save the current frame as an xml file for running a simulation'''
         # HARD-CODED FILE NAME
