@@ -290,7 +290,14 @@ class Grid:
             if ( t >= self.resolution[1] ):
                 kt -= t - self.resolution[1]
                 t = self.resolution[1]
-            self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]
+            try:
+                self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]
+            except ValueError, e:
+                print "Value error!"
+                print "\tAgent at", center
+                print "\tGrid resolution:", self.resolution
+                print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
+                raise e
 
     def rasterizePosition2( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
@@ -1145,7 +1152,7 @@ class GridFileSequence:
 ##                pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
             f.close()
 
-    def computeAdvecFlow( self, minCorner, size, resolution, distFunc, maxDist, kernelSize, frameSet, lines ):
+    def computeAdvecFlow( self,  minCorner, size, resolution, distFunc, maxDist, kernelSize, frameSet, lines ):
         """Performs a visualization of marking agents according to their intial position w.r.t. a line"""
         # initialization
         #   Iterate through the agents on the first frame
@@ -1228,7 +1235,7 @@ def main():
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
         path = '/projects/SG10/CrowdViewer/Exe/Win32/2circle/playback.scb'        
 ##        path = '/projects/SG10/CrowdViewer/Exe/Win32/2circle/playbackRVO.scb'
-    elif ( True ):
+    elif ( False ):
         size = Vector2( 150.0, 110.0 )
         minPt = Vector2( -70.0, -55.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
@@ -1250,15 +1257,31 @@ def main():
 ##        srcFile = '25k_slower'
 ##        srcFile = '25k_slowest'
         srcFile = '25k_evenSlower'
+        srcFile = '5K_40FPS'
 ##        srcFile = 'denseTest'
         timeStep = 0.1
+        timeStep = 0.025    # 5K_40FPS
         FRAME_STEP = 10
+        FRAME_STEP = 40     # 5K_40FPS
         outPath = os.path.join( '/projects','tawaf','sim','jun2011' )
         path = os.path.join( outPath, '{0}.scb'.format( srcFile ) )
         outPath = os.path.join( outPath, srcFile )
         
 ##        MAX_AGENTS = 50
-        MAX_FRAMES = 420
+        MAX_FRAMES = 120
+    elif ( True ):
+        size = Vector2( 175.0, 120.0 )
+        minPt = Vector2( -75.0, -60.0 )
+        res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
+        srcFile = '20k02'
+        timeStep = 0.05
+        FRAME_STEP = 20
+        START_FRAME = 700
+        outPath = os.path.join( '/projects','tawaf','sim','jul2011','results' )
+        path = os.path.join( outPath, '{0}.scb'.format( srcFile ) )
+        outPath = os.path.join( outPath, srcFile )
+##        MAX_FRAMES = 120
+        MAX_FRAMES = 200
     elif ( False ):
         size = Vector2( 15, 5 )
         minPt = Vector2( -1.0, -2.5 )
@@ -1291,7 +1314,7 @@ def main():
 
     dfunc = lambda x, y: distFunc( x, y, R * R )
 
-    if ( False ):
+    if ( True ):
         if ( not os.path.exists( os.path.join( outPath, 'dense' ) ) ):
             os.makedirs( os.path.join( outPath, 'dense' ) )
     
@@ -1306,7 +1329,7 @@ def main():
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
-    if ( False ):
+    if ( True ):
         if ( not os.path.exists( os.path.join( outPath, 'speed' ) ) ):
             os.makedirs( os.path.join( outPath, 'speed' ) )
     
@@ -1316,11 +1339,11 @@ def main():
         stats.write( os.path.join( outPath, 'speed', 'stat.txt' ) )
         stats.savePlot( os.path.join( outPath, 'speed', 'stat.png' ), 'Average speed per step' )
         print "Took", (time.clock() - s), "seconds"
-        print "\tComputing displacement images",
+        print "\tComputing speed images",
         s = time.clock()
         imageName = os.path.join( outPath, 'speed', 'speed' )
         # the limit: 0.5 means the color map is saturated from from minVal to 50% of the range
-        grids.speedImages( colorMap, imageName, 0.5, MAX_FRAMES )
+        grids.speedImages( colorMap, imageName, 0.75, MAX_FRAMES )
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
@@ -1376,7 +1399,7 @@ def main():
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
-    if ( True ):
+    if ( False ):
         if ( not os.path.exists( os.path.join( outPath, 'regionSpeed' ) ) ):
             os.makedirs( os.path.join( outPath, 'regionSpeed' ) )
         print "\tComputing region speeds"
