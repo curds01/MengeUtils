@@ -132,12 +132,12 @@ class FrameSet:
             return 8 + 4 + 4 * self.agtCount
         raise ValueError, "Can't compute header for version: %s" % ( self.version )
 
-    def next( self, stride=1 ):
+    def next( self, stride=1, newInstance=True ):
         """Returns the next frame in sequence from current point"""
         if ( self.currFrameIndex >= self.maxFrames - 1 ):
             return None, self.currFrameIndex
         self.currFrameIndex += stride
-        if ( self.currFrame == None):
+        if ( newInstance or self.currFrame == None):
             self.currFrame = Frame( self.readAgtCount )
         for i in range( self.readAgtCount ):
             data = self.file.read( 12 ) # three 4-byte floats
