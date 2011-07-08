@@ -662,7 +662,7 @@ class FieldStrokeSmoothContext( FieldStrokeContext ):
 
     def doWork( self, mouseDelta ):
         '''Perofrm the work of the stroke based on the given mouse movement'''
-        blendSmoothStroke( self.field, self.smoothStrength, self.kernelSize, ( self.downX, self.downY ), self.brushPos, self.brushSize )
+        smoothStroke( self.field, self.smoothStrength, self.kernelSize, ( self.downX, self.downY ), self.brushPos, self.brushSize )
 
     def drawText( self, view ):
         # TODO: THIS IS FRAGILE

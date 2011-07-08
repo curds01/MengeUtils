@@ -203,12 +203,13 @@ def blendLengthFromDistance( field, length, minima, maxima, distances, radius ):
 
     field.fieldChanged() 
     
-def blendSmoothStroke( field, strength, kernelSize, p1, p2, radius ):
-    '''Given a field, a scale factor, and the definition stroke with width, update
+def smoothStroke( field, strength, kernelSize, p1, p2, radius ):
+    '''Given a field, the definition stroke with width, smooth strength and smooth kernel size, update
     the scale of the field along the stroke, using the gauss as the influence weight.
 
     @param field: a VectorField object.  The field to be modified.
     @param strength: a float. The strength of the smooth.
+    @param kernelSize: a float. The size of the smoothing kernel
     @param p1: a 2-tuple of floats.  The beginning of the stroke.
     @param p2: a 2-tuple of floats.  The end of the stroke.
     @param radius: a float.  The total radius of influence of the stroke.
@@ -217,5 +218,75 @@ def blendSmoothStroke( field, strength, kernelSize, p1, p2, radius ):
     # compute the weights
     minima, maxima = boundStroke( field, p1, p2, radius )
     distances = field.cellSegmentDistance( minima, maxima, p1, p2 )
-    blendLengthFromDistance( field, strength, minima, maxima, distances, radius )
+    smoothFromDistance( field, strength, kernelSize, minima, maxima, distances, radius )
 
+def smoothFromDistance( field, strength, kernelSize, minima, maxima, distances, radius ):
+    '''Given a field, a region of that field defined by minima and maxima, and an arbitrary distance field,
+    blends the given vector length into the vector field using distance as weights.
+
+    @param field: A VectorField.
+    @param strength: a float. The blend strength of the smooth region
+    @param kernelSize: a float. The size of the smoothing kernel
+    @param minima: a 2-tuple-like value.  The minimum indices in field over which the work is being done.
+    @param maxima: a 2-tuple-like value.  The maximum indices in field over which the work is being done.
+    @param distances: an M X N array of floats.  The distance field of size maxima - minima.
+    @param radius: the radius used to compute weights.  The radius serves in a gaussian where sigma = radius / 3.0
+    '''
+    sigma = radius / 3.0
+    sigma2 = 2.0 * sigma * sigma
+    weights = np.exp( -(distances * distances) / sigma2 )
+    weights.shape = ( weights.shape[0], weights.shape[1], 1 )
+    # get the region
+    region = field.subRegion( minima, maxima )
+    # get the SMOOTHED region
+    smoothed = smoothFieldRegion( field, kernelSize, minima, maxima )
+    newVectors = weights * smoothed + ( 1 - weights ) * region
+    region[:,:,:] =  newVectors
+
+    field.fieldChanged()
+
+# special kernel.  Given the standard deviation (and assuming zero mean) it
+# produces a discrete gaussian kernel with a number of cells equal to:
+#   ceil( 6 * sigma / cellSize )
+def gaussian1D( sigma, cellSize ):
+    """Returns a discrete gaussian with standard deviation sigma and mean zero discretized
+    to the given cellSize"""
+    kernelSize = int( np.ceil( 6 * sigma / cellSize ) )
+    
+    if ( kernelSize % 2 == 0 ):     # make sure the kernel size is odd numbered
+        kernelSize += 1
+    range = kernelSize * 0.5 * cellSize
+    x = np.linspace( -range, range, kernelSize )
+    k = np.exp( -(x*x)/(sigma*sigma) )
+    k *= 1.0 / k.sum()
+    return k
+
+def smoothFieldRegion( field, kernelSize, minima, maxima ):
+    '''Smooths a region of the field with a guassian kernel of the given size.
+
+    @param field: A VectorField
+    @param kernelSize: the size of the gaussian kernel (one standard deviation in meters).
+    @param minima: a 2-tuple-like value.  The minimum indices in field over which the work is being done.
+    @param maxima: a 2-tuple-like value.  The maximum indices in field over which the work is being done.
+    '''
+    # compute kernel
+    kernel = gaussian1D( kernelSize, field.cellSize )
+    halfWidth = kernel.size / 2
+    # what to do if smoothing near the boundary?
+    left = max( 0, minima[1] - halfWidth )
+    right = min( field.resolution[1], maxima[1] + halfWidth + 1 )
+    bottom = max( 0, minima[0] - halfWidth )
+    top = min( field.resolution[0], maxima[0] + halfWidth + 1 )
+    subRegion = field.subRegion( (bottom, left), (top, right) )
+    tempRegion = np.zeros_like( subRegion )
+    opRegion = np.zeros_like( subRegion )
+    opRegion[ :, :, : ] = subRegion[ :, :, : ]
+    for r in range( opRegion.shape[0] ):
+        tempRegion[ r, :, 0 ] = np.convolve( opRegion[r, :, 0], kernel, 'same' )
+        tempRegion[ r, :, 1 ] = np.convolve( opRegion[r, :, 1], kernel, 'same' )
+    for c in range( opRegion.shape[1] ):
+        opRegion[ :, c, 0 ] = np.convolve( tempRegion[:,c, 0], kernel, 'same' )
+        opRegion[ :, c, 1 ] = np.convolve( tempRegion[:,c, 1], kernel, 'same' )
+    return opRegion[ halfWidth:-halfWidth-1, halfWidth:-halfWidth-1, : ]
+        
+    
