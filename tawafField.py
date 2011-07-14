@@ -4,7 +4,7 @@ from roadmapBuilder import readObstacles
 from vField import VectorField
 import numpy as np
 
-def spiralField( field, radWeight ):
+def spiralField( field, radWeight, flip=False ):
     '''The tawaf spiral field -- velocities have a tangential component and some
     component inwards'''
     # this is quick and dirty - it relies on knowing the implementation of
@@ -25,7 +25,10 @@ def spiralField( field, radWeight ):
     mag = np.sqrt( np.sum( dir * dir , axis=2 ) )
     mag.shape = (mag.shape[0], mag.shape[1], 1)
     dir *= 1.0 / mag
-    field.data = dir
+    if ( flip ):
+        field.data = -dir
+    else:
+        field.data = dir
     
 
 def main():
@@ -43,8 +46,8 @@ def main():
                        action="store", dest="cellSize", default=2.0, type='float' )
     parser.add_option( "-q", "--square", help="Forces the grid to be square",
                        action="store_true", dest="square", default=False )
-##    parser.add_option( "-l", "--flip", help="Reverses the direction of the field",
-##                       action="store_true", dest="flip", default=False )
+    parser.add_option( "-l", "--flip", help="Reverses the direction of the field",
+                       action="store_true", dest="flip", default=False )
     options, args = parser.parse_args()
     
     if ( options.obstName == '' ):
@@ -69,7 +72,7 @@ def main():
         bbSize.y = maxSize
     field = VectorField( ( bb.min.x, bb.min.y ), ( bbSize.x, bbSize.y ), options.cellSize )
     # do work
-    spiralField( field, options.radWeight )
+    spiralField( field, options.radWeight, options.flip )
     print "\tVector field saving to:", options.fieldName,
     field.write( options.fieldName )
     print "SAVED!"
