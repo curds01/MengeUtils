@@ -27,62 +27,51 @@ def spiralField( field, radWeight ):
     dir *= 1.0 / mag
     field.data = dir
     
-def usage():
-    print "tawafField.py -obst obstFile.xml <-field fieldName> <-cell cellSize> <-radial radWeight> <-square>"
-    print "\tCreate a vector field for the tawaf"
-    print
-    print "Arguments:"
-    print "    -obst obstFile.xml    - required.  The obstacle definition for"
-    print "                           the tawaf."
-    print "    -field fieldName      - optional.  The vector field will be saved as"
-    print "                           this name.  If no name is provided, it will be."
-    print "                           saved as \"tawafField_##.txt\".  Where ## is the radial"
-    print "                           weight (see below.)"
-    print "    -cell CellSize        - optional.  A float dictating the size of a grid"
-    print "                           in the same space as the obstacles"
-    print "    -radial radWeight     - optional.  The component of the velocity in"
-    print "                            each cell that is towards the center.  Defaults to 0.2."
-    print "    -square               - Determines if the grid is square."
 
 def main():
-    from commandline import SimpleParamManager
+    import optparse
     import sys
 
-    try:
-        pMan = SimpleParamManager( sys.argv[1:], {'obst':'', 'field':'', 'cell':1.0, 'radial':0.2, 'square':False } )
-    except IOError:
-        usage()
-
-    obstName = pMan[ 'obst' ]
-    fieldName = pMan[ 'field' ]
-    cellSize = float( pMan[ 'cell' ] )
-    radWeight = float( pMan[ 'radial' ] )
-
-    if ( obstName == '' ):
-        usage()
+    parser = optparse.OptionParser()
+    parser.add_option( "-o", "--obstacle", help="Obstacle file to load.",
+                       action="store", dest='obstName', default='' )
+    parser.add_option( "-f", "--field", help="The name of the output file.  Default value is tawafField_##.txt, where ** is the radial weight.",
+                       action="store", dest='fieldName', default='' )
+    parser.add_option( "-r", "--radiusWeight", help="The component of the velocity in each cell that is towards the center.  Default is 0.2.)",
+                       action="store", dest='radWeight', default=0.23, type='float' )
+    parser.add_option( "-c", "--cellSize", help="The size of a grid cell (in meters). Defaults to 2.0",
+                       action="store", dest="cellSize", default=2.0, type='float' )
+    parser.add_option( "-q", "--square", help="Forces the grid to be square",
+                       action="store_true", dest="square", default=False )
+##    parser.add_option( "-l", "--flip", help="Reverses the direction of the field",
+##                       action="store_true", dest="flip", default=False )
+    options, args = parser.parse_args()
+    
+    if ( options.obstName == '' ):
+        parser.print_help()
         sys.exit(1)
 
-    if ( fieldName == '' ):
+    if ( options.fieldName == '' ):
         # construct a default name
-        fieldName = 'tawafField_{0:.2f}'.format( radWeight )
+        fieldName = 'tawafField_{0:.2f}'.format( options.radWeight )
         fieldName = fieldName.replace( '.', '_' ) + ".txt"
-    makeSquare = pMan[ 'square' ]
+    makeSquare = options.square
 
-    print "Creating vector field based on:", obstName
-    obstacles, bb = readObstacles( obstName )
+    print "Creating vector field based on:", options.obstName
+    obstacles, bb = readObstacles( options.obstName )
 
     print "\tObstacle bounding box:", bb
-    print "\tVector field cell size:", cellSize
+    print "\tVector field cell size:", options.cellSize
     bbSize = bb.max - bb.min
     if ( makeSquare ):
         maxSize = max( bbSize.x, bbSize.y )
         bbSize.x = maxSize
         bbSize.y = maxSize
-    field = VectorField( ( bb.min.x, bb.min.y ), ( bbSize.x, bbSize.y ), cellSize )
+    field = VectorField( ( bb.min.x, bb.min.y ), ( bbSize.x, bbSize.y ), options.cellSize )
     # do work
-    spiralField( field, radWeight )
-    print "\tVector field saving to:", fieldName,
-    field.write( fieldName )
+    spiralField( field, options.radWeight )
+    print "\tVector field saving to:", options.fieldName,
+    field.write( options.fieldName )
     print "SAVED!"
     
 
