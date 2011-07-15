@@ -72,12 +72,14 @@ class FrameSet:
         else:
             self.maxFrames = maxFrames
         self.file = open( scbFile, 'rb' )
-        self.version = self.file.read( 4 )
+        self.version = self.file.read( 4 )[:-1]
         print "SCB file version:", self.version
-        if ( self.version == '1.0\x00' ):
+        if ( self.version == '1.0' ):
             self.readHeader1_0( scbFile )
-        elif ( self.version == '2.0\x00' ):
+        elif ( self.version == '2.0' ):
             self.readHeader2_0( scbFile )
+        elif ( self.version == '2.1' ):
+            self.readHeader2_1( scbFile )
         else:
             raise AttributeError, "Unrecognized scb version: %s" % ( version )
         
@@ -87,12 +89,12 @@ class FrameSet:
         self.readDelta = 0
         if ( maxAgents > 0 and maxAgents < self.agtCount ):
             self.readAgtCount = maxAgents
-            # number of unread agents * size of agent (12 bytes)
-            self.readDelta = ( self.agtCount - maxAgents ) * 12
+            # number of unread agents * size of agent 
+            self.readDelta = ( self.agtCount - maxAgents ) * self.agentByteSize
         print "\t%d agents" % ( self.agtCount )
         # this is the size of the frame in the scbfile (and doesn't necessarily reflect how many
         # agents are in the returned frame.
-        self.frameSize = self.agtCount * 12 # three floats per agent, 4 bytes per float
+        self.frameSize = self.agtCount * self.agentByteSize 
         self.strideDelta = ( frameStep - 1 ) * self.frameSize
         self.currFrameIndex = -1
         self.currFrame = None
@@ -102,6 +104,8 @@ class FrameSet:
         data = self.file.read( 4 )
         self.agtCount = struct.unpack( 'i', data )[0]
         self.ids = [ 0 for i in range( self.agtCount ) ]
+        # three floats per agent, 4 bytes per float
+        self.agentByteSize = 12
 
     def readHeader2_0( self, scbFile ):
         '''Reads the header for a version 1.0 scb file'''
@@ -113,6 +117,20 @@ class FrameSet:
         for i in range( self.agtCount ):
             data = self.file.read( 4 )
             self.ids[ i ] = struct.unpack( 'i', data )[0]
+        # three floats per agent, 4 bytes per float
+        self.agentByteSize = 12
+
+    def readHeader2_1( self, scbFile ):
+        '''The 2.1 version is just like the 2.0 version.  However, the per-agent data consists of FOUR values:
+            1. float: x position
+            2. float: y position
+            3. float: orientation
+            4. int:   state
+            
+            The header information is exactly the same.
+        '''
+        self.readHeader2_0( scbFile )
+        self.agentByteSize = 16
 
     def getClasses( self ):
         '''Returns a dictionary mapping class id to each agent with that class'''
@@ -126,9 +144,10 @@ class FrameSet:
 
     def headerOffset( self ):
         '''Reports the number of bytes for the header'''
-        if ( self.version == '1.0\x00' ):
+        majorVersion = self.version.split('.')[0]
+        if ( majorVersion == '1' ):
             return 8
-        elif ( self.version == '2.0\x00' ):
+        elif ( majorVersion == '2' ):
             return 8 + 4 + 4 * self.agtCount
         raise ValueError, "Can't compute header for version: %s" % ( self.version )
 
@@ -140,17 +159,22 @@ class FrameSet:
         if ( newInstance or self.currFrame == None):
             self.currFrame = Frame( self.readAgtCount )
         for i in range( self.readAgtCount ):
-            data = self.file.read( 12 ) # three 4-byte floats
+            data = self.file.read( self.agentByteSize ) 
             if ( data == '' ):
                 self.currFrame = None
                 break
             else:
+                
                 try:
-                    x, y, o = struct.unpack( 'fff', data )                  
+                    if ( self.agentByteSize == 12 ):
+                        x, y, o = struct.unpack( 'fff', data )
+                    elif ( self.agentByteSize == 16 ):
+                        x, y, o, s = struct.unpack( 'ffff', data )
                     self.currFrame.setPosition( i, Vector2( x, y ) )
                 except struct.error:
                     self.currFrame = None
                     break
+                
         # seek forward based on skipping
         self.file.seek( self.readDelta, 1 ) # advance to next frame
         self.file.seek( self.strideDelta, 1 ) # advance according to stride
@@ -162,7 +186,7 @@ class FrameSet:
             index = 0
         # TODO: if index > self.maxFrames
         self.currFrameIndex = index
-        byteAddr = ( self.startFrame + self.currFrameIndex ) * self.frameSize + self.headerOffset()      # +8 is the header offset
+        byteAddr = ( self.startFrame + self.currFrameIndex ) * self.frameSize + self.headerOffset()
         self.file.seek( byteAddr )
         self.currFrameIndex -= 1
 
@@ -171,7 +195,7 @@ class FrameSet:
         # does this by scanning the whole file
         currentPos = self.file.tell()
         #TODO: make this dependent on the version
-        self.file.seek( 8 ) # scan to the end of the head
+        self.file.seek( self.headerOffset() ) # scan to the end of the head
         frameCount = 0
         data = self.file.read( self.frameSize )
         while ( len( data ) == self.frameSize ):
@@ -191,7 +215,11 @@ class FrameSet:
         # NOTE: it returns the number of read agents, not total agents, in case
         #   I'm only reading a sub-set
         return self.readAgtCount
-        
+    def hasStateData( self ):
+        '''Reports if the scb data contains state data'''
+        #TODO: This might evolve
+        return self.version == '2.1'
+    
 class NPFrameSet( FrameSet ):
     """A frame set that uses numpy arrays instead of frames as the underlying structure"""
     def __init__( self, scbFile, startFrame=0, maxFrames=-1, maxAgents=-1, frameStep=1 ):
@@ -199,13 +227,14 @@ class NPFrameSet( FrameSet ):
 
     def next( self, stride=1 ):
         """Returns the next frame in sequence from current point"""
+        colCount = self.agentByteSize / 4
         if ( self.currFrame == None):
-            self.currFrame = np.empty( ( self.readAgtCount, 3 ), dtype=np.float32 )
+            self.currFrame = np.empty( ( self.readAgtCount, colCount ), dtype=np.float32 )
         try:
             skipAmount = stride - 1
             if ( skipAmount ):
                 self.file.seek( skipAmount * ( self.readDelta + self.strideDelta+ self.frameSize ), 1 )
-            self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.frameSize ), np.float32, self.readAgtCount * 3 ), ( self.readAgtCount, 3 ) )
+            self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.frameSize ), np.float32, self.readAgtCount * colCount ), ( self.readAgtCount, colCount ) )
             self.currFrameIndex += stride
             # seek forward based on skipping
             self.file.seek( self.readDelta, 1 ) # advance to next frame
@@ -218,12 +247,13 @@ class NPFrameSet( FrameSet ):
     def prev( self, stride=1 ):
         """Returns the next frame in sequence from current point"""
         if ( self.currFrameIndex >= stride ):
+            colCount = self.agentByteSize / 4
+            
             self.currFrameIndex -= stride
             self.file.seek( -(stride+1) * ( self.readDelta + self.strideDelta+ self.frameSize ), 1 )
             if ( self.currFrame == None):
-                self.currFrame = np.empty( ( self.readAgtCount, 3 ), dtype=np.float32 )
-
-            self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.frameSize ), np.float32, self.readAgtCount * 3 ), ( self.readAgtCount, 3 ) )
+                self.currFrame = np.empty( ( self.readAgtCount, colCount ), dtype=np.float32 )
+            self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.frameSize ), np.float32, self.readAgtCount * colCount ), ( self.readAgtCount, colCount ) )
             # seek forward based on skipping
             self.file.seek( self.readDelta, 1 ) # advance to next frame
             self.file.seek( self.strideDelta, 1 ) # advance according to stride
@@ -248,6 +278,8 @@ def writeNPSCB( fileName, array, frameSet, version=1 ):
         _writeNPSCB_1_0( fileName, array )
     elif ( version == 2 ):
         _writeNPSCB_2_0( fileName, array, frameSet )
+    elif ( version == 2.1 ):
+        _writeNPSCB_2_1( fileName, array, frameSet )
     else:
         raise Exception, "Invalid write version for data: %s" % ( version )
     
@@ -261,10 +293,11 @@ def _writeNPSCB_1_0( fileName, array ):
         f.write( array[:,:,frame].tostring() )
     f.close()
 
-def _writeNPSCB_2_0( fileName, array, frameSet ):
-    """Given an N X 3 X K array, writes out a version 1.0 scb file with the given data"""
+def _writeNPSCB_2( fileName, array, frameSet, version ):
+    """Given an N X 3 X K array, writes out a version 2.* scb file with the given data.
+    It is assumed that all file versions with the same major version have the same header"""
     f = open( fileName, 'wb' )
-    f.write( '2.0\x00' )
+    f.write( version )
     agtCount = array.shape[0]
     f.write( struct.pack( 'i', agtCount ) )   # agent count
     
@@ -290,7 +323,13 @@ def _writeNPSCB_2_0( fileName, array, frameSet ):
         f.write( array[:,:,frame].tostring() )
     f.close()
 
-
+def _writeNPSCB_2_0( fileName, array, frameSet ):
+    """Given an N X 3 X K array, writes out a version 1.0 scb file with the given data"""
+    _writeNPSCB_2( fileName, array, frameSet, '2.0\x00' )
+  
+def _writeNPSCB_2_1( fileName, array, frameSet ):
+    """Given an N X 3 X K array, writes out a version 1.0 scb file with the given data"""
+    _writeNPSCB_2( fileName, array, frameSet, '2.1\x00' )
 
     
 def testNP():
