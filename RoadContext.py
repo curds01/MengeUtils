@@ -257,18 +257,26 @@ class SCBContext( BaseContext ):
                     if ( self.scbData ):
                         self.currFrame, self.currFrameID = self.scbData.next()
                         result.set( True, True )
-                elif ( hasCtrl and ( not hasAlt and not hasShift ) ):
+                else:
                     if ( self.scbData ):
-                        self.currFrame, self.currFrameID = self.scbData.next( 10 )
+                        AMT = 0
+                        if ( hasCtrl ): AMT += 10
+                        if ( hasAlt ): AMT += 10
+                        if ( hasShift ): AMT += 10
+                        self.currFrame, self.currFrameID = self.scbData.next( AMT )
                         result.set( True, True )
             elif ( event.key == pygame.K_LEFT ):
                 if ( noMods ):
                     if ( self.scbData ):
                         self.currFrame, self.currFrameID = self.scbData.prev()
                         result.set( True, True )
-                elif ( hasCtrl and ( not hasAlt and not hasShift ) ):
+                else:
                     if ( self.scbData ):
-                        self.currFrame, self.currFrameID = self.scbData.prev( 10 )
+                        AMT = 0
+                        if ( hasCtrl ): AMT += 10
+                        if ( hasAlt ): AMT += 10
+                        if ( hasShift ): AMT += 10
+                        self.currFrame, self.currFrameID = self.scbData.prev( AMT )
                         result.set( True, True )
             elif ( event.key == pygame.K_UP and noMods ):
                 if ( self.scbData ):
