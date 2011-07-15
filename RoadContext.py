@@ -122,56 +122,94 @@ class SCBContext( BaseContext ):
     def __init__( self, scbFileName, agentRadius=0.25 ):
         BaseContext.__init__( self )
         self.scbData = None
-        self.frameCount = 0
+##        self.frameCount = 0
         self.currFrame = None
         self.loadSCBData( scbFileName )
         self.radius=0.25    # assumes uniform radius
         self.selected = -1
+        self.visState = False   # causes the agents to be colored according to state instead of class
         if ( self.scbData ):
             print "SCBContext"
-            print "\tFrame count: ", self.frameCount
-            print "\tInitial frame: ", self.currFrame
+##            print "\tFrame count: ", self.frameCount
+##            print "\tInitial frame: "#, self.currFrame
             print "\tFrame shape:", self.currFrame.shape
             print "Found agents with the following ids:", self.classes.keys()
         
     def loadSCBData( self, fileName ):
         if ( fileName ):
             self.scbData = scbData.NPFrameSet( fileName )
-            self.frameCount = self.scbData.totalFrames()
+##            self.frameCount = self.scbData.totalFrames()
             self.currFrame, self.currFrameID = self.scbData.next()
             self.classes = self.scbData.getClasses()
 
     def drawAgents( self, view ):
         if ( self.scbData ):
-            # this draws agents as points
-            #   it changes the size of the points according to current view
-            #   parameters and rounds the points using point smothing
-            glPushAttrib( GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT | GL_POINT_BIT )
-            glDisable( GL_DEPTH_TEST )
-            glDepthMask( False )
-            glPointSize( 2.0 * self.radius / view.pixelSize )
-            glEnable( GL_POINT_SMOOTH )
-            glEnable( GL_BLEND )
-            glAlphaFunc( GL_GEQUAL, 0.5 )
-            CLASS_COUNT = len( self.classes.keys() )
-            COLOR_STRIDE = self.COLOR_COUNT / CLASS_COUNT
-            keys = self.classes.keys()
-            keys.sort()
-            for i, idClass in enumerate( keys ):
-                color = self.COLORS[ ( i * COLOR_STRIDE ) % self.COLOR_COUNT ]
-                glColor3f( color[0], color[1], color[2] )
-                glBegin( GL_POINTS )
-                for idx in self.classes[ idClass ]:
-                    x, y = self.currFrame[ idx, :2 ]
-                    glVertex2f( x, y )
-                glEnd()
-            if ( self.selected != -1 ):
-                glBegin( GL_POINTS );
-                glColor3f( 1.0, 1.0, 1.0 )
-                x, y = self.currFrame[ self.selected, :2 ]
+            if ( self.visState ):
+                self.drawAgentState( view )
+            else:
+                self.drawAgentClass( view )
+
+    def drawHighlighted( self, view ):
+        '''Draws the highlighted agent'''
+        if ( self.selected != -1 ):
+            glBegin( GL_POINTS );
+            glColor3f( 1.0, 1.0, 1.0 )
+            x, y = self.currFrame[ self.selected, :2 ]
+            glVertex2f( x, y )
+            glEnd()
+            
+    def drawAgentClass( self, view ):
+        '''Draws the agents, colored by class'''
+        # this draws agents as points
+        #   it changes the size of the points according to current view
+        #   parameters and rounds the points using point smothing
+        glPushAttrib( GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT | GL_POINT_BIT )
+        glDisable( GL_DEPTH_TEST )
+        glDepthMask( False )
+        glPointSize( 2.0 * self.radius / view.pixelSize )
+        glEnable( GL_POINT_SMOOTH )
+        glEnable( GL_BLEND )
+        glAlphaFunc( GL_GEQUAL, 0.5 )
+        CLASS_COUNT = len( self.classes.keys() )
+        COLOR_STRIDE = self.COLOR_COUNT / CLASS_COUNT
+        keys = self.classes.keys()
+        keys.sort()
+        for i, idClass in enumerate( keys ):
+            color = self.COLORS[ ( i * COLOR_STRIDE ) % self.COLOR_COUNT ]
+            glColor3f( color[0], color[1], color[2] )
+            glBegin( GL_POINTS )
+            for idx in self.classes[ idClass ]:
+                x, y = self.currFrame[ idx, :2 ]
                 glVertex2f( x, y )
-                glEnd()
-            glPopAttrib()
+            glEnd()
+        self.drawHighlighted( view )
+        glPopAttrib()
+
+    def drawAgentState( self, view ):
+        '''Draws the agents, colored by state'''
+        glPushAttrib( GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT | GL_POINT_BIT )
+        glDisable( GL_DEPTH_TEST )
+        glDepthMask( False )
+        glPointSize( 2.0 * self.radius / view.pixelSize )
+        glEnable( GL_POINT_SMOOTH )
+        glEnable( GL_BLEND )
+        glAlphaFunc( GL_GEQUAL, 0.5 )
+
+        glBegin( GL_POINTS )
+        for agt in self.currFrame:
+            color = self.COLORS[ int( agt[3] ) % self.COLOR_COUNT ]
+            glColor3f( color[0], color[1], color[2] )
+            x, y = agt[ :2 ]
+            glVertex2f( x, y )
+        glEnd()
+        self.drawHighlighted( view )
+        glPopAttrib()
+
+    def hasStateData( self ):
+        '''Reports if the scb file contains state data'''
+        if ( self.scbData ):
+            return self.scbData.hasStateData()
+        return False
 
     def drawGL( self, view ):
         '''Draws the agent context into the view'''
@@ -183,6 +221,10 @@ class SCBContext( BaseContext ):
             title += "no scb file loaded"
         if ( self.selected != -1 ):
             title += " (Agent %d selected)" % ( self.selected )
+        if ( self.visState ):
+            title += ", color shows state"
+        else:
+            title += ", color shows class"
         view.printText( title,  (10,10) )            
 
     def findAgent( self, pX, pY ):
@@ -192,7 +234,6 @@ class SCBContext( BaseContext ):
         disp = self.currFrame[:, :2] - p
         dispSqd = np.sum( disp * disp, axis=1 )
         id = np.argmin( dispSqd )
-##        dist = np.sqrt( dispSqd[ id ] )
         changed = False
         if ( dispSqd[ id ] < radSqd ):
             changed = self.selected != id
@@ -200,7 +241,6 @@ class SCBContext( BaseContext ):
         else:
             changed = self.selected != -1
             self.selected = -1
-##        print "Distance:", dist
         return changed
         
     def handleKeyboard( self, event, view ):
@@ -238,6 +278,12 @@ class SCBContext( BaseContext ):
             elif ( event.key == pygame.K_s and hasCtrl ):
                 if ( self.scbData ):
                     self.saveFrameXML()
+            elif ( event.key == pygame.K_c and noMods ):
+                if ( self.hasStateData() ):
+                    self.visState = not self.visState
+                    result.set( True, True )
+                else:
+                    print "No state data!"
         return result
 
     def handleMouse( self, event, view ):
