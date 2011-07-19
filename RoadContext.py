@@ -749,9 +749,11 @@ class FieldStrokeLenContext( FieldStrokeContext ):
                     self.factor += 0.05
                     result.set( True, True )
                 elif ( event.key == pygame.K_LEFT ):
-                    if ( self.factor > 0.05 ):
-                        self.factor -= 0.05
-                        result.set( True, True )
+                    f = self.factor - 0.05
+                    if ( f < 0.0 ): f = 0.0
+                    changed = self.factor != f
+                    result.set( changed, changed )
+                    self.factor = f
         return result
 
     def doWork( self, mouseDelta ):

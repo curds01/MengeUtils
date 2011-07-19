@@ -195,8 +195,14 @@ def blendLengthFromDistance( field, length, minima, maxima, distances, radius ):
     # get the region
     region = field.subRegion( minima, maxima )
     magnitude = np.sqrt( np.sum( region * region, axis=2 ) )
-    magnitude.shape = ( magnitude.shape[0], -1, 1 )
-    tgtLength = region * length / magnitude
+##    magnitude.shape = ( magnitude.shape[0], -1, 1 )
+    nonZero = magnitude != 0.0
+    
+    # need to handle the case where magnitude is zero
+##    tgtLength = region * length / magnitude
+    tgtLength = np.copy( region )
+    tgtLength[nonZero, 0] = region[nonZero, 0] * length / magnitude[nonZero]
+    tgtLength[nonZero, 1] = region[nonZero, 1] * length / magnitude[nonZero]
 
     newVectors = weights * tgtLength + ( 1 - weights ) * region
     region[:,:,:] =  newVectors
