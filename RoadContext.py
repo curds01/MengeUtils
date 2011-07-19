@@ -106,23 +106,22 @@ class MouseEnabled:
 class SCBContext( BaseContext ):
     '''Plays back an scb file'''
     COLORS = ( (0.7, 0.0, 0.0 ),  # red
-               (0.7, 0.35, 0.0 ), # orange
+##               (0.7, 0.35, 0.0 ), # orange
                (0.7, 0.7, 0.0 ),  # yellow
-               (0.35, 0.7, 0.0 ), # chartreuse
+##               (0.35, 0.7, 0.0 ), # chartreuse
                (0.0, 0.7, 0.0 ),  # green
-               (0.0, 0.7, 0.35),  # teal
+##               (0.0, 0.7, 0.35),  # teal
                (0.0, 0.7, 0.7),   # cyan
-               (0.0, 0.35, 0.7),  # aqua
+##               (0.0, 0.35, 0.7),  # aqua
                (0.0, 0.0, 0.7),   # blue
                (0.35, 0.0, 0.7),  # purple
                (0.7, 0.0, 0.7),   # magenta
-               (0.7, 0.0, 0.35),  # burgandy
+##               (0.7, 0.0, 0.35),  # burgandy
                )
     COLOR_COUNT = len( COLORS )
     def __init__( self, scbFileName, agentRadius=0.25 ):
         BaseContext.__init__( self )
         self.scbData = None
-##        self.frameCount = 0
         self.currFrame = None
         self.loadSCBData( scbFileName )
         self.radius=0.25    # assumes uniform radius
@@ -130,15 +129,12 @@ class SCBContext( BaseContext ):
         self.visState = False   # causes the agents to be colored according to state instead of class
         if ( self.scbData ):
             print "SCBContext"
-##            print "\tFrame count: ", self.frameCount
-##            print "\tInitial frame: "#, self.currFrame
             print "\tFrame shape:", self.currFrame.shape
             print "Found agents with the following ids:", self.classes.keys()
         
     def loadSCBData( self, fileName ):
         if ( fileName ):
             self.scbData = scbData.NPFrameSet( fileName )
-##            self.frameCount = self.scbData.totalFrames()
             self.currFrame, self.currFrameID = self.scbData.next()
             self.classes = self.scbData.getClasses()
 
@@ -306,7 +302,6 @@ class SCBContext( BaseContext ):
         if ( event.type == pygame.MOUSEBUTTONDOWN ):
             if ( noMods and event.button == LEFT ):
                 pX, pY = view.screenToWorld( event.pos )        
-##                print "world position", pX, pY
                 result.setNeedsRedraw( self.findAgent( pX, pY ) )
         return result
     
