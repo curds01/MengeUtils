@@ -16,7 +16,7 @@ def writeXML( fileName, positions, agtRadius, obstacles ):
 
 <Experiment time_step="0.05" gridSizeX="82" gridSizeY="82" visualization="1" useProxies="1" neighbor_dist="5">
 
-  <AgentSet obstacleSet="3" process="1" vel_sample_count="250" neighbor_dist="20" max_neighbors="10" r="%f" class="0" g_r="3.0" pref_speed="1.04" ttc="0.5" max_speed="2.0" max_accel="10.0" or="0.0" safety_factor="1.5">
+  <AgentSet obstacleSet="3" process="1" vel_sample_count="250" neighbor_dist="3" max_neighbors="10" r="%f" class="0" g_r="3.0" pref_speed="1.04" ttc="0.5" max_speed="2.0" max_accel="10.0" or="0.0" safety_factor="1.5">
 ''' % agtRadius
     f = open( fileName, 'w' )
     f.write( HEADER )
