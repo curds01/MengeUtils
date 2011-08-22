@@ -145,6 +145,10 @@ class AgentSet:
         self.activeAgent = None
         self.editable = False
 
+    def setRadius( self, radius ):
+        '''Sets the default radius'''
+        self.defRadius = radius
+
     def count( self ):
         '''Returns the number of agents in the set'''
         return len( self.agents )

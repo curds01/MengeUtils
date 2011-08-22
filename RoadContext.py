@@ -400,11 +400,14 @@ class AgentContext( PGContext, MouseEnabled ):
                 '\n\tCreate new agent and goal - left-click in space and drag the goal' + \
                 '\n\tEdit agent position - hover over agent, left-click and drag to move' + \
                 '\n\tEdit goal position - hover over goal, left-click and drag to move' + \
-                '\n\tDelete agent - hover over agent or goal, hit delete'
+                '\n\tDelete agent - hover over agent or goal, hit delete' + \
+                '\n\tIncrease NEW agent radius - up arrow' + \
+                '\n\tDecrease NEW agent radius - down arrow'
     def __init__( self, agentSet ):
         PGContext.__init__( self )
         MouseEnabled.__init__( self )
         self.agents = agentSet
+        self.agtRadius = self.agents.defRadius
         self.downPos = None     # the position of the active agent when the mouse was pressed
 
     def activate( self ):
@@ -423,7 +426,9 @@ class AgentContext( PGContext, MouseEnabled ):
         '''Draws the agent context into the view'''
         PGContext.drawGL( self, view )
         title = "Edit agents: %d" % self.agents.count()
-        view.printText( title,  (10,10) )
+        view.printText( title,  (10,30) )
+        data = '\tAgent radius: %.2f' % self.agtRadius
+        view.printText( data, (10, 10) )
 
     def handleKeyboard( self, event, view ):
         """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
@@ -443,6 +448,15 @@ class AgentContext( PGContext, MouseEnabled ):
                     result.set( True, False )
                 elif ( event.key == pygame.K_DELETE and noMods ):
                     result.set( True, self.agents.deleteActiveAgent() )
+                elif ( event.key == pygame.K_UP and noMods ):
+                    self.agtRadius += 0.01
+                    result.set( True, True )
+                    self.agents.setRadius( self.agtRadius )
+                elif ( event.key == pygame.K_DOWN and noMods ):
+                    if ( self.agtRadius > 0.01 ):
+                        self.agtRadius -= 0.01
+                        self.agents.setRadius( self.agtRadius )
+                        result.set( True, True )
         return result
 
     def handleMouse( self, event, view ):
