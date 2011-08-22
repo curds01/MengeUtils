@@ -160,11 +160,13 @@ class MouseEnabled:
 class SCBContext( PGContext ):
     '''Plays back an scb file'''
     HELP_TEXT = 'Playback an scbfile' + \
-                '\n\tright arrow - step frame forward' + \
-                '\n\tleft arrow - step frame backward' + \
                 '\n\tup arrow - go to beginning' + \
                 '\n\tCtrl-s - save current configuration in xml file' + \
-                '\n\tc - toggle coloring between state and class'
+                '\n\tc - toggle coloring between state and class' + \
+                '\n\tright arrow - step frame forward' + \
+                '\n\tleft arrow - step frame backward' + \
+                '\n\t\t* Holding Ctrl, Alt, Shift will speed up the playback step' + \
+                '\n\t\t* Each adds a factor of 10 to the playback'
     COLORS = ( (0.7, 0.0, 0.0 ),  # red
 ##               (0.7, 0.35, 0.0 ), # orange
                (0.7, 0.7, 0.0 ),  # yellow
@@ -390,7 +392,11 @@ class SCBContext( PGContext ):
         
 class AgentContext( PGContext, MouseEnabled ):
     '''A context for adding agents-goal pairs and editing existing pairs'''
-    HELP_TEXT = 'Agent context'
+    HELP_TEXT = 'Agent context' + \
+                '\n\tCreate new agent and goal - left-click in space and drag the goal' + \
+                '\n\tEdit agent position - hover over agent, left-click and drag to move' + \
+                '\n\tEdit goal position - hover over goal, left-click and drag to move' + \
+                '\n\tDelete agent - hover over agent or goal, hit delete'
     def __init__( self, agentSet ):
         PGContext.__init__( self )
         MouseEnabled.__init__( self )
