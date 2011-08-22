@@ -27,7 +27,8 @@ class PGContext( BaseContext ):
         '''Displays this context's instructions to the display'''
         if ( self.displayHelp ):
             vCenter = view.wHeight / 2
-            view.printText( self.HELP_TEXT, (10, vCenter) )
+            t = self.HELP_TEXT + '\n\t---\n' + view.HELP_TEXT
+            view.printText( t, (10, vCenter) )
 
     def drawGL( self, view ):
         '''Responsible for drawing help'''

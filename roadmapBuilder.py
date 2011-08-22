@@ -739,6 +739,10 @@ def main():
     w = bb.max.x - bb.min.x
     h = bb.max.y - bb.min.y
     view = View( (w,h), (bb.min.x, bb.min.y), (w,h), (bb.min.x, bb.min.y), (800, 600), font )
+    view.HELP_TEXT = 'View controls:' + \
+                     '\n\tpan - Ctrl + left mouse button' + \
+                     '\n\tzoom in - mouse wheel up' + \
+                     '\n\tzoom out - mouse wheel down'
     view.initWindow( 'Create roadmap' )
     pygame.key.set_repeat( 250, 10 )
     view.initGL()

@@ -6,6 +6,7 @@ from OpenGL.GLU import *
 class View:
     """Contains the OpenGL view parameters for the scene"""
     VIDEO_FLAGS = pygame.OPENGL|pygame.DOUBLEBUF|pygame.RESIZABLE
+    HELP_TEXT = 'View has no help'
     def __init__( self, imgSize, imgBottomLeft, viewSize, viewBottomLeft, winSize, font ):
         # the size of the displayed background and where it's bottom left-corner should be placed
         self.bgWidth = imgSize[0]
