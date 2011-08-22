@@ -201,15 +201,24 @@ class View:
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
 
+        vSpace = self.char[ ord( 'a' ) ][2]
+        hSpace = self.char[ ord( 'a' ) ][1]
         length = len( txt )
         x, y = pos
         i = 0
         lx = 0
         while ( i < length ):
-            glRasterPos2i( x + lx, y )
-            ch = self.char[ ord( txt[ i ] ) ]
-            glDrawPixels( ch[1], ch[2], GL_RGBA, GL_UNSIGNED_BYTE, ch[0] )
-            lx += ch[1]
+            c = txt[i]
+            if ( c == '\n' ):
+                y -= vSpace
+                lx = 0
+            elif ( c == '\t' ):
+                lx += hSpace << 2
+            else:
+                glRasterPos2i( x + lx, y )
+                ch = self.char[ ord( txt[ i ] ) ]
+                glDrawPixels( ch[1], ch[2], GL_RGBA, GL_UNSIGNED_BYTE, ch[0] )
+                lx += ch[1]
             i += 1
                
         glMatrixMode( GL_PROJECTION )
