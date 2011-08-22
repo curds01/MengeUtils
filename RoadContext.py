@@ -401,8 +401,10 @@ class AgentContext( PGContext, MouseEnabled ):
                 '\n\tEdit agent position - hover over agent, left-click and drag to move' + \
                 '\n\tEdit goal position - hover over goal, left-click and drag to move' + \
                 '\n\tDelete agent - hover over agent or goal, hit delete' + \
-                '\n\tIncrease NEW agent radius - up arrow' + \
-                '\n\tDecrease NEW agent radius - down arrow'
+                '\n\tIncrease NEW agent radius - up arrow (with no agent highlighted)' + \
+                '\n\tDecrease NEW agent radius - down arrow (with no agent highlighted)' + \
+                '\n\tIncrease specific agent radius - highlight agent/goal, up arrow' + \
+                '\n\tDecrease specific agent radius - highlight agent/goal, down arrow'
     def __init__( self, agentSet ):
         PGContext.__init__( self )
         MouseEnabled.__init__( self )
@@ -427,7 +429,9 @@ class AgentContext( PGContext, MouseEnabled ):
         PGContext.drawGL( self, view )
         title = "Edit agents: %d" % self.agents.count()
         view.printText( title,  (10,30) )
-        data = '\tAgent radius: %.2f' % self.agtRadius
+        data = '\tNew agent radius: %.2f' % self.agtRadius
+        if ( self.agents.activeAgent ):
+            data += ', current agent radius: %.2f' % ( self.agents.activeAgent.radius )
         view.printText( data, (10, 10) )
 
     def handleKeyboard( self, event, view ):
@@ -449,14 +453,21 @@ class AgentContext( PGContext, MouseEnabled ):
                 elif ( event.key == pygame.K_DELETE and noMods ):
                     result.set( True, self.agents.deleteActiveAgent() )
                 elif ( event.key == pygame.K_UP and noMods ):
-                    self.agtRadius += 0.01
-                    result.set( True, True )
-                    self.agents.setRadius( self.agtRadius )
-                elif ( event.key == pygame.K_DOWN and noMods ):
-                    if ( self.agtRadius > 0.01 ):
-                        self.agtRadius -= 0.01
+                    if ( self.agents.activeAgent ):
+                        self.agents.activeAgent.radius += 0.01
+                    else:
+                        self.agtRadius += 0.01
                         self.agents.setRadius( self.agtRadius )
-                        result.set( True, True )
+                    result.set( True, True )
+                elif ( event.key == pygame.K_DOWN and noMods ):
+                    if ( self.agents.activeAgent ):
+                        if ( self.agents.activeAgent.radius > 0.01 ):
+                            self.agents.activeAgent.radius -= 0.01
+                    else:
+                        if ( self.agtRadius > 0.01 ):
+                            self.agtRadius -= 0.01
+                            self.agents.setRadius( self.agtRadius )
+                    result.set( True, True )
         return result
 
     def handleMouse( self, event, view ):
