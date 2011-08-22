@@ -18,6 +18,7 @@ WHEEL_DOWN = 5
 
 class PGContext( BaseContext ):
     '''A pygame-based context'''
+    HELP_TEXT = 'No help defined'
     def __init__( self ):
         BaseContext.__init__( self )
         self.displayHelp = False
@@ -25,8 +26,8 @@ class PGContext( BaseContext ):
     def drawHelp( self, view ):
         '''Displays this context's instructions to the display'''
         if ( self.displayHelp ):
-            print "No help defined"
-##            view.printText( 'No help defined', (10, 10) )
+            vCenter = view.wHeight / 2
+            view.printText( self.HELP_TEXT, (10, vCenter) )
 
     def drawGL( self, view ):
         '''Responsible for drawing help'''
@@ -51,8 +52,14 @@ class PGContext( BaseContext ):
                 result.set( True, True )
         return result
 
+    def deactivate( self ):
+        '''When deactivating, the help can no longer be displayed'''
+        self.displayHelp = False
+
 class ContextSwitcher( PGContext ):
     '''A context for switching contexts'''
+    HELP_BASE = 'Hit the following keys to activate a context (hit ESC to back out)'
+    HELP_TEXT = HELP_BASE
     def __init__( self ):
         PGContext.__init__( self )
         self.contexts = {}
@@ -60,31 +67,33 @@ class ContextSwitcher( PGContext ):
 
     def handleKeyboard( self, event, view ):
         """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
-        result = PGContext.handleKeyboard( self, event, view )
-        if ( not result.isHandled() ):
-            mods = pygame.key.get_mods()
-            hasShift = mods & pygame.KMOD_SHIFT
-            hasCtrl = mods & pygame.KMOD_CTRL
-            hasAlt = mods & pygame.KMOD_ALT
-            noMods = not( hasShift or hasCtrl or hasAlt )
-            if ( event.type == pygame.KEYDOWN ):
-                if ( event.key == pygame.K_ESCAPE and noMods ):
-                    changed = self.activeContext != None
-                    self.switchContexts( None )
-                    result.set( True, changed )
-                if ( not result.isHandled() ):
-                    if ( self.activeContext ):
-                        result = self.activeContext.handleKeyboard( event, view )
-                    else:
-                        if ( self.contexts.has_key( event.key ) ):
-                            print 'changing contexts'
-                            ctx = self.contexts[ event.key ]
-                            changed = ctx != self.activeContext
-                            self.switchContexts( ctx )
-                            result.set( True, changed )
-            elif ( event.type == pygame.KEYUP ):
+        result = ContextResult()#PGContext.handleKeyboard( self, event, view )
+        mods = pygame.key.get_mods()
+        hasShift = mods & pygame.KMOD_SHIFT
+        hasCtrl = mods & pygame.KMOD_CTRL
+        hasAlt = mods & pygame.KMOD_ALT
+        noMods = not( hasShift or hasCtrl or hasAlt )
+        if ( event.type == pygame.KEYDOWN ):
+            if ( event.key == pygame.K_ESCAPE and noMods ):
+                changed = self.activeContext != None
+                self.switchContexts( None )
+                result.set( True, changed )
+            if ( not result.isHandled() ):
                 if ( self.activeContext ):
                     result = self.activeContext.handleKeyboard( event, view )
+                else:
+                    result = PGContext.handleKeyboard( self, event, view )
+                    if ( not result.isHandled() and self.contexts.has_key( event.key ) ):
+                        print 'changing contexts'
+                        ctx = self.contexts[ event.key ]
+                        changed = ctx != self.activeContext
+                        self.switchContexts( ctx )
+                        result.set( True, changed )
+        elif ( event.type == pygame.KEYUP ):
+            if ( self.activeContext ):
+                result = self.activeContext.handleKeyboard( event, view )
+            else:
+                result = PGContext.handleKeyboard( self, event, view )
         return result
 
     def handleMouse( self, event, view ):
@@ -105,6 +114,11 @@ class ContextSwitcher( PGContext ):
         if ( self.contexts.has_key( key ) ):
             print "Key {0} is already mapped to the context {1}.  It will be remapped".format( key, self.contexts[ key ].__class__.__name__ )
         self.contexts[ key ] = context
+        keys = self.contexts.keys()
+        keys.sort()
+        self.HELP_TEXT = self.HELP_BASE
+        for k in keys:
+            self.HELP_TEXT += '\n\t%s: %s' % ( pygame.key.name( k ), self.contexts[ k ] )
         print "Adding context {0} to key {1}".format( context, pygame.key.name( key ) )
 
     def switchContexts( self, context ):
@@ -127,7 +141,8 @@ class ContextSwitcher( PGContext ):
         '''Draws the context into the view'''
         if ( self.activeContext ):
             self.activeContext.drawGL( view )
-        PGContext.drawGL( self, view )
+        else:
+            PGContext.drawGL( self, view )
 
     def selectGL( self ):
         """How the context handles selection"""
@@ -367,6 +382,7 @@ class SCBContext( PGContext ):
         
 class AgentContext( PGContext, MouseEnabled ):
     '''A context for adding agents-goal pairs and editing existing pairs'''
+    HELP_TEXT = 'Agent context'
     def __init__( self, agentSet ):
         PGContext.__init__( self )
         MouseEnabled.__init__( self )
@@ -379,6 +395,7 @@ class AgentContext( PGContext, MouseEnabled ):
 
     def deactivate( self ):
         '''Turns off the editable state for the agents'''
+        PGContext.deactivate( self )
         self.agents.editable = False
         self.dragging = False
         if ( self.agents.activeAgent ):
@@ -386,6 +403,7 @@ class AgentContext( PGContext, MouseEnabled ):
         
     def drawGL( self, view ):
         '''Draws the agent context into the view'''
+        PGContext.drawGL( self, view )
         title = "Edit agents: %d" % self.agents.count()
         view.printText( title,  (10,10) )
 
@@ -483,6 +501,7 @@ class VFieldContext( PGContext, MouseEnabled ):
         
     def drawGL( self, view ):
         view.printText( self.getTitle(), (10,10) )
+        PGContext.drawGL( self, view )
 
 class FieldEditContext( VFieldContext ):
     '''The context which allows various kinds of edits on a vector field'''
@@ -501,46 +520,49 @@ class FieldEditContext( VFieldContext ):
             self.activeContext.deactivate ()
 
     def handleKeyboard( self, event, view ):
-        result = VFieldContext.handleKeyboard( self, event, view )
-        if ( not result.isHandled() ):
-            if ( self.activeContext ):
-                result = self.activeContext.handleKeyboard( event, view)
-                if ( result.isHandled() ):
-                    return result
-            mods = pygame.key.get_mods()
-            hasCtrl = mods & pygame.KMOD_CTRL
-            hasAlt = mods & pygame.KMOD_ALT
-            hasShift = mods & pygame.KMOD_SHIFT
-            noMods = not( hasShift or hasCtrl or hasAlt )
+        result = ContextResult()
+        if ( self.activeContext ):
+            result = self.activeContext.handleKeyboard( event, view)
+            if ( result.isHandled() ):
+                return result
+        mods = pygame.key.get_mods()
+        hasCtrl = mods & pygame.KMOD_CTRL
+        hasAlt = mods & pygame.KMOD_ALT
+        hasShift = mods & pygame.KMOD_SHIFT
+        noMods = not( hasShift or hasCtrl or hasAlt )
 
-            if ( event.type == pygame.KEYDOWN ):
-                if ( event.key == pygame.K_s and hasCtrl ):
-                    self.field.write( 'field.txt' )
-                elif ( noMods ):
-                    if ( event.key == pygame.K_1 ):
-                        if ( self.activeContext.__class__ != FieldStrokeDirContext ):
-                            self.activeContext.deactivate()
-                            self.activeContext = FieldStrokeDirContext( self.field )
-                            self.activeContext.activate()
-                            result.set( True, True )
-                    elif ( event.key == pygame.K_2 ):
-                        if ( self.activeContext.__class__ != FieldStrokeLenContext ):
-                            self.activeContext.deactivate()
-                            self.activeContext = FieldStrokeLenContext( self.field )
-                            self.activeContext.activate()
-                            result.set( True, True )
-                    elif ( event.key == pygame.K_3 ):
-                        if ( self.activeContext.__class__ != FieldStrokeSmoothContext ):
-                            self.activeContext.deactivate()
-                            self.activeContext = FieldStrokeSmoothContext( self.field )
-                            self.activeContext.activate()
-                            result.set( True, True )
-            elif ( event.type == pygame.KEYUP ):
-                 if ( event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT ):
-                    if ( self.activeContext and self.activeContext.__class__ == FieldBoundaryContext ):
+        if ( event.type == pygame.KEYDOWN ):
+            if ( event.key == pygame.K_s and hasCtrl ):
+                self.field.write( 'field.txt' )
+            elif ( noMods ):
+                if ( event.key == pygame.K_1 ):
+                    if ( self.activeContext.__class__ != FieldStrokeDirContext ):
                         self.activeContext.deactivate()
-                        self.activeContext = None
+                        self.activeContext = FieldStrokeDirContext( self.field )
+                        self.activeContext.activate()
                         result.set( True, True )
+                elif ( event.key == pygame.K_2 ):
+                    if ( self.activeContext.__class__ != FieldStrokeLenContext ):
+                        self.activeContext.deactivate()
+                        self.activeContext = FieldStrokeLenContext( self.field )
+                        self.activeContext.activate()
+                        result.set( True, True )
+                elif ( event.key == pygame.K_3 ):
+                    if ( self.activeContext.__class__ != FieldStrokeSmoothContext ):
+                        self.activeContext.deactivate()
+                        self.activeContext = FieldStrokeSmoothContext( self.field )
+                        self.activeContext.activate()
+                        result.set( True, True )
+                else:
+                    result = VFieldContext.handleKeyboard( self, event, view )
+        elif ( event.type == pygame.KEYUP ):
+            if ( event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT ):
+                if ( self.activeContext and self.activeContext.__class__ == FieldBoundaryContext ):
+                    self.activeContext.deactivate()
+                    self.activeContext = None
+                    result.set( True, True )
+            else:
+                result = VFieldContext.handleKeyboard( self, event, view )
         return result
 
     def handleMouse( self, event, view ):
@@ -556,7 +578,7 @@ class FieldEditContext( VFieldContext ):
         if ( self.activeContext ):
             self.activeContext.drawGL( view )
         else:
-            view.printText( self.getTitle(), (10,10) )
+            VFieldContext.drawGL( self, view )
             
     def newGLContext( self ):
         '''Update the OpenGL context'''
@@ -565,6 +587,7 @@ class FieldEditContext( VFieldContext ):
             
 class FieldStrokeContext( VFieldContext ):
     '''The basic context for editing fields with instantaneous strokes'''
+    HELP_TEXT = '\n\tUp arrow - increase brush size\n\tdown arrow - decrease brush size'
     def __init__( self, vfield ):
         VFieldContext.__init__( self, vfield )
         self.brushID = 0        # opengl brush id
@@ -599,8 +622,7 @@ class FieldStrokeContext( VFieldContext ):
 
     def drawText( self, view ):
         '''Draws the text to be displayed by this context'''
-        t = self.getTitle()
-        view.printText( t, (10,10) )
+        VFieldContext.drawGL( self, view )
     
     def drawGL( self, view ):
         # TODO: THIS IS FRAGILE
@@ -687,6 +709,7 @@ class FieldStrokeContext( VFieldContext ):
         
 class FieldStrokeDirContext( FieldStrokeContext ):
     '''A context for editing the DIRECTION field by applying "instantaneous" strokes'''
+    HELP_TEXT = 'Edit the direction of the vectors' + FieldStrokeContext.HELP_TEXT
     def __init__( self, vfield ):
         FieldStrokeContext.__init__( self, vfield )
 
@@ -696,14 +719,18 @@ class FieldStrokeDirContext( FieldStrokeContext ):
 
     def drawText( self, view ):
         '''Draws the text to be displayed by this context'''
-        t = self.getTitle()
-        view.printText( t, (10,10) )
+        FieldStrokeContext.drawText( self, view )
         view.printText( 'Brush direction', (10, 30 ) )
 
 class FieldStrokeSmoothContext( FieldStrokeContext ):
     '''A context for SMOOTHING the field by applying "instantaneous" strokes'''
     STRENGTH_CHANGE = 0.01
     KERNEL_CHANGE = 0.25
+    HELP_TEXT = 'Smooth the vector field' + FieldStrokeContext.HELP_TEXT + \
+        '\n\tright arrow - increase smooth strength' + \
+        '\n\tleft arrow - decrease smooth strength' + \
+        '\n\t[ - decrease kernel size' + \
+        '\n\t] - increase kernel size'
     def __init__( self, vfield ):
         FieldStrokeContext.__init__( self, vfield )
         self.smoothStrength = 1.0
@@ -759,12 +786,14 @@ class FieldStrokeSmoothContext( FieldStrokeContext ):
         # TODO: THIS IS FRAGILE
         #   It would be better for the text printer to handle new lines and do smart layout for
         #   a big block of text
-        t = self.getTitle()
-        view.printText( t, (10,10) )
+        FieldStrokeContext.drawText( self, view )
         view.printText( 'Brush smooth: strength = {0:.2f}, kernelSize = {1:.3f}'.format( self.smoothStrength, self.kernelSize ), (10, 30 ) )        
         
 class FieldStrokeLenContext( FieldStrokeContext ):
     '''A context for editing the MAGNITUDE of the field by applying "instantaneous" strokes'''
+    HELP_TEXT = 'Edit the length of the vectors' + FieldStrokeContext.HELP_TEXT + \
+                '\n\tright arrow - increase length' + \
+                '\n\tleft arrow - decrease length'
     def __init__( self, vfield ):
         FieldStrokeContext.__init__( self, vfield )
         self.factor = 1.0
@@ -801,8 +830,7 @@ class FieldStrokeLenContext( FieldStrokeContext ):
         # TODO: THIS IS FRAGILE
         #   It would be better for the text printer to handle new lines and do smart layout for
         #   a big block of text
-        t = self.getTitle()
-        view.printText( t, (10,10) )
+        FieldStrokeContext.drawText( self, view )
         view.printText( 'Brush length: length = {0:.2f}'.format( self.factor ), (10, 30 ) )
 
 class FieldPathContext( VFieldContext ):
