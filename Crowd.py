@@ -195,18 +195,33 @@ class Kernel2:
         # the distance function must take an array as an argument.
         self.data = dfunc( distSqd )
                 
-class Grid:
+class AbstractGrid:
+    '''A class to index into an abstract grid'''
+    def __init__( self, minCorner, size, resolution ):
+        self.minCorner = minCorner          # tuple (x, y)  - float
+        self.size = size                    # tuple (x, y)  - float
+        self.resolution = resolution        # tuple (x, y)  - int
+        self.cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )
+
+    def getCenter( self, position ):
+        """Returns the closest cell center to this position"""
+        # offset in euclidian space
+        offset = position - self.minCorner
+        # offset in cell sizes
+        ofX = offset.x / self.cellSize.x
+        ofY = offset.y / self.cellSize.y
+        x = int( ofX )
+        y = int( ofY )
+        return x, y
+    
+class Grid( AbstractGrid ):
     """Class to discretize scalar field computation"""
     def __init__( self, minCorner, size, resolution, initVal=0.0 ):
         """Initializes the grid to span the space starting at minCorner,
         extending size amount in each direction with resolution cells"""
-        self.minCorner = minCorner          # tuple (x, y)  - float
-        self.size = size                    # tuple (x, y)  - float
-        self.resolution = resolution        # tuple (x, y)  - int
+        AbstractGrid.__init__( self, minCorner, size, resolution )
         self.initVal = initVal
         self.clear()
-        self.cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )
-        
        
     def __str__( self ):
         s = 'Grid'
@@ -249,17 +264,6 @@ class Grid:
         else:
             self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=np.float32 ) + self.initVal
 
-    def getCenter( self, position ):
-        """Returns the closest cell center to this position"""
-        # offset in euclidian space
-        offset = position - self.minCorner
-        # offset in cell sizes
-        ofX = offset.x / self.cellSize.x
-        ofY = offset.y / self.cellSize.y
-        x = int( ofX )
-        y = int( ofY )
-        return x, y
-      
 
     def rasterizePosition( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
