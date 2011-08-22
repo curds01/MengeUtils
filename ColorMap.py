@@ -13,13 +13,15 @@ def clip( value, minVal, maxVal ):
         return maxVal
     else:
         return value
-    
+
+   
 class ColorMap:
     BAR_HEIGHT = 200    # height of the bar in pixels
     BAR_WIDTH = 20      # width of the bar
     LABEL_COUNT = 11     # number of numerical labels to apply to bar
     LABEL_PAD = 4       # the number of pixels between bar and labels
     FONT = None
+    FONT_SIZE = 12
     def __init__( self, dataRange=None ):
         if ( dataRange == None ):
             self.dataRange = [0.0, 10.0]
@@ -28,7 +30,7 @@ class ColorMap:
             self.dataRange = dataRange
             self.fixedRange = True
         if ( ColorMap.FONT == None ):
-            ColorMap.FONT = pygame.font.Font( 'arialn.ttf', 12 )
+            ColorMap.FONT = pygame.font.Font( 'arialn.ttf', ColorMap.FONT_SIZE )
 
     def getColor( self, value, (minVal, maxVal) ):
         '''Given a range of values (minVal and maxVal) and a single value, returns
