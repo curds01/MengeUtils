@@ -50,14 +50,14 @@ class StatRecord:
 
     def nextFrame( self ):
         '''Prepares the data for the next frame'''
-        self.frameData.append( ( self.agentData.mean(), self.agentData.std(), self.agentData.min(), self.agentData.max() ) )
+        self.frameData.append( ( self.agentData[:self.currAgent].mean(), self.agentData[:self.currAgent].std(), self.agentData[:self.currAgent].min(), self.agentData[:self.currAgent].max(), self.currAgent ) )
         self.currAgent = 0
 
     def write( self, fileName ):
         '''Outputs the data into a text file'''
         f = open( fileName, 'w' )
-        for m, s, minVal, maxVal in self.frameData:
-            f.write( '{0:>15}{1:>15}{2:>15}{3:>15}\n'.format( m, s, minVal, maxVal ) )
+        for m, s, minVal, maxVal, agtCount in self.frameData:
+            f.write( '{0:>15}{1:>15}{2:>15}{3:>15}{4:>15}\n'.format( m, s, minVal, maxVal, agtCount ) )
         f.close()
 
     def savePlot( self, fileName, title ):
