@@ -9,6 +9,7 @@ class Agent:
         self.pos = position             # a Vector2 object
         self.vel = None
         self.value = 0.0                # a per-agent value which can be rasterized
+        self.state = 0
 
     def __str__( self ):
         return '%s' % ( self.pos )
@@ -170,7 +171,8 @@ class FrameSet:
                         x, y, o = struct.unpack( 'fff', data )
                     elif ( self.agentByteSize == 16 ):
                         x, y, o, s = struct.unpack( 'ffff', data )
-                    self.currFrame.setPosition( i, Vector2( x, y ) )
+                        self.currFrame.agents[i].pos = Vector2( x, y )
+                        self.currFrame.agents[i].state = s
                 except struct.error:
                     self.currFrame = None
                     break
