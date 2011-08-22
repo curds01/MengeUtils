@@ -323,14 +323,25 @@ class GLVectorField( VectorField ):
 def test():
     '''test the functiaonlity of the grid'''
     vf = VectorField( (0,0), (10, 10), 1.0 )
-    points = np.array( ( ( -0.5, -0.5 ),
-                         (-0.5, 5.1 ),
-                         ( 3.5, 4.7 ),
-                         (11.1, 12.1 ) ) )
+    vf.read( "field.txt" )
+    points = np.array( ( ( 0,0 ),
+                         (-30, -30 ),
+                         ( -30, 0 ),
+                         ( -30, 30 ),
+                         ) )
     cells = vf.getCells( points )
-    print "10x10 grid goes from (0,0) to (10,10)"
-    for row in range( points.shape[0] ):
-        print points[row,:], "maps to", cells[row,:]
+    for i in range( points.shape[0] ):
+        print "point", points[i], "=", vf.data[ cells[i][0], cells[i][1], :]
+                         
+##    vf = VectorField( (0,0), (10, 10), 1.0 )
+##    points = np.array( ( ( -0.5, -0.5 ),
+##                         (-0.5, 5.1 ),
+##                         ( 3.5, 4.7 ),
+##                         (11.1, 12.1 ) ) )
+##    cells = vf.getCells( points )
+##    print "10x10 grid goes from (0,0) to (10,10)"
+##    for row in range( points.shape[0] ):
+##        print points[row,:], "maps to", cells[row,:]
         
 if __name__ == '__main__':
     test()
