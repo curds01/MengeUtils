@@ -138,7 +138,7 @@ class Agent:
         glEnd()
         glPopMatrix()
 
-class AgentSet():
+class AgentSet:
     def __init__( self, defRadius ):
         self.defRadius = defRadius
         self.agents = []
