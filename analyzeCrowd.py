@@ -8,7 +8,7 @@ import time
 import os
 from GLWidget import *
 from roadmapBuilder import readObstacles
-from Context import *
+from qtcontext import *
 from CrowdWork import CrowdAnalyzeThread
 
 class Config:

@@ -1,7 +1,7 @@
 ## Functionality for flow analysis in the tawaf
 
 from primitives import Vector3, Vector2
-from Context import GLLine
+from qtcontext import GLLine
 from math import atan2
 
 class FlowLine (GLLine ):

@@ -23,7 +23,7 @@ import numpy as np
 import threading
 import time
 from ColorMap import *
-from Context import GLLine
+from qtcontext import GLLine
 from flow import *
 from primitives import Vector2
 from scbData import FrameSet

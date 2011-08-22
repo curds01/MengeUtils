@@ -16,38 +16,75 @@ RIGHT = 3
 WHEEL_UP = 4
 WHEEL_DOWN = 5
 
-class ContextSwitcher( BaseContext ):
-    '''A context for switching contexts'''
+class PGContext( BaseContext ):
+    '''A pygame-based context'''
     def __init__( self ):
         BaseContext.__init__( self )
+        self.displayHelp = False
+
+    def drawHelp( self, view ):
+        '''Displays this context's instructions to the display'''
+        if ( self.displayHelp ):
+            print "No help defined"
+##            view.printText( 'No help defined', (10, 10) )
+
+    def drawGL( self, view ):
+        '''Responsible for drawing help'''
+        self.drawHelp( view )
+        
+    def handleKeyboard( self, event, view ):
+        """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
+        result = ContextResult()
+        mods = pygame.key.get_mods()
+        hasCtrl = mods & pygame.KMOD_CTRL
+        hasAlt = mods & pygame.KMOD_ALT
+        hasShift = mods & pygame.KMOD_SHIFT
+        noMods = not( hasShift or hasCtrl or hasAlt )
+
+        if ( noMods and event.type == pygame.KEYDOWN ):
+            if ( event.key == pygame.K_h ):
+                result.set( True, not self.displayHelp )
+                self.displayHelp = True
+        elif ( event.type == pygame.KEYUP ):
+            if ( event.key == pygame.K_h and self.displayHelp ):
+                self.displayHelp = False
+                result.set( True, True )
+        return result
+
+class ContextSwitcher( PGContext ):
+    '''A context for switching contexts'''
+    def __init__( self ):
+        PGContext.__init__( self )
         self.contexts = {}
         self.activeContext = None
 
     def handleKeyboard( self, event, view ):
         """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
-        result = ContextResult()
-        mods = pygame.key.get_mods()
-        hasShift = mods & pygame.KMOD_SHIFT
-        hasCtrl = mods & pygame.KMOD_CTRL
-        hasAlt = mods & pygame.KMOD_ALT
-        noMods = not( hasShift or hasCtrl or hasAlt )
-        if ( event.type == pygame.KEYDOWN ):
-            if ( event.key == pygame.K_ESCAPE and noMods ):
-                changed = self.activeContext != None
-                self.switchContexts( None )
-                result.set( True, changed )
-            if ( not result.isHandled() ):
+        result = PGContext.handleKeyboard( self, event, view )
+        if ( not result.isHandled() ):
+            mods = pygame.key.get_mods()
+            hasShift = mods & pygame.KMOD_SHIFT
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            noMods = not( hasShift or hasCtrl or hasAlt )
+            if ( event.type == pygame.KEYDOWN ):
+                if ( event.key == pygame.K_ESCAPE and noMods ):
+                    changed = self.activeContext != None
+                    self.switchContexts( None )
+                    result.set( True, changed )
+                if ( not result.isHandled() ):
+                    if ( self.activeContext ):
+                        result = self.activeContext.handleKeyboard( event, view )
+                    else:
+                        if ( self.contexts.has_key( event.key ) ):
+                            print 'changing contexts'
+                            ctx = self.contexts[ event.key ]
+                            changed = ctx != self.activeContext
+                            self.switchContexts( ctx )
+                            result.set( True, changed )
+            elif ( event.type == pygame.KEYUP ):
                 if ( self.activeContext ):
                     result = self.activeContext.handleKeyboard( event, view )
-                else:
-                    if ( self.contexts.has_key( event.key ) ):
-                        ctx = self.contexts[ event.key ]
-                        changed = ctx != self.activeContext
-                        self.switchContexts( ctx )
-                        result.set( True, changed )
-        elif ( event.type == pygame.KEYUP ):
-            if ( self.activeContext ):
-                result = self.activeContext.handleKeyboard( event, view )
         return result
 
     def handleMouse( self, event, view ):
@@ -90,6 +127,7 @@ class ContextSwitcher( BaseContext ):
         '''Draws the context into the view'''
         if ( self.activeContext ):
             self.activeContext.drawGL( view )
+        PGContext.drawGL( self, view )
 
     def selectGL( self ):
         """How the context handles selection"""
@@ -103,7 +141,7 @@ class MouseEnabled:
         self.downY = 0
         self.dragging = False
 
-class SCBContext( BaseContext ):
+class SCBContext( PGContext ):
     '''Plays back an scb file'''
     COLORS = ( (0.7, 0.0, 0.0 ),  # red
 ##               (0.7, 0.35, 0.0 ), # orange
@@ -112,15 +150,15 @@ class SCBContext( BaseContext ):
                (0.0, 0.7, 0.0 ),  # green
 ##               (0.0, 0.7, 0.35),  # teal
                (0.0, 0.7, 0.7),   # cyan
-##               (0.0, 0.35, 0.7),  # aqua
+               (0.0, 0.35, 0.7),  # aqua
                (0.0, 0.0, 0.7),   # blue
                (0.35, 0.0, 0.7),  # purple
                (0.7, 0.0, 0.7),   # magenta
-##               (0.7, 0.0, 0.35),  # burgandy
+               (0.7, 0.0, 0.35),  # burgandy
                )
     COLOR_COUNT = len( COLORS )
     def __init__( self, scbFileName, agentRadius=0.25 ):
-        BaseContext.__init__( self )
+        PGContext.__init__( self )
         self.scbData = None
         self.currFrame = None
         self.loadSCBData( scbFileName )
@@ -241,53 +279,54 @@ class SCBContext( BaseContext ):
         
     def handleKeyboard( self, event, view ):
         """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
-        result = ContextResult()
-        mods = pygame.key.get_mods()
-        hasCtrl = mods & pygame.KMOD_CTRL
-        hasAlt = mods & pygame.KMOD_ALT
-        hasShift = mods & pygame.KMOD_SHIFT
-        noMods = not( hasShift or hasCtrl or hasAlt )
-        if ( event.type == pygame.KEYDOWN ):
-            if ( event.key == pygame.K_RIGHT ):
-                if ( noMods ):
+        result = PGContext.handleKeyboard( self, event, view )
+        if ( not result.isHandled() ):
+            mods = pygame.key.get_mods()
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            hasShift = mods & pygame.KMOD_SHIFT
+            noMods = not( hasShift or hasCtrl or hasAlt )
+            if ( event.type == pygame.KEYDOWN ):
+                if ( event.key == pygame.K_RIGHT ):
+                    if ( noMods ):
+                        if ( self.scbData ):
+                            self.currFrame, self.currFrameID = self.scbData.next()
+                            result.set( True, True )
+                    else:
+                        if ( self.scbData ):
+                            AMT = 0
+                            if ( hasCtrl ): AMT += 10
+                            if ( hasAlt ): AMT += 10
+                            if ( hasShift ): AMT += 10
+                            self.currFrame, self.currFrameID = self.scbData.next( AMT )
+                            result.set( True, True )
+                elif ( event.key == pygame.K_LEFT ):
+                    if ( noMods ):
+                        if ( self.scbData ):
+                            self.currFrame, self.currFrameID = self.scbData.prev()
+                            result.set( True, True )
+                    else:
+                        if ( self.scbData ):
+                            AMT = 0
+                            if ( hasCtrl ): AMT += 10
+                            if ( hasAlt ): AMT += 10
+                            if ( hasShift ): AMT += 10
+                            self.currFrame, self.currFrameID = self.scbData.prev( AMT )
+                            result.set( True, True )
+                elif ( event.key == pygame.K_UP and noMods ):
                     if ( self.scbData ):
+                        self.scbData.setNext( 0 )
                         self.currFrame, self.currFrameID = self.scbData.next()
                         result.set( True, True )
-                else:
+                elif ( event.key == pygame.K_s and hasCtrl ):
                     if ( self.scbData ):
-                        AMT = 0
-                        if ( hasCtrl ): AMT += 10
-                        if ( hasAlt ): AMT += 10
-                        if ( hasShift ): AMT += 10
-                        self.currFrame, self.currFrameID = self.scbData.next( AMT )
+                        self.saveFrameXML()
+                elif ( event.key == pygame.K_c and noMods ):
+                    if ( self.hasStateData() ):
+                        self.visState = not self.visState
                         result.set( True, True )
-            elif ( event.key == pygame.K_LEFT ):
-                if ( noMods ):
-                    if ( self.scbData ):
-                        self.currFrame, self.currFrameID = self.scbData.prev()
-                        result.set( True, True )
-                else:
-                    if ( self.scbData ):
-                        AMT = 0
-                        if ( hasCtrl ): AMT += 10
-                        if ( hasAlt ): AMT += 10
-                        if ( hasShift ): AMT += 10
-                        self.currFrame, self.currFrameID = self.scbData.prev( AMT )
-                        result.set( True, True )
-            elif ( event.key == pygame.K_UP and noMods ):
-                if ( self.scbData ):
-                    self.scbData.setNext( 0 )
-                    self.currFrame, self.currFrameID = self.scbData.next()
-                    result.set( True, True )
-            elif ( event.key == pygame.K_s and hasCtrl ):
-                if ( self.scbData ):
-                    self.saveFrameXML()
-            elif ( event.key == pygame.K_c and noMods ):
-                if ( self.hasStateData() ):
-                    self.visState = not self.visState
-                    result.set( True, True )
-                else:
-                    print "No state data!"
+                    else:
+                        print "No state data!"
         return result
 
     def handleMouse( self, event, view ):
@@ -326,10 +365,10 @@ class SCBContext( BaseContext ):
         f.write( '</Experiment>' )
         f.close()
         
-class AgentContext( BaseContext, MouseEnabled ):
+class AgentContext( PGContext, MouseEnabled ):
     '''A context for adding agents-goal pairs and editing existing pairs'''
     def __init__( self, agentSet ):
-        BaseContext.__init__( self )
+        PGContext.__init__( self )
         MouseEnabled.__init__( self )
         self.agents = agentSet
         self.downPos = None     # the position of the active agent when the mouse was pressed
@@ -352,21 +391,22 @@ class AgentContext( BaseContext, MouseEnabled ):
 
     def handleKeyboard( self, event, view ):
         """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
-        result = ContextResult()
-        mods = pygame.key.get_mods()
-        hasCtrl = mods & pygame.KMOD_CTRL
-        hasAlt = mods & pygame.KMOD_ALT
-        hasShift = mods & pygame.KMOD_SHIFT
-        noMods = not( hasShift or hasCtrl or hasAlt )
+        result = PGContext.handleKeyboard( self, event, view )
+        if ( not result.isHandled() ):
+            mods = pygame.key.get_mods()
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            hasShift = mods & pygame.KMOD_SHIFT
+            noMods = not( hasShift or hasCtrl or hasAlt )
 
-        if ( event.type == pygame.KEYDOWN ):
-            if ( event.key == pygame.K_s and noMods ):
-                f = open('positions.txt', 'w' )
-                f.write( '%s' % self.agents.sjguy() )
-                f.close()
-                result.set( True, False )
-            elif ( event.key == pygame.K_DELETE and noMods ):
-                result.set( True, self.agents.deleteActiveAgent() )
+            if ( event.type == pygame.KEYDOWN ):
+                if ( event.key == pygame.K_s and noMods ):
+                    f = open('positions.txt', 'w' )
+                    f.write( '%s' % self.agents.sjguy() )
+                    f.close()
+                    result.set( True, False )
+                elif ( event.key == pygame.K_DELETE and noMods ):
+                    result.set( True, self.agents.deleteActiveAgent() )
         return result
 
     def handleMouse( self, event, view ):
@@ -420,10 +460,10 @@ class AgentContext( BaseContext, MouseEnabled ):
         
         return result
 
-class VFieldContext( BaseContext, MouseEnabled ):
+class VFieldContext( PGContext, MouseEnabled ):
     '''A context for working with a vector field'''
     def __init__( self, vfield ):
-        BaseContext.__init__( self )
+        PGContext.__init__( self )
         MouseEnabled.__init__( self )
         self.field = vfield
 
@@ -461,45 +501,46 @@ class FieldEditContext( VFieldContext ):
             self.activeContext.deactivate ()
 
     def handleKeyboard( self, event, view ):
-        result = ContextResult()
-        if ( self.activeContext ):
-            result = self.activeContext.handleKeyboard( event, view)
-            if ( result.isHandled() ):
-                return result
-        mods = pygame.key.get_mods()
-        hasCtrl = mods & pygame.KMOD_CTRL
-        hasAlt = mods & pygame.KMOD_ALT
-        hasShift = mods & pygame.KMOD_SHIFT
-        noMods = not( hasShift or hasCtrl or hasAlt )
+        result = VFieldContext.handleKeyboard( self, event, view )
+        if ( not result.isHandled() ):
+            if ( self.activeContext ):
+                result = self.activeContext.handleKeyboard( event, view)
+                if ( result.isHandled() ):
+                    return result
+            mods = pygame.key.get_mods()
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            hasShift = mods & pygame.KMOD_SHIFT
+            noMods = not( hasShift or hasCtrl or hasAlt )
 
-        if ( event.type == pygame.KEYDOWN ):
-            if ( event.key == pygame.K_s and hasCtrl ):
-                self.field.write( 'field.txt' )
-            elif ( noMods ):
-                if ( event.key == pygame.K_1 ):
-                    if ( self.activeContext.__class__ != FieldStrokeDirContext ):
+            if ( event.type == pygame.KEYDOWN ):
+                if ( event.key == pygame.K_s and hasCtrl ):
+                    self.field.write( 'field.txt' )
+                elif ( noMods ):
+                    if ( event.key == pygame.K_1 ):
+                        if ( self.activeContext.__class__ != FieldStrokeDirContext ):
+                            self.activeContext.deactivate()
+                            self.activeContext = FieldStrokeDirContext( self.field )
+                            self.activeContext.activate()
+                            result.set( True, True )
+                    elif ( event.key == pygame.K_2 ):
+                        if ( self.activeContext.__class__ != FieldStrokeLenContext ):
+                            self.activeContext.deactivate()
+                            self.activeContext = FieldStrokeLenContext( self.field )
+                            self.activeContext.activate()
+                            result.set( True, True )
+                    elif ( event.key == pygame.K_3 ):
+                        if ( self.activeContext.__class__ != FieldStrokeSmoothContext ):
+                            self.activeContext.deactivate()
+                            self.activeContext = FieldStrokeSmoothContext( self.field )
+                            self.activeContext.activate()
+                            result.set( True, True )
+            elif ( event.type == pygame.KEYUP ):
+                 if ( event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT ):
+                    if ( self.activeContext and self.activeContext.__class__ == FieldBoundaryContext ):
                         self.activeContext.deactivate()
-                        self.activeContext = FieldStrokeDirContext( self.field )
-                        self.activeContext.activate()
+                        self.activeContext = None
                         result.set( True, True )
-                elif ( event.key == pygame.K_2 ):
-                    if ( self.activeContext.__class__ != FieldStrokeLenContext ):
-                        self.activeContext.deactivate()
-                        self.activeContext = FieldStrokeLenContext( self.field )
-                        self.activeContext.activate()
-                        result.set( True, True )
-                elif ( event.key == pygame.K_3 ):
-                    if ( self.activeContext.__class__ != FieldStrokeSmoothContext ):
-                        self.activeContext.deactivate()
-                        self.activeContext = FieldStrokeSmoothContext( self.field )
-                        self.activeContext.activate()
-                        result.set( True, True )
-        elif ( event.type == pygame.KEYUP ):
-             if ( event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT ):
-                if ( self.activeContext and self.activeContext.__class__ == FieldBoundaryContext ):
-                    self.activeContext.deactivate()
-                    self.activeContext = None
-                    result.set( True, True )
         return result
 
     def handleMouse( self, event, view ):
@@ -578,23 +619,24 @@ class FieldStrokeContext( VFieldContext ):
         glPopAttrib()
 
     def handleKeyboard( self, event, view ):
-        result = ContextResult()
+        result = VFieldContext.handleKeyboard( self, event, view )
+        if ( not result.isHandled() ):
 
-        mods = pygame.key.get_mods()
-        hasCtrl = mods & pygame.KMOD_CTRL
-        hasAlt = mods & pygame.KMOD_ALT
-        hasShift = mods & pygame.KMOD_SHIFT
-        noMods = not( hasShift or hasCtrl or hasAlt )
+            mods = pygame.key.get_mods()
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            hasShift = mods & pygame.KMOD_SHIFT
+            noMods = not( hasShift or hasCtrl or hasAlt )
 
-        if ( noMods ):
-            if ( event.type == pygame.KEYDOWN ):
-                if ( event.key == pygame.K_UP ):
-                    self.setBrushSize( self.brushSize + 0.5 )
-                    result.set( True, True )
-                elif ( event.key == pygame.K_DOWN ):
-                    if ( self.brushSize > 1.0 ):
-                        self.setBrushSize( self.brushSize - 0.5 )
+            if ( noMods ):
+                if ( event.type == pygame.KEYDOWN ):
+                    if ( event.key == pygame.K_UP ):
+                        self.setBrushSize( self.brushSize + 0.5 )
                         result.set( True, True )
+                    elif ( event.key == pygame.K_DOWN ):
+                        if ( self.brushSize > 1.0 ):
+                            self.setBrushSize( self.brushSize - 0.5 )
+                            result.set( True, True )
         return result
 
     def handleMouse( self, event, view ):
