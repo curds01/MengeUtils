@@ -409,7 +409,7 @@ class Grid( AbstractGrid ):
         self.cells /= countCells
         print "Max speed:", maxSpd, "max cell", self.cells.max()
 
-    def rasterizeProgress( self, f2, initFrame, prevProgress, callBack=None ):
+    def rasterizeProgress( self, f2, initFrame, prevProgress, excludeStates=(), callBack=None ):
         '''Given the current frame and the initial frame, computes the fraction of the circle that
         each agent has travelled around the kaabah.'''
         # TODO: don't let this be periodic.
@@ -417,6 +417,7 @@ class Grid( AbstractGrid ):
         for i in range( len( f2.agents ) ):
             # first compute progress based on angle between start and current position
             ag2 = f2.agents[ i ]
+            if ( ag2.state in excludeStates ): continue
             ag1 = initFrame.agents[ i ]
             dir2 = ag2.pos.normalize()
             dir1 = ag1.pos.normalize()
@@ -465,11 +466,12 @@ class Grid( AbstractGrid ):
             if ( callBack ):
                 callBack( progress )            
 
-    def rasterizeSpeedBlit( self, kernel, f2, f1, distFunc, maxRad, timeStep, callBack=None ):
+    def rasterizeSpeedBlit( self, kernel, f2, f1, distFunc, maxRad, timeStep, excludeStates=(), callBack=None ):
         """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
         invDT = 1.0 / timeStep
         for i in range( len ( f2.agents ) ):
             ag2 = f2.agents[ i ]
+            if ( ag2.state in excludeStates ): continue
             ag1 = f1.agents[ i ]
             disp = ( ag2.pos - ag1.pos ).magnitude()
             disp *= invDT
@@ -500,13 +502,14 @@ class Grid( AbstractGrid ):
             if ( callBack ):
                 callBack( disp )
 
-    def rasterizeOmegaBlit( self, kernel, f2, f1, distFunc, maxRad, timeStep, callBack=None ):
+    def rasterizeOmegaBlit( self, kernel, f2, f1, distFunc, maxRad, timeStep, excludeStates=(), callBack=None ):
         """Given two frames of agents, computes per-agent angular speed and rasterizes the whole frame"""
         invDT = 1.0 / timeStep
         RAD_TO_ANGLE = 180.0 / np.pi * invDT
         for i in range( len ( f2.agents ) ):
             # compute the angle around the origin
             ag2 = f2.agents[ i ]
+            if ( ag2.state in excludeStates ): continue
             ag1 = f1.agents[ i ]
             dir2 = ag2.pos.normalize()
             dir1 = ag1.pos.normalize()
@@ -668,11 +671,12 @@ class Grid( AbstractGrid ):
 
 
 ##          HELPER FUNCTION FOR REGION TESTS
-def findCurrentRegion( frame, polygons ):
+def findCurrentRegion( frame, polygons, excludeStates ):
     '''Given a frame, determines which region each agent is in.
     Performs a brute-force search across all regions'''
     regions = np.zeros( len( frame.agents ), dtype=np.int )
     for a, agt in enumerate( frame.agents ):
+        if ( agt.state in excludeStates ): continue
         poly = -1
         for i, p in enumerate( polygons ):
             if ( p.pointInside( agt.pos ) ):
@@ -694,7 +698,7 @@ def updateRegion( currRegion, pos, polygons ):
         else:
             return currRegion
 
-def findRegionSpeed( f1, f2, timeStep, polygons, regions=None ):
+def findRegionSpeed( f1, f2, timeStep, polygons, excludeStates, regions=None ):
     '''Given a frame of data, and a set of polygons computes the average region speed for
     each region.  If regions is a Nx1 array (for N agents in frame) then it uses a smart
     mechanism for determining which region the agent is in (and updates it accordingly)
@@ -702,11 +706,12 @@ def findRegionSpeed( f1, f2, timeStep, polygons, regions=None ):
     Returns an Mx1 array (for M polygons) and the regions object.'''
     # if regions is defined, it's the location of the region for f1
     #   This region accumulates the speed
-    if ( regions == None ):
-        regions = findCurrentRegion( f1, polygons )
+
+    regions = findCurrentRegion( f2, polygons, excludeStates )
     speeds = np.zeros( len(polygons), dtype=np.float32 )
     counts = np.zeros( len(polygons), dtype=np.int )
     for a, ag1 in enumerate( f1.agents ):
+        if ( f2.agents[a].state in excludeStates ): continue
         # compute speed
         p1 = ag1.pos
         p2 = f2.agents[ a ].pos
@@ -716,8 +721,7 @@ def findRegionSpeed( f1, f2, timeStep, polygons, regions=None ):
         # increment counters and accumulators
         speeds[ regions[a] ] += speed
         counts[ regions[a] ] += 1
-        # update region
-        regions[ a ] = updateRegion( regions[a], p2, polygons )
+
     mask = counts != 0
     speeds[ mask ] /= counts[ mask ]
     return speeds, regions
@@ -808,6 +812,7 @@ class GridFileSequence:
         outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
         outFile.close()
 
+    def computeSpeeds( self, minCorner, size, resolution, maxRad, frameSet, timeStep, excludeStates, speedType=NORM_CONTRIB_SPEED, timeWindow=1 ):
     def computeRegionSpeed( self, minCorner, size, resolution, frameSet, polygons, timeStep, timeWindow=1 ):
         '''Given an ordered set of polygons, computes the average speed for all agents in each polygon
         per time step.'''
@@ -835,7 +840,6 @@ class GridFileSequence:
         np.savetxt( self.outFileName + ".region", data, fmt='%.5f' )
             
         
-    def computeSpeeds( self, minCorner, size, resolution, maxRad, frameSet, timeStep, speedType=NORM_CONTRIB_SPEED, timeWindow=1 ):
         """Computes the displacements from one cell to the next"""
         print "Computing speeds:"
         print "\tminCorner:  ", minCorner
@@ -897,11 +901,11 @@ class GridFileSequence:
 
         # TODO: This will probably break for some other speed vis method
         stats = StatRecord( frameSet.agentCount() )              
-        while ( data[ -1 ][0] ): 
+        while ( data[ -1 ][0] ):
             f1, i1 = data.pop(0)
             f2, i2 = data[ -1 ]
             g = gridFunc() 
-            speedFunc( g, kernel, f2, f1, distFunc, maxRad, timeStep * timeWindow, stats )
+            speedFunc( g, kernel, f2, f1, distFunc, maxRad, timeStep * timeWindow, excludeStates, stats )
             M = g.maxVal()
             if ( M > maxVal ):
                 maxVal = M
@@ -936,7 +940,7 @@ class GridFileSequence:
             progress[ i, 1] = dir.y
         return progress
     
-    def computeProgress( self, minCorner, size, resolution, maxRad, frameSet, timeStep, timeWindow=1 ):
+    def computeProgress( self, minCorner, size, resolution, maxRad, frameSet, timeStep, excludeStates, timeWindow=1 ):
         """Computes the progress from one frame to the next - progress is measured in the fraction
         of the circle traversed from the initial position"""
         print "Computing progress:"
@@ -966,7 +970,7 @@ class GridFileSequence:
             f1, i1 = data.pop(0)
             f2, i2 = data[ -1 ]
             g = Grid( minCorner, size, resolution, 100.0 ) 
-            g.rasterizeProgress( f2, initFrame, progress, stats )
+            g.rasterizeProgress( f2, initFrame, progress, excludeStates, stats )
 
             m = g.minVal()
             if ( m < minVal ):
@@ -988,7 +992,7 @@ class GridFileSequence:
         outFile.close()
         return stats
 
-    def computeAngularSpeeds( self, minCorner, size, resolution, maxRad, frameSet, timeStep, speedType=BLIT_SPEED, timeWindow=1 ):
+    def computeAngularSpeeds( self, minCorner, size, resolution, maxRad, frameSet, timeStep, excludeStates, speedType=BLIT_SPEED, timeWindow=1 ):
         """Computes the displacements from one cell to the next"""
         print "Computing angular speed:"
         print "\tminCorner:  ", minCorner
@@ -1058,7 +1062,7 @@ class GridFileSequence:
             f1, i1 = data.pop(0)
             f2, i2 = data[ -1 ]
             g = gridFunc() 
-            speedFunc( g, kernel, f2, f1, distFunc, maxRad, timeStep * timeWindow, stats )
+            speedFunc( g, kernel, f2, f1, distFunc, maxRad, timeStep * timeWindow, excludeStates, stats )
             m = g.minVal()
             if ( m < minVal ):
                 minVal = m
@@ -1225,6 +1229,8 @@ def main():
     FRAME_STEP = 1
     FRAME_WINDOW = 1
     START_FRAME = 0
+    EXCLUDE_STATES = ()
+
     
     timeStep = 1.0
     outPath = '.'
@@ -1339,7 +1345,7 @@ def main():
     
         print "\tComputing speeds",
         s = time.clock()
-        stats = grids.computeSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED )
+        stats = grids.computeSpeeds( minPt, size, res, R, frameSet, timeStep, EXCLUDE_STATES, GridFileSequence.BLIT_SPEED )
         stats.write( os.path.join( outPath, 'speed', 'stat.txt' ) )
         stats.savePlot( os.path.join( outPath, 'speed', 'stat.png' ), 'Average speed per step' )
         print "Took", (time.clock() - s), "seconds"
@@ -1357,7 +1363,7 @@ def main():
     
         print "\tComputing omega",
         s = time.clock()
-        stats = grids.computeAngularSpeeds( minPt, size, res, R, frameSet, timeStep, GridFileSequence.BLIT_SPEED, FRAME_WINDOW )
+        stats = grids.computeAngularSpeeds( minPt, size, res, R, frameSet, timeStep, EXCLUDE_STATES, GridFileSequence.BLIT_SPEED, FRAME_WINDOW )
         stats.write( os.path.join( outPath, 'omega', 'stat.txt' ) )
         stats.savePlot( os.path.join( outPath, 'omega', 'stat.png'), 'Average radial velocity per step' ) 
         print "Took", (time.clock() - s), "seconds"
@@ -1375,7 +1381,7 @@ def main():
 
         print "\tComputing progress",
         s = time.clock()
-        stats = grids.computeProgress( minPt, size, res, R, frameSet, timeStep, FRAME_WINDOW )
+        stats = grids.computeProgress( minPt, size, res, R, frameSet, timeStep, EXCLUDE_STATES, FRAME_WINDOW )
         stats.write( os.path.join( outPath, 'progress', 'stat.txt' ) )
         stats.savePlot( os.path.join( outPath, 'progress', 'stat.png'), 'Average progress around Kaabah' ) 
         print "Took", (time.clock() - s), "seconds"
