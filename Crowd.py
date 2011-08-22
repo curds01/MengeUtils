@@ -30,6 +30,7 @@ from scbData import FrameSet
 from trace import renderTraces
 import pylab as plt
 from ObjSlice import Polygon
+from obstacles import *
 
 class StatRecord:
     '''A simple, callable object for accumulating statistical information about the
@@ -726,7 +727,27 @@ def findRegionSpeed( f1, f2, timeStep, polygons, excludeStates, regions=None ):
     speeds[ mask ] /= counts[ mask ]
     return speeds, regions
     
-def regionSpeedImages( dataFile, imagePath, polygons, colorMap ):
+
+def drawPolygonPG( surf, polygon, worldToImg, color, width ):
+    '''Given a surface, a polygon, a color and a function mapping polygon coordinates to image coordinates,
+    draws the polygon on the pygame surface'''
+    points = []
+    for v in polygon.vertices:
+        points.append( worldToImg( v ) )
+    pygame.draw.polygon( surf, color, points, width )
+
+def drawPolygons( surf, polygons, worldToImg, colors ):
+    '''Given an ordered list of polygons and an ordered list of colors, draws the polygons to the
+        provided surface with boundaries'''
+    # draw the filled-in shapes
+    for i, p in enumerate( polygons ):
+        drawPolygonPG( surf, p, worldToImg, colors[i], 0 )
+    # draw the outlines
+    for p in polygons:
+        drawPolygonPG( surf, p, worldToImg, (0,0,0), 5 )
+        
+        
+def regionSpeedImages( dataFile, imagePath, polygons, colorMap, minCorner, size, resolution ):
     data = np.loadtxt( dataFile )
     data = data.mean( axis=0 )
     print data
@@ -737,9 +758,25 @@ def regionSpeedImages( dataFile, imagePath, polygons, colorMap ):
     for p in xrange( data.size ):
         print "Polygon", p, "has speed:", data[p], "and rgb:", colorMap.getColor( data[p], (minVal, maxVal) )
 
-    pygame.image.save( colorMap.mapBar( (minVal, maxVal), 7), '%sbar.png' % ( imagePath ) )    
+    pygame.image.save( colorMap.mapBar( (minVal, maxVal), 7), '%sbar.png' % ( imagePath ) )
+
+    # write the polygons to an image
+    g = AbstractGrid( minCorner, size, resolution )
+    surf = pygame.Surface( resolution )
+    surf.fill( (128, 128, 128 ) )
+    worldToImg = lambda x: g.getCenter( x )
+    colors = [ colorMap.getColor( data[p], (minVal, maxVal) ) for p in range( data.size ) ]
+    drawPolygons( surf, polygons, worldToImg, colors )
+    obstacles, junk = readObstacles( 'matafFloor.xml' )
+##    obstacles, junk = readObstacles( 'allMatafObst.xml' )
+    m = pygame.image.load( 'regionMask.png' )
+    drawPolygons( surf, obstacles.polys, worldToImg, [(255,255,255) for p in obstacles.polys] )
+    surf = pygame.transform.flip( surf, False, True )
+    surf.blit( m, m.get_rect( ) )
+    pygame.image.save( surf, '%s.png' % ( imagePath ) )
     
-    
+
+
 class GridFileSequence:
     """Creates a grid sequence from a frame file and streams the resulting grids to
        a file"""
@@ -813,33 +850,6 @@ class GridFileSequence:
         outFile.close()
 
     def computeSpeeds( self, minCorner, size, resolution, maxRad, frameSet, timeStep, excludeStates, speedType=NORM_CONTRIB_SPEED, timeWindow=1 ):
-    def computeRegionSpeed( self, minCorner, size, resolution, frameSet, polygons, timeStep, timeWindow=1 ):
-        '''Given an ordered set of polygons, computes the average speed for all agents in each polygon
-        per time step.'''
-        # NOTE: This only really applies to the tawaf.
-        print "Computing regional speed:"
-        print "\tminCorner:       ", minCorner
-        print "\tsize:            ", size
-        print "\tresolution:      ", resolution
-        print "\ttime step:       ", timeStep
-        print "Number of polygons:", len(polygons)
-        gridSize = resolution[0] * resolution[1]
-        cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )
-        frameSet.setNext( 0 )        
-        data = [ frameSet.next() for i in range( timeWindow + 1 ) ]
-
-        regions = None
-        speeds = []
-        while ( data[ -1 ][0] ):
-            f1, i1 = data.pop(0)
-            f2, i2 = data[ -1 ]
-            frameSpeeds, regions = findRegionSpeed( f1, f2, timeStep * timeWindow, polygons, regions )
-            speeds.append( frameSpeeds )
-            data.append( frameSet.next() )
-        data = np.array( speeds )
-        np.savetxt( self.outFileName + ".region", data, fmt='%.5f' )
-            
-        
         """Computes the displacements from one cell to the next"""
         print "Computing speeds:"
         print "\tminCorner:  ", minCorner
@@ -1198,7 +1208,28 @@ class GridFileSequence:
         outFile.write( struct.pack( 'i', gridCount ) )
         outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
         outFile.close()               
-            
+    def computeRegionSpeed( self, frameSet, polygons, timeStep, excludeStates, timeWindow=1 ):
+        '''Given an ordered set of polygons, computes the average speed for all agents in each polygon
+        per time step.'''
+        # NOTE: This only really applies to the tawaf.
+        print "Computing regional speed:"
+        print "\ttime step:       ", timeStep
+        print "Number of polygons:", len(polygons)
+
+        frameSet.setNext( 0 )        
+        data = [ frameSet.next() for i in range( timeWindow + 1 ) ]
+
+        regions = None
+        speeds = []
+        while ( data[ -1 ][0] ):
+            f1, i1 = data.pop(0)
+            f2, i2 = data[ -1 ]
+            frameSpeeds, regions = findRegionSpeed( f1, f2, timeStep * timeWindow, polygons, excludeStates, regions )
+            speeds.append( frameSpeeds )
+            data.append( frameSet.next() )
+        data = np.array( speeds )
+        np.savetxt( self.outFileName + ".region", data, fmt='%.5f' )
+
 def computeFlowLines( center, lines, frameSet ):
     """Computes the flow of agents past the various lines"""
     # initialize
@@ -1474,12 +1505,12 @@ def main():
             for id in ids:
                 p.vertices.append( vertices[id] )
             polygons.append( p )
-        grids.computeRegionSpeed( minPt, size, res, frameSet, polygons, timeStep )
+        grids.computeRegionSpeed( frameSet, polygons, timeStep, EXCLUDE_STATES )
         print "Took", (time.clock() - s), "seconds"
         # output image
         imagePath = os.path.join( outPath, 'regionSpeed', 'region' )
-        colorMap = FlameMap()
-        regionSpeedImages( grids.outFileName + ".region", imagePath, polygons, colorMap )
+        colorMap = TwoToneHSVMap( (0, 0.63, 0.96), (100, 0.53, 0.75 ) )
+        regionSpeedImages( grids.outFileName + ".region", imagePath, polygons, colorMap, minPt, size, res )
         
     if ( False ):
         # flow lines
