@@ -158,6 +158,12 @@ class MouseEnabled:
 
 class SCBContext( PGContext ):
     '''Plays back an scb file'''
+    HELP_TEXT = 'Playback an scbfile' + \
+                '\n\tright arrow - step frame forward' + \
+                '\n\tleft arrow - step frame backward' + \
+                '\n\tup arrow - go to beginning' + \
+                '\n\tCtrl-s - save current configuration in xml file' + \
+                '\n\tc - toggle coloring between state and class'
     COLORS = ( (0.7, 0.0, 0.0 ),  # red
 ##               (0.7, 0.35, 0.0 ), # orange
                (0.7, 0.7, 0.0 ),  # yellow
@@ -262,6 +268,7 @@ class SCBContext( PGContext ):
 
     def drawGL( self, view ):
         '''Draws the agent context into the view'''
+        PGContext.drawGL( self, view )
         self.drawAgents( view )
         title = "Play SCB -- "
         if ( self.scbData ):
