@@ -226,8 +226,34 @@ class View:
         glPopMatrix()
         glMatrixMode(GL_MODELVIEW)
 
-    def layoutText( self, txt, alignment=None ):
-        print alignment
+    def textSize( self, txt ):
+        '''Given the text, computes the size of a bounding box for the text'''
+        vSpace = self.char[ ord( 'a' ) ][2]
+        hSpace = self.char[ ord( 'a' ) ][1]
+        length = len( txt )
+        
+        w = 0
+        h = vSpace
+
+        i = 0
+        lx = 0
+        while ( i < length ):
+            c = txt[i]
+            if ( c == '\n' ):
+                h += vSpace
+                if ( lx > w ):
+                    w = lx
+                lx = 0
+            elif ( c == '\t' ):
+                lx += hSpace << 2
+            else:
+                ch = self.char[ ord( txt[ i ] ) ]
+                lx += ch[1]
+            i += 1
+        if ( lx > w ):
+            w = lx
+            
+        return (w, h)
         
 ##    def drawSubImg( self ):
 ##        global SUB_IMG
