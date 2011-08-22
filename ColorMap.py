@@ -4,6 +4,7 @@
 
 import pygame
 import numpy as np
+from color import *
 
 def clip( value, minVal, maxVal ):
     if ( value < minVal ):
@@ -82,6 +83,39 @@ class ColorMap:
         """Creates a mask on the data for the background"""
         # the background is detected by values less than the minimum data range
         return data < dataRange[0]
+
+class TwoToneHSVMap( ColorMap ):
+    '''A color map that interpolates between two HSV values.
+    HSV is a 3-tuple (H, S, V), such that H in [0, 360], S & V in [0, 1]'''
+    def __init__( self, minColor, maxColor, dataRange=None ):
+        ColorMap.__init__( self, dataRange )
+        self.minColor = np.array( minColor )
+        self.minColor.shape = ( 1, 1, 3 )
+        self.maxColor = np.array( maxColor )
+        self.maxColor.shape = ( 1, 1, 3 )
+        self.colorDelta = self.maxColor - self.minColor
+
+    def getColor( self, value, (minVal, maxVal) ):
+        '''Given a range of values (minVal and maxVal) and a single value, returns
+        an RGB value for that value'''
+        normData = self._normalize( value, (minVal, maxVal ) )
+        hsv = self.minColor + self.colorDelta * normData
+        return hsvToRgb( hsv[0,0,0], hsv[0,0,1], hsv[0,0,2] )
+
+
+    def colorOnSurface( self, dataRange, data ):
+        '''Creates the two tone colors the same sizes as the data'''
+        assert( len( data.shape ) == 2 )
+        if ( not self.fixedRange ):
+            self.dataRange = dataRange
+        normData = self._normalize( data, self.dataRange )
+        normData.shape = ( normData.shape[0], normData.shape[1], 1 )
+        hsv = self.minColor + self.colorDelta * normData
+        color = np.zeros( ( data.shape[0], data.shape[1], 3 ), dtype=np.uint8 )
+        for row in xrange( hsv.shape[0] ):
+            color[ row, :, : ] = hsvToRgbNP( hsv[ row, :, : ] )
+        
+        return pygame.surfarray.make_surface( color[:,::-1,:] )
     
 class GreyScaleMap( ColorMap ):
     """Maps the data to a grey scale map"""
