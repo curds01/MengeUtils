@@ -108,7 +108,10 @@ class Vector3:
         return self.x == v.x and self.y == v.y and self.z == v.z
     
     def __sub__( self, v ):
-        return Vector3( self.x - v.x, self.y - v.y, self.z - v.z )
+        if ( isinstance( v, Vector3 ) ):
+            return Vector3( self.x - v.x, self.y - v.y, self.z - v.z )
+        elif ( isinstance( v, Vector2 ) ):
+            return Vector2( self.x - v.x, self.y - v.y )
 
     def __mul__( self, s ):
         return Vector3( self.x * s, self.y * s, self.z * s )
