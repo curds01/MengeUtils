@@ -1221,7 +1221,24 @@ def computeFlowLines( center, lines, frameSet ):
 def main():
     """Test the functionality"""
     from math import pi, exp
-    import os
+    import os, sys
+    import optparse
+    parser = optparse.OptionParser()
+    parser.add_option( "-d", "--density", help="Evaluate density.",
+                       action="store_true", dest='density', default=False )
+    parser.add_option( "-s", "--speed", help="Evaluate speed.",
+                       action="store_true", dest='speed', default=False )
+    parser.add_option( "-o", "--omega", help="Evaluate omega.",
+                       action="store_true", dest='omega', default=False )
+    parser.add_option( "-p", "--progress", help="Evaluate progress.",
+                       action="store_true", dest='progress', default=False )
+    parser.add_option( "-k", "--koshak", help="Evaluate koshak regions.",
+                       action="store_true", dest='koshak', default=False )
+    parser.add_option( "-i", "--include", help="Include all states",
+                       action="store_true", dest='includeAll', default=False )
+    options, args = parser.parse_args()
+    
+    srcFile = sys.argv[1]
     pygame.init()
     CELL_SIZE = 0.2
     MAX_AGENTS = -1
@@ -1231,6 +1248,11 @@ def main():
     START_FRAME = 0
     EXCLUDE_STATES = ()
 
+    if ( True ):
+        #increase the color bar specifications
+        ColorMap.BAR_HEIGHT = 300
+        ColorMap.BAR_WIDTH = 30
+        ColorMap.FONT_SIZE = 20
     
     timeStep = 1.0
     outPath = '.'
@@ -1283,15 +1305,20 @@ def main():
         size = Vector2( 175.0, 120.0 )
         minPt = Vector2( -75.0, -60.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
-        srcFile = '20k02'
+##        srcFile = '20k_01'
         timeStep = 0.05
         FRAME_STEP = 20
-        START_FRAME = 700
+        START_FRAME = 3000
+        START_FRAME = 5160
         outPath = os.path.join( '/projects','tawaf','sim','jul2011','results' )
         path = os.path.join( outPath, '{0}.scb'.format( srcFile ) )
+        print "Reading", path
         outPath = os.path.join( outPath, srcFile )
 ##        MAX_FRAMES = 120
         MAX_FRAMES = 200
+        MAX_FRAMES = 5
+        if ( not options.includeAll ):
+            EXCLUDE_STATES = (1, 2, 3, 4, 5, 6, 7, 8, 9)
     elif ( False ):
         size = Vector2( 15, 5 )
         minPt = Vector2( -1.0, -2.5 )
@@ -1324,7 +1351,7 @@ def main():
 
     dfunc = lambda x, y: distFunc( x, y, R * R )
 
-    if ( True ):
+    if ( options.density ):
         if ( not os.path.exists( os.path.join( outPath, 'dense' ) ) ):
             os.makedirs( os.path.join( outPath, 'dense' ) )
     
@@ -1339,7 +1366,7 @@ def main():
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
-    if ( True ):
+    if ( options.speed ):
         if ( not os.path.exists( os.path.join( outPath, 'speed' ) ) ):
             os.makedirs( os.path.join( outPath, 'speed' ) )
     
@@ -1357,7 +1384,7 @@ def main():
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
-    if ( False ):
+    if ( options.omega ):
         if ( not os.path.exists( os.path.join( outPath, 'omega' ) ) ):
             os.makedirs( os.path.join( outPath, 'omega' ) )
     
@@ -1375,7 +1402,7 @@ def main():
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
-    if ( False ):
+    if ( options.progress ):
         if ( not os.path.exists( os.path.join( outPath, 'progress' ) ) ):
             os.makedirs( os.path.join( outPath, 'progress' ) )
 
@@ -1409,7 +1436,7 @@ def main():
         pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
         print "Took", (time.clock() - s), "seconds"
 
-    if ( False ):
+    if ( options.koshak ):
         if ( not os.path.exists( os.path.join( outPath, 'regionSpeed' ) ) ):
             os.makedirs( os.path.join( outPath, 'regionSpeed' ) )
         print "\tComputing region speeds"
