@@ -545,7 +545,25 @@ class VFieldContext( PGContext, MouseEnabled ):
     def drawGL( self, view ):
         view.printText( self.getTitle(), (10,10) )
         PGContext.drawGL( self, view )
+        
+    def handleKeyboard( self, event, view ):
+        result = PGContext.handleKeyboard( self, event, view )
+        if ( result.isHandled() ):
+            return result
 
+        mods = pygame.key.get_mods()
+        hasCtrl = mods & pygame.KMOD_CTRL
+        hasAlt = mods & pygame.KMOD_ALT
+        hasShift = mods & pygame.KMOD_SHIFT
+        noMods = not( hasShift or hasCtrl or hasAlt )
+
+        if ( event.type == pygame.KEYDOWN ):
+            if ( event.key == pygame.K_s and hasCtrl ):
+                self.field.write( 'field.txt' )
+                result.set( True, False )
+                
+        return result
+    
 class FieldEditContext( VFieldContext ):
     '''The context which allows various kinds of edits on a vector field'''
     def __init__( self, vfield ):
@@ -568,6 +586,11 @@ class FieldEditContext( VFieldContext ):
             result = self.activeContext.handleKeyboard( event, view)
             if ( result.isHandled() ):
                 return result
+
+        result = VFieldContext.handleKeyboard( self, event, view )
+        if ( result.isHandled() ):
+            return result
+        
         mods = pygame.key.get_mods()
         hasCtrl = mods & pygame.KMOD_CTRL
         hasAlt = mods & pygame.KMOD_ALT
@@ -575,9 +598,7 @@ class FieldEditContext( VFieldContext ):
         noMods = not( hasShift or hasCtrl or hasAlt )
 
         if ( event.type == pygame.KEYDOWN ):
-            if ( event.key == pygame.K_s and hasCtrl ):
-                self.field.write( 'field.txt' )
-            elif ( noMods ):
+            if ( noMods ):
                 if ( event.key == pygame.K_1 ):
                     if ( self.activeContext.__class__ != FieldStrokeDirContext ):
                         self.activeContext.deactivate()
