@@ -40,6 +40,13 @@ class Agent:
 
     def sjguy( self ):
         return '%f %f %f %f' % ( self.pos[0], self.pos[1], self.goal[0], self.goal[1] )
+
+    def xml( self, defRadius ):
+        s = '\n\t<Agent p_x="{0}" p_y="{1}" '.format( self.pos[0], self.pos[1] )
+        if ( self.radius != defRadius ):
+            s += 'r="{0}" '.format( self.radius )
+        s += '/>'
+        return s
     
     def printActive( self ):
         if ( self.active == Agent.GOAL ):
@@ -187,6 +194,18 @@ class AgentSet:
             s += '%s\n' % ( a.sjguy() )
         return s
 
+    def xml( self ):
+        '''Returns the xml-formatted agent set'''
+        #assumes everyone has the same goal
+        s = '''<?xml version="1.0"?>
+<Experiment time_step="0.05" >
+
+  <AgentSet obstacleSet="1" neighbor_dist="1.1" max_neighbors="10" r="{0}" class="0" g_r="3.0" pref_speed="1.04" ttc="0.5" max_speed="2.0" max_accel="2.0" >'''.format( self.defRadius )
+        for a in self.agents:
+            s += '  ' + a.xml( self.defRadius )
+        s += '\n  </AgentSet>\n</Experiment>'
+        return s
+    
     def addAgent( self, pos, goal, radius = None ):
         if ( radius == None ):
             radius = self.defRadius
