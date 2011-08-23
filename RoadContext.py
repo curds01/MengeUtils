@@ -407,11 +407,14 @@ class AgentContext( PGContext, MouseEnabled ):
                 '\n\tIncrease NEW agent radius - up arrow (with no agent highlighted)' + \
                 '\n\tDecrease NEW agent radius - down arrow (with no agent highlighted)' + \
                 '\n\tIncrease specific agent radius - highlight agent/goal, up arrow' + \
-                '\n\tDecrease specific agent radius - highlight agent/goal, down arrow'
-    def __init__( self, agentSet ):
+                '\n\tDecrease specific agent radius - highlight agent/goal, down arrow' + \
+                '\n\tSave out positions.txt (sjguy format) - Ctrl + S' + \
+                '\n\tSave out agents.xml - Ctrl + Shift + S'
+    def __init__( self, agentSet, obstacles=None ):
         PGContext.__init__( self )
         MouseEnabled.__init__( self )
         self.agents = agentSet
+        self.obstacles = obstacles  # the obstacle set
         self.agtRadius = self.agents.defRadius
         self.downPos = None     # the position of the active agent when the mouse was pressed
 
@@ -451,7 +454,7 @@ class AgentContext( PGContext, MouseEnabled ):
                 if ( event.key == pygame.K_s and hasCtrl ):
                     if ( hasShift ):
                         f = open( paths.getPath( 'agents.xml', False ), 'w' )
-                        f.write( '%s' % self.agents.xml() )
+                        f.write( '%s' % self.agents.xml( self.obstacles ) )
                     else:
                         f = open( paths.getPath( 'positions.txt', False ), 'w' )
                         f.write( '%s' % self.agents.sjguy() )

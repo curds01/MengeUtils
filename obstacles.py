@@ -59,6 +59,13 @@ class ObstacleSet:
         for p in self.polys:
             s += '%s' % ( p.sjguy() )
         return s
+
+    def xml( self ):
+        '''Returns a string representing the xml representation of this xml set'''
+        s = ''
+        for p in self.polys:
+            s += '\n{0}'.format( p.xml(1) )
+        return s
     
     def __iter__( self ):
         return self.polys.__iter__()

@@ -196,7 +196,7 @@ class AgentSet:
             s += '%s\n' % ( a.sjguy() )
         return s
 
-    def xml( self ):
+    def xml( self, obstacles=None ):
         '''Returns the xml-formatted agent set'''
         #assumes everyone has the same goal
         s = '''<?xml version="1.0"?>
@@ -205,7 +205,10 @@ class AgentSet:
   <AgentSet obstacleSet="1" neighbor_dist="1.1" max_neighbors="10" r="{0}" class="0" g_r="3.0" pref_speed="1.04" ttc="0.5" max_speed="2.0" max_accel="2.0" >'''.format( self.defRadius )
         for a in self.agents:
             s += '  ' + a.xml( self.defRadius )
-        s += '\n  </AgentSet>\n</Experiment>'
+        s += '\n  </AgentSet>'
+        if ( obstacles ):
+            s += obstacles.xml()
+        s += '\n</Experiment>'
         return s
     
     def addAgent( self, pos, goal, radius = None ):
@@ -750,7 +753,7 @@ def main():
 
     agents = AgentSet( 0.25 )
     if ( agtName ):
-        agents.initFromFile( sys.argv[2] )
+        agents.initFromFile( agtName )
 
     if ( fieldName ):
         field = GLVectorField( (0,0), (1, 1), 1 )
@@ -784,7 +787,7 @@ def main():
 ##    field = None
 
     context = ContextSwitcher()
-    context.addContext( AgentContext( agents ), pygame.K_a )
+    context.addContext( AgentContext( agents, obstacles ), pygame.K_a )
     context.addContext( FieldEditContext( field ), pygame.K_f )
     context.addContext( SCBContext( scbName ), pygame.K_s )
     context.newGLContext()

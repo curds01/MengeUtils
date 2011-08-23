@@ -355,6 +355,21 @@ class Polygon:
             s += vertIndent + '<Vertex p_x="%f" p_y="%f" />\n' % ( v.x, v.z )
         s += baseIndent + '</Obstacle>'
         return s
+
+    # TODO: This is redundant of RVOString
+    #   The reason for this is that the RVO string is the output of doing 3D plane-box intersection.
+    #   This is used when I've loaded obstacles from the file definition.
+    #   In the former case, I'm interested in (x, z), in this case, I'm interested in (x, y)
+    #   The "right" thing to do is to change the loading functionality so it loads them
+    #   into (x, z) so a single function would be sufficient.
+    def xml( self, indent = 0 ):
+        baseIndent = indent * '\t'
+        vertIndent = baseIndent + '\t'
+        s = baseIndent + '<Obstacle closed="%d" boundingbox="0">\n' % ( self.closed )
+        for v in self.vertices:
+            s += vertIndent + '<Vertex p_x="%f" p_y="%f" />\n' % ( v.x, v.y )
+        s += baseIndent + '</Obstacle>'
+        return s
     
     def vertCount( self ):
         return len( self.vertices )
