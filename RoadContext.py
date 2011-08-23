@@ -712,7 +712,7 @@ class FieldStrokeContext( VFieldContext ):
                         self.setBrushSize( self.brushSize + 0.5 )
                         result.set( True, True )
                     elif ( event.key == pygame.K_DOWN ):
-                        if ( self.brushSize > 1.0 ):
+                        if ( self.brushSize > 0.5 ):
                             self.setBrushSize( self.brushSize - 0.5 )
                             result.set( True, True )
         return result
