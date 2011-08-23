@@ -27,6 +27,26 @@ class VectorField:
         self.cellSize = cellSize
         self.setDimensions( size )
 
+    def getCorners( self ):
+        '''Returns a list of 2d numpy arrays consistintg of the corners'''
+        mp = self.minPoint
+        sz = self.size
+        return [ mp, mp + np.array( (sz[1], 0) ), mp + np.array( (sz[1], sz[0] ) ), mp + np.array( (0, sz[0]) ) ]
+
+    def setCellSize( self, cellSize, size ):
+        '''Given a cell size, recomputes the grid subject to specific constraints.
+           1. Cell size changes to accomodate the change.
+           2. Cells remain square
+           The implication is that the effective size of the grid changes.  Computes the new size to
+           bound the indicated size as closely as possible.
+
+        @param cellSize: a float.  The size of the side of a square cell
+        @param size: a list-like object with two ints.  The tuple represents the height and width of
+        the target vector field.
+        '''
+        self.cellSize = cellSize
+        self.setDimensions( size )
+    
     def setDimensions( self, size ):
         '''Given a physical size and a cell size, modifies the physical size such that
         the grid consists of an integer number of cells in each dimension of the specified size.
@@ -255,6 +275,12 @@ class GLVectorField( VectorField ):
         '''Reports a change to the grid'''
         VectorField.fieldChanged( self )
         self.genArrowDL()
+
+    def gridChanged( self ):
+        '''Reports a change to the grid'''
+        VectorField.gridChanged( self )
+        self.genArrowDL()
+        self.genGridDL()
     
     def newGLContext( self ):
         '''When a new OpenGL context is created, this gives the field the chance to update
