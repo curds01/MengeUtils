@@ -277,8 +277,8 @@ class SCBContext( PGContext ):
 
     def drawGL( self, view ):
         '''Draws the agent context into the view'''
-        PGContext.drawGL( self, view )
         self.drawAgents( view )
+        PGContext.drawGL( self, view )
         title = "Play SCB -- "
         if ( self.scbData ):
             title += "frame %d (%d agents)" % (self.currFrameID, self.scbData.agtCount )
@@ -290,7 +290,8 @@ class SCBContext( PGContext ):
             title += ", color shows state"
         else:
             title += ", color shows class"
-        view.printText( title,  (10,10) )            
+        view.printText( title,  (10,10) )
+        
 
     def findAgent( self, pX, pY ):
         '''Finds the closest agent to the point'''
