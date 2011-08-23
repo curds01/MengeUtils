@@ -17,7 +17,7 @@ class VectorField:
         @param minPoint: a list-like object with two floats. The tuple represents the
         minimum extent of the field in the x and y directions.
         @param size: a list-like object with two floats.  The tuple represents the minimum
-        span of the vector field, starting from the minPoint.
+        span of the vector field, starting from the minPoint (height, width).
         @param cellSize: a float.  The length of a square cell's side.
 
         Grid cells will ALWAYS be square.  The size of the domain will expand such that
@@ -26,9 +26,6 @@ class VectorField:
         self.resolution = np.zeros( 2, dtype=np.int )
         self.cellSize = cellSize
         self.setDimensions( size )
-        self.data = np.zeros( ( self.resolution[0], self.resolution[1], 2 ), dtype=FLOAT )
-        self.data[ :, :, 0 ] = 1.0
-        self.gridChanged()
 
     def setDimensions( self, size ):
         '''Given a physical size and a cell size, modifies the physical size such that
@@ -39,8 +36,12 @@ class VectorField:
         @param cellSize: a float.  The length of a square cell's side.
         '''
         size = np.array( size, dtype=FLOAT )
-        self.resolution = np.array( np.ceil( size / self.cellSize ), dtype=np.int )[::-1]
+        self.resolution = np.array( np.ceil( size / self.cellSize ), dtype=np.int )#[::-1]
+        self.data = np.zeros( ( self.resolution[0], self.resolution[1], 2 ), dtype=FLOAT )
+        self.data[ :, :, 0 ] = 1.0
+                
         self.size = self.resolution * self.cellSize
+        self.gridChanged()
 
     def getCell( self, pt ):
         '''Given a point in space, determines the value of the vector field at that point.
@@ -165,7 +166,7 @@ class VectorField:
     def fieldChanged( self ):
         '''Reports a change to the field data'''
         self.endPoints = self.centers + self.data * self.cellSize * 0.4
-    
+
     def write( self, fileName, ascii=True ):
         '''Writes the field out to the indicated file'''
         if ( ascii ):
