@@ -619,14 +619,6 @@ class FieldEditContext( VFieldContext ):
                         result.set( True, True )
                 else:
                     result = VFieldContext.handleKeyboard( self, event, view )
-        elif ( event.type == pygame.KEYUP ):
-            if ( event.key == pygame.K_RSHIFT or event.key == pygame.K_LSHIFT ):
-                if ( self.activeContext and self.activeContext.__class__ == FieldBoundaryContext ):
-                    self.activeContext.deactivate()
-                    self.activeContext = None
-                    result.set( True, True )
-            else:
-                result = VFieldContext.handleKeyboard( self, event, view )
         return result
 
     def handleMouse( self, event, view ):
