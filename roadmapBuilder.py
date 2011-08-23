@@ -14,7 +14,7 @@ import os
 from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext
 from Context import ContextResult
 
-
+from xml.sax import make_parser, handler
 
 NO_EDIT = 0
 GRAPH_EDIT = 1
@@ -181,13 +181,22 @@ class AgentSet:
         return agt
 
     def initFromFile( self, file ):
-        f = open( file, 'r' )
-        aCount = int( f.readline() )
-        for line in f.xreadlines():
-            line = line.strip()
-            if ( line ):
-                x1, y1, x2, y2 = map( lambda x: float(x), line.split() )
-                self.agents.append( Agent( self.defRadius, (x1, y1), (x2,y2) ) )
+        print "Reading", file
+        base, ext = os.path.splitext( file )
+        if ( ext == '.txt' ):
+            f = open( file, 'r' )
+            aCount = int( f.readline() )
+            for line in f.xreadlines():
+                line = line.strip()
+                if ( line ):
+                    x1, y1, x2, y2 = map( lambda x: float(x), line.split() )
+                    self.agents.append( Agent( self.defRadius, (x1, y1), (x2,y2) ) )
+        else:
+            
+            parser = make_parser()
+            agtHandler = AgentXMLParser( self )
+            parser.setContentHandler( agtHandler )
+            parser.parse( file )
 
     def sjguy( self ):
         """Returns the stephen guy formatted agent set"""
@@ -241,6 +250,34 @@ class AgentSet:
         return False
             
 
+class AgentXMLParser( handler.ContentHandler ):
+    def __init__( self, agentSet ):
+        self.agentSet = agentSet
+        self.goal = (0, 0)
+        self.readingGoal = False
+
+    def startElement( self, name, attrs ):
+        if ( name == 'Agent' ):
+            x = float( attrs[ 'p_x' ] )
+            y = float( attrs[ 'p_y' ] )
+            try:
+                r = float( attrs[ 'r' ] )
+            except:
+                r = self.agentSet.defRadius
+            if ( self.readingGoal ):
+                self.goal = ( x, y )
+            else:
+                self.agentSet.addAgent( (x, y), self.goal, r )
+        elif ( name == 'AgentSet' ):
+            self.agentSet.defRadius = float( attrs[ 'r' ] )
+        elif ( name == 'Goal' ):
+            self.readingGoal = True
+
+    def endElement( self, name ):
+        if ( name == 'Goal' ):
+            self.readingGoal = False
+            
+    
 class Vertex:
     """Graph vertex"""
     COUNT = 0
