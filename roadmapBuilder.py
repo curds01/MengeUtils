@@ -729,7 +729,7 @@ def main():
     else:
         print "Instantiate vector field from geometry:", bb
         bbSize = bb.max - bb.min    
-        field = GLVectorField( ( bb.min.x, bb.min.y ), ( bbSize.x, bbSize.y ), 2.0 )
+        field = GLVectorField( ( bb.min.x, bb.min.y ), ( bbSize.y, bbSize.x ), 2.0 )
     
     graph = Graph()
     if ( graphName ):
