@@ -1029,6 +1029,12 @@ class FieldDomainContext( VFieldContext, MouseEnabled ):
         result = VFieldContext.handleMouse( self, event, view )
         if ( result.isHandled() ):
             return result
+        mods = pygame.key.get_mods()
+        hasCtrl = mods & pygame.KMOD_CTRL
+        hasAlt = mods & pygame.KMOD_ALT
+        hasShift = mods & pygame.KMOD_SHIFT
+        noMods = not( hasShift or hasCtrl or hasAlt )
+
         if ( event.type == pygame.MOUSEMOTION ):
             p = view.screenToWorld( event.pos )
             if ( self.dragging ):
@@ -1050,7 +1056,7 @@ class FieldDomainContext( VFieldContext, MouseEnabled ):
                     result.redraw = True
                     self.activeEdge = newIdx
         elif ( event.type == pygame.MOUSEBUTTONDOWN ):
-            if ( event.button == LEFT and self.activeEdge != None ):
+            if ( noMods and event.button == LEFT and self.activeEdge != None ):
                 self.downX, self.downY = view.screenToWorld( event.pos )
                 if ( self.activeEdge % 2 ): # vertical line
                     self.startVal = self.corners[ self.activeEdge ][ 0 ]
