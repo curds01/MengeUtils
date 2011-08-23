@@ -7,6 +7,8 @@ from primitives import Vector3
 from vField import GLVectorField
 from obstacles import *
 from view import View
+import paths
+import os
 
 # contexts
 from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext
@@ -437,13 +439,13 @@ def handleKey( event, context, view, graph, obstacles, agents, field ):
     if ( event.type == pygame.KEYDOWN ):
         if ( event.key == pygame.K_p ):
             print graph
-        elif ( event.key == pygame.K_s ):
+        elif ( event.key == pygame.K_s and hasCtrl ):
             if ( editState == GRAPH_EDIT ):
-                f = open('graph.txt', 'w' )
+                f = open( paths( 'graph.txt', False ), 'w' )
                 f.write( '%s\n' % graph )
                 f.close()
             elif ( editState == OBSTACLE_EDIT ):
-                f = open('obstacles.txt', 'w' )
+                f = open( paths( 'obstacles.txt', False ), 'w' )
                 f.write( '%s' % obstacles.sjguy() )
                 f.close()
         elif ( event.key == pygame.K_e ):
@@ -709,7 +711,7 @@ def main():
     parser = optparse.OptionParser()
     parser.add_option( "-g", "--graph", help="Optional graph file to load",
                        action="store", dest="graphName", default='' )
-    parser.add_option( "-o", "--obstacle", help="Optional obstacle file to load.",
+    parser.add_option( "-b", "--obstacle", help="Optional obstacle file to load.",
                        action="store", dest='obstName', default='' )
     parser.add_option( "-a", "--agent", help="Optional agent position file to load.",
                        action="store", dest='agtName', default='' )
@@ -717,14 +719,22 @@ def main():
                        action="store", dest='fieldName', default='' )
     parser.add_option( "-s", "--scb", help="Optional scb file to load.",
                        action="store", dest='scbName', default='' )
+    parser.add_option( "-i", "--inDir", help="Optional directory to find input files - only applied to file names with relative paths",
+                       action="store", dest='inDir', default='.' )
+    parser.add_option( "-o", "--outDir", help="Optional directory to write output files - only applied to file names with relative paths",
+                       action="store", dest='outDir', default='.' )
     options, args = parser.parse_args()
 
-    obstName = options.obstName
-    agtName = options.agtName
-    graphName = options.graphName
-    fieldName = options.fieldName
-    scbName = options.scbName
+    paths.IN_DIR = options.inDir
+    paths.OUT_DIR = options.outDir
+    obstName = paths.getPath( options.obstName )
+    agtName = paths.getPath( options.agtName )
+    graphName = paths.getPath( options.graphName )
+    fieldName = paths.getPath( options.fieldName )
+    scbName = paths.getPath( options.scbName )
     print "Arguments:"
+    print "\tInput dir:", options.inDir
+    print "\tOutput dir:", options.outDir
     print "\tobstacles:", obstName
     print "\tagents:   ", agtName
     print "\tgraph:    ", graphName

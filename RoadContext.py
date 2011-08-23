@@ -7,6 +7,7 @@ import numpy as np
 from OpenGL.GL import *
 import scbData
 from primitives import Vector2
+import paths
 
 # This is here instead of Context.py because this is pygame dependent and that is QT dependent.
 #   I need to unify those.
@@ -377,7 +378,7 @@ class SCBContext( PGContext ):
     def saveFrameXML( self ):
         '''Save the current frame as an xml file for running a simulation'''
         # HARD-CODED FILE NAME
-        f = open( 'scene.xml', 'w' )
+        f = open( paths.getPath( 'scene.xml', False ), 'w' )
         HEADER = '''<?xml version="1.0"?>
 
 <Experiment time_step="0.05" gridSizeX="82" gridSizeY="82" visualization="1" useProxies="1" neighbor_dist="5">
@@ -446,9 +447,13 @@ class AgentContext( PGContext, MouseEnabled ):
             noMods = not( hasShift or hasCtrl or hasAlt )
 
             if ( event.type == pygame.KEYDOWN ):
-                if ( event.key == pygame.K_s and noMods ):
-                    f = open('positions.txt', 'w' )
-                    f.write( '%s' % self.agents.sjguy() )
+                if ( event.key == pygame.K_s and hasCtrl ):
+                    if ( hasShift ):
+                        f = open( paths.getPath( 'agents.xml', False ), 'w' )
+                        f.write( '%s' % self.agents.xml() )
+                    else:
+                        f = open( paths.getPath( 'positions.txt', False ), 'w' )
+                        f.write( '%s' % self.agents.sjguy() )
                     f.close()
                     result.set( True, False )
                 elif ( event.key == pygame.K_DELETE and noMods ):
@@ -560,7 +565,7 @@ class VFieldContext( PGContext, MouseEnabled ):
 
         if ( event.type == pygame.KEYDOWN ):
             if ( event.key == pygame.K_s and hasCtrl ):
-                self.field.write( 'field.txt' )
+                self.field.write( paths.getPath( 'field.txt', False ) )
                 result.set( True, False )
                 
         return result
