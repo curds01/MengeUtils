@@ -6,6 +6,7 @@ from fieldTools import *
 import numpy as np
 from OpenGL.GL import *
 import scbData
+from primitives import Vector2
 
 # This is here instead of Context.py because this is pygame dependent and that is QT dependent.
 #   I need to unify those.
@@ -617,6 +618,12 @@ class FieldEditContext( VFieldContext ):
                         self.activeContext = FieldStrokeSmoothContext( self.field )
                         self.activeContext.activate()
                         result.set( True, True )
+                elif ( event.key == pygame.K_4 ):
+                    if ( self.activeContext.__class__ != FieldDomainContext ):
+                        self.activeContext.deactivate()
+                        self.activeContext = FieldDomainContext( self.field )
+                        self.activeContext.activate()
+                        result.set( True, True )
                 else:
                     result = VFieldContext.handleKeyboard( self, event, view )
         return result
@@ -951,12 +958,22 @@ class FieldPathContext( VFieldContext ):
             glColor3f( 0.1, 1.0, 0.1 )
             self.liveStroke.drawGL()            
             
-class FieldBoundaryContext( VFieldContext ):
-    '''A context for editing the boundaries of the field'''
+class FieldDomainContext( VFieldContext, MouseEnabled ):
+    '''A context for editing the boundaries and resolution of a field'''
+    HELP_TEXT = 'Edit field domain properties' + \
+                '\n\tIncrease cell size - right arrow' + \
+                '\n\tDecrease cell size - left arrow' + \
+                '\n\t\t* holding Ctrl/Alt/Shift changes the cell size change rate'
 
-    def __init__( self, vfield ):
-        VFieldContext.__init__( self, vfield )
-        self.editLine = None    # a 2-tuple of 2-tuples( (x0, y0), (x1, y1) ) of the line segment
+    NO_EDIT = 0
+    EDIT_HORZ = 1
+    EDIT_VERT = 2
+    def __init__( self, vField ):
+        VFieldContext.__init__( self, vField )
+        MouseEnabled.__init__( self )
+        self.corners = vField.getCorners()
+        self.size = vField.size # the size is (height, width)
+        self.activeEdge = None
 
     def activate( self  ):
         '''Begin boundary edit'''
@@ -965,20 +982,167 @@ class FieldBoundaryContext( VFieldContext ):
     def deactivate( self ):
         '''End boundary edit'''
         # todo: if in the middle of an edit, cancel it
-        pass
+        self.activeEdge = None
     
+    def handleKeyboard( self, event, view ):
+        result = VFieldContext.handleKeyboard( self, event, view )
+        if ( result.isHandled() ):
+            return result        
+
+        mods = pygame.key.get_mods()
+        hasCtrl = mods & pygame.KMOD_CTRL
+        hasAlt = mods & pygame.KMOD_ALT
+        hasShift = mods & pygame.KMOD_SHIFT
+        noMods = not( hasShift or hasCtrl or hasAlt )
+
+        DELTA = 1.0
+        if ( hasCtrl ):
+            DELTA *= 0.1
+        if ( hasShift ):
+            DELTA *= 0.1
+        if ( hasAlt ):
+            DELTA *= 0.1
+
+        if ( event.key == pygame.K_RSHIFT or
+                 event.key == pygame.K_LSHIFT or
+                 event.key == pygame.K_RALT or
+                 event.key == pygame.K_LALT or
+                 event.key == pygame.K_RCTRL or
+                 event.key == pygame.K_LCTRL ):
+                result.set( True, True )
+                return result
+            
+        if ( event.type == pygame.KEYDOWN ):
+            if ( event.key == pygame.K_RIGHT ):
+                self.field.setCellSize( self.field.cellSize + DELTA, self.size )
+                result.set( True, True )
+            elif ( event.key == pygame.K_LEFT ):
+                cs = self.field.cellSize
+                result.set( True, False )
+                if ( cs > DELTA ):
+                    self.field.setCellSize( cs - DELTA, self.size )
+                    result.set( True, True )
+        return result
+
     def handleMouse( self, event, view ):
         """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
-        result = ContextResult()
+        result = VFieldContext.handleMouse( self, event, view )
+        if ( result.isHandled() ):
+            return result
+        if ( event.type == pygame.MOUSEMOTION ):
+            p = view.screenToWorld( event.pos )
+            if ( self.dragging ):
+                if ( self.dragging == self.EDIT_HORZ ):
+                    dX = p[0] - self.downX
+                    self.corners[ self.activeEdge ][ 0 ] = self.startVal + dX
+                    self.corners[ self.activeEdge + 1][ 0 ] = self.startVal + dX
+                else:
+                    dY = p[1] - self.downY
+                    self.corners[ self.activeEdge ][ 1 ] = self.startVal + dY
+                    self.corners[ self.activeEdge + 1][ 1 ] = self.startVal + dY
+                result.set( True, True )
+                self.field.setDimensions( self.visSize() )
+            else:
+                # hover behavior
+                newIdx = self.selectEdge( p, view )
+                result.handled = True
+                if ( newIdx != self.activeEdge ):
+                    result.redraw = True
+                    self.activeEdge = newIdx
+        elif ( event.type == pygame.MOUSEBUTTONDOWN ):
+            if ( event.button == LEFT and self.activeEdge != None ):
+                self.downX, self.downY = view.screenToWorld( event.pos )
+                if ( self.activeEdge % 2 ): # vertical line
+                    self.startVal = self.corners[ self.activeEdge ][ 0 ]
+                    self.dragging = self.EDIT_HORZ
+                else:
+                    self.startVal = self.corners[ self.activeEdge ][ 1 ]
+                    self.dragging = self.EDIT_VERT
+            elif ( event.button == RIGHT and self.dragging ):
+                if ( self.dragging == self.EDIT_HORZ ):
+                    self.corners[ self.activeEdge ][ 0 ] = self.startVal
+                    self.corners[ self.activeEdge + 1][ 0 ] = self.startVal
+                else:
+                    self.corners[ self.activeEdge ][ 1 ] = self.startVal
+                    self.corners[ self.activeEdge + 1][ 1 ] = self.startVal
+                self.dragging = self.NO_EDIT
+                result.set( True, True )
+                self.field.setDimensions( self.visSize() )
+                
+        elif ( event.type == pygame.MOUSEBUTTONUP ):
+            if ( self.dragging ):
+                self.size = self.visSize()
+                self.field.setDimensions( self.size )
+                self.dragging = self.NO_EDIT
+                result.set( True, True )
         return result
+
+    def visSize( self ):
+        '''Based on the current corner values, computes the field size'''
+        return ( self.corners[-1][1] - self.corners[0][1], self.corners[1][0] - self.corners[0][0] )
+
+    def selectEdge( self, worldPos, view ):
+        '''Given a world position of the mouse, determines if an edge is "under" the mouse and returns its
+        index.  Returns None if no edge is sufficiently close.'''
+        DIST = view.pixelSize * 10  # 10 pixels away is considered selection
+
+        i = -1 # left-hand vertical edge        
+        if ( worldPos[0] >= self.corners[ i ][0] - DIST and worldPos[0] <= self.corners[ i ][0] + DIST and
+             worldPos[1] >= self.corners[ i + 1 ][1] - DIST and worldPos[1] <= self.corners[ i ][1] + DIST ):
+            return i
+        i = 0 # bottom horizontal edge        
+        if ( worldPos[1] >= self.corners[ i ][1] - DIST and worldPos[1] <= self.corners[ i ][1] + DIST and
+             worldPos[0] >= self.corners[ i ][0] - DIST and worldPos[0] <= self.corners[ i+1 ][0] + DIST ):
+            return i
+        i = 1 # right-hand vertical edge        
+        if ( worldPos[0] >= self.corners[ i ][0] - DIST and worldPos[0] <= self.corners[ i ][0] + DIST and
+             worldPos[1] >= self.corners[ i ][1] - DIST and worldPos[1] <= self.corners[ i + 1 ][1] + DIST ):
+            return i
+        i = 2 # top horizontal edge        
+        if ( worldPos[1] >= self.corners[ i ][1] - DIST and worldPos[1] <= self.corners[ i ][1] + DIST and
+             worldPos[0] >= self.corners[ i + 1 ][0] - DIST and worldPos[0] <= self.corners[ i ][0] + DIST ):
+            return i
+        return None
+
+    def cellSizeChange( self ):
+        '''Computes the cell size change based on keyboard modifiers'''
+        mods = pygame.key.get_mods()
+        hasCtrl = mods & pygame.KMOD_CTRL
+        hasAlt = mods & pygame.KMOD_ALT
+        hasShift = mods & pygame.KMOD_SHIFT
+        
+        DELTA = 1.0
+        if ( hasCtrl ):
+            DELTA *= 0.1
+        if ( hasShift ):
+            DELTA *= 0.1
+        if ( hasAlt ):
+            DELTA *= 0.1
+        return DELTA
 
     def drawGL( self, view ):
         # TODO: THIS IS FRAGILE
         #   It would be better for the text printer to handle new lines and do smart layout for
         #   a big block of text
-        t = VFieldContext.getTitle( self )
-        view.printText( t, (10,10) )
-        view.printText( 'Edit boundaries', (10, 30 ) )
+        VFieldContext.drawGL( self, view )
+        t = 'Edit field domain (change in cell size: {0})'.format( self.cellSizeChange() )
+        view.printText( t, (10, 30 ) )
+        glPushAttrib( GL_COLOR_BUFFER_BIT | GL_LINE_BIT )
+        glColor3f( 0.25, 1.0, 0.25 )
+        glBegin( GL_LINES )
+        for i in range( -1, 3 ):
+            glVertex3f( self.corners[ i ][0], self.corners[ i ][1] , 0 )
+            glVertex3f( self.corners[ i+1 ][0], self.corners[ i+1 ][1] , 0 )
+        glEnd()
+        if ( self.activeEdge != None ):
+            i = self.activeEdge
+            glColor3f( 0.5, 1.0, 0.5 )
+            glLineWidth( 2.0 )
+            glBegin( GL_LINES )
+            glVertex3f( self.corners[ i ][0], self.corners[ i ][1] , 0 )
+            glVertex3f( self.corners[ i+1 ][0], self.corners[ i+1 ][1] , 0 )
+            glEnd()
+        glPopAttrib()
         
         
             
