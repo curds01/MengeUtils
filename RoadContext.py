@@ -587,8 +587,7 @@ class FieldEditContext( VFieldContext ):
             result = self.activeContext.handleKeyboard( event, view)
             if ( result.isHandled() ):
                 return result
-
-        result = VFieldContext.handleKeyboard( self, event, view )
+        result.combine( VFieldContext.handleKeyboard( self, event, view ) )
         if ( result.isHandled() ):
             return result
         
@@ -624,15 +623,14 @@ class FieldEditContext( VFieldContext ):
                         self.activeContext = FieldDomainContext( self.field )
                         self.activeContext.activate()
                         result.set( True, True )
-                else:
-                    result = VFieldContext.handleKeyboard( self, event, view )
+            
         return result
 
     def handleMouse( self, event, view ):
         """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
         result = ContextResult()
         if ( self.activeContext ):
-            result = self.activeContext.handleMouse( event, view )
+            result.combine( self.activeContext.handleMouse( event, view ) )
             if ( result.isHandled() ):
                 return result
         return result
@@ -1009,7 +1007,7 @@ class FieldDomainContext( VFieldContext, MouseEnabled ):
                  event.key == pygame.K_LALT or
                  event.key == pygame.K_RCTRL or
                  event.key == pygame.K_LCTRL ):
-                result.set( True, True )
+                result.set( False, True )
                 return result
             
         if ( event.type == pygame.KEYDOWN ):
@@ -1051,7 +1049,6 @@ class FieldDomainContext( VFieldContext, MouseEnabled ):
             else:
                 # hover behavior
                 newIdx = self.selectEdge( p, view )
-                result.handled = True
                 if ( newIdx != self.activeEdge ):
                     result.redraw = True
                     self.activeEdge = newIdx
