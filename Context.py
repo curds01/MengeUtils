@@ -32,6 +32,12 @@ class ContextResult:
     def set( self, handled, redraw, finished=False ):
         self.handled = handled
         self.redraw = redraw
+
+    def combine( self, result ):
+        '''Combines this result with the given result in a boolean fashion'''
+        self.handled = self.handled or result.handled
+        self.redraw = self.redraw or result.redraw
+        self.finished = self.finished or result.finished
         
 class BaseContext:
     """Basic context"""
