@@ -65,7 +65,7 @@ class FrameSet:
         # TODO: self.maxFrames isn't currently USED!!!
         # version 2.0 data
         self.ids = []       # in scb2.0 we support ids for each agent.
-        self.simStepSize = -0.1
+        self.simStepSize = 0.1
         self.startFrame = startFrame
         # generic attributes
         if ( maxFrames == -1 ):
