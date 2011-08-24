@@ -229,6 +229,8 @@ class NPFrameSet( FrameSet ):
 
     def next( self, stride=1 ):
         """Returns the next frame in sequence from current point"""
+        if ( self.currFrameIndex >= self.maxFrames - 1 ):
+            return None, self.currFrameIndex
         colCount = self.agentByteSize / 4
         if ( self.currFrame == None):
             self.currFrame = np.empty( ( self.readAgtCount, colCount ), dtype=np.float32 )
