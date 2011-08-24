@@ -349,9 +349,15 @@ def main():
         bb.min = Vector3( -100, -100, 0 )
         bb.max = Vector3( 100, 100, 0 )
 
-    agents = AgentSet( 0.25 )
+    agents = AgentSet( 0.23 )
     if ( agtName ):
         agents.initFromFile( agtName )
+        if ( scbName != '' ):
+            # This reads the agent radius from the file, but no longer visualizes the agents
+            # This is a bit of a hack.  It would be better to simply disable drawing the
+            #   agents when the scb playback context is active.  But I don't have the time
+            #   to figure out an elegant solution to this.
+            agents.clear()
 
     if ( fieldName ):
         field = GLVectorField( (0,0), (1, 1), 1 )
@@ -387,7 +393,8 @@ def main():
     context = ContextSwitcher()
     context.addContext( AgentContext( agents, obstacles ), pygame.K_a )
     context.addContext( FieldEditContext( field ), pygame.K_f )
-    context.addContext( SCBContext( scbName ), pygame.K_s )
+    if ( scbName != '' ):
+        context.addContext( SCBContext( scbName, agents.defRadius ), pygame.K_s )
     context.newGLContext()
 
     redraw = True
