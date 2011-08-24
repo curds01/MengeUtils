@@ -187,12 +187,12 @@ class SCBContext( PGContext ):
                (0.7, 0.0, 0.35),  # burgandy
                )
     COLOR_COUNT = len( COLORS )
-    def __init__( self, scbFileName, agentRadius=0.25 ):
+    def __init__( self, scbFileName, agentRadius=0.13 ):
         PGContext.__init__( self )
         self.scbData = None
         self.currFrame = None
         self.loadSCBData( scbFileName )
-        self.radius=0.25    # assumes uniform radius
+        self.radius=agentRadius    # assumes uniform radius
         self.selected = -1
         self.visState = False   # causes the agents to be colored according to state instead of class
         if ( self.scbData ):
