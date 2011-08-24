@@ -230,7 +230,12 @@ class AgentSet:
             return True
         return False
             
-
+    def clear( self ):
+        '''Clears all the agents from the set'''
+        self.agents = []
+        self.activeAgent = None
+        self.editable = False
+        
 class AgentXMLParser( handler.ContentHandler ):
     def __init__( self, agentSet ):
         self.agentSet = agentSet
