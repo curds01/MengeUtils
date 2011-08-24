@@ -1,6 +1,6 @@
 # A throw away script designed to instantiate a vector field for the tawaf
 
-from roadmapBuilder import readObstacles
+from obstacles import readObstacles
 from vField import VectorField
 import numpy as np
 

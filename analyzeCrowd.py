@@ -7,7 +7,7 @@ from math import pi, exp
 import time
 import os
 from GLWidget import *
-from roadmapBuilder import readObstacles
+from obstacles import readObstacles
 from qtcontext import *
 from CrowdWork import CrowdAnalyzeThread
 
