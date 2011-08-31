@@ -295,7 +295,10 @@ class GLVectorField( VectorField ):
         minY = self.minPoint[1]
         maxY = minY + self.size[1]
         self.arrowID = glGenLists(1)
-        glNewList( self.arrowID, GL_COMPILE )
+        try:
+            glNewList( self.arrowID, GL_COMPILE )
+        except:
+            self.arrowID = 0
         glBegin( GL_LINES )
         glColor3f( 0.9, 0.45, 0.0 )
         # draw arrows
@@ -317,7 +320,10 @@ class GLVectorField( VectorField ):
         maxY = minY + self.size[0]
 
         self.gridID = glGenLists(1)
-        glNewList( self.gridID, GL_COMPILE )
+        try:
+            glNewList( self.gridID, GL_COMPILE )
+        except:
+            self.gridID = 0
         glColor3f( 0.25, 0.25, 0.25 )
         glBegin( GL_LINES )
         # horizontal lines
