@@ -35,7 +35,7 @@ class View:
 
     def initWindow( self, title ):
         """Initializes the pygame window"""
-        pygame.display.set_mode( (self.wWidth, self.wHeight), View.VIDEO_FLAGS )
+        self.surface = pygame.display.set_mode( (self.wWidth, self.wHeight), View.VIDEO_FLAGS )
         pygame.display.set_caption( title )
         self.resizeGL( ( self.wWidth, self.wHeight ) )
         
@@ -56,7 +56,7 @@ class View:
             self.wHeight = 1
 
         glViewport(0, 0, self.wWidth, self.wHeight)
-        pygame.display.set_mode( (self.wWidth, self.wHeight), View.VIDEO_FLAGS )
+        self.surface = pygame.display.set_mode( (self.wWidth, self.wHeight), View.VIDEO_FLAGS )
         centerX = self.vLeft + 0.5 * self.vWidth
         centerY = self.vBottom + 0.5 * self.vHeight
         self.vWidth =  self.wWidth * self.pixelSize

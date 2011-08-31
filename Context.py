@@ -75,4 +75,9 @@ class BaseContext:
         '''Called when the context is deactivated.'''
         pass
 
+    def exportDisplay( self ):
+        '''Reports if the screen should be exported to an image.  Returns a name to export the display to.
+        If the display shouldn't be exported, it returns None.'''
+        return None
+
     

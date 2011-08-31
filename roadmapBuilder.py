@@ -275,7 +275,7 @@ def drawGL( view, context=None, obstacles=None, graph=None, agents=None, field=N
         agents.drawGL()
     if ( context ):
         context.drawGL( view )
-        
+
 ## BASIC USAGE
 def updateMsg( agtCount ):
     if ( editState == NO_EDIT ):
@@ -422,6 +422,10 @@ def main():
             drawGL( view, context, obstacles, graph, agents, field )
             message( view, updateMsg( agents.count() ) )
             pygame.display.flip()
+            if ( context ):
+                name = context.exportDisplay()
+                if ( name ):
+                    pygame.image.save( view.surface, name )
             redraw = False
     writeRoadmap()    
 

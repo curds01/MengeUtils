@@ -72,6 +72,12 @@ class ContextSwitcher( PGContext ):
         self.contexts = {}
         self.activeContext = None
 
+    def exportDisplay( self ):
+        '''Reports if the screen should be exported to an image'''
+        if ( self.activeContext ):
+            return self.activeContext.exportDisplay()
+        return None        
+
     def handleKeyboard( self, event, view ):
         """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
         result = ContextResult()#PGContext.handleKeyboard( self, event, view )
@@ -172,7 +178,8 @@ class SCBContext( PGContext ):
                 '\n\tright arrow - step frame forward' + \
                 '\n\tleft arrow - step frame backward' + \
                 '\n\t\t* Holding Ctrl, Alt, Shift will speed up the playback step' + \
-                '\n\t\t* Each adds a factor of 10 to the playback'
+                '\n\t\t* Each adds a factor of 10 to the playback' + \
+                '\n\to - toggle whether or not the frames are output'
     COLORS = ( (0.7, 0.0, 0.0 ),  # red
 ##               (0.7, 0.35, 0.0 ), # orange
                (0.7, 0.7, 0.0 ),  # yellow
@@ -195,10 +202,21 @@ class SCBContext( PGContext ):
         self.radius=agentRadius    # assumes uniform radius
         self.selected = -1
         self.visState = False   # causes the agents to be colored according to state instead of class
+        # data for saving images
+        self.saveDisplay = False
+        self.lastSaved = -1
         if ( self.scbData ):
             print "SCBContext"
             print "\tFrame shape:", self.currFrame.shape
             print "Found agents with the following ids:", self.classes.keys()
+
+    def exportDisplay( self ):
+        '''Reports if the screen should be exported to an image'''
+        if ( self.saveDisplay ):
+            if ( self.currFrameID != self.lastSaved ):
+                self.lastSaved = self.currFrameID
+                return paths.getPath( 'scb%05d.png' % ( self.lastSaved ), False )
+        return None
         
     def loadSCBData( self, fileName ):
         if ( fileName ):
@@ -290,6 +308,8 @@ class SCBContext( PGContext ):
             title += ", color shows state"
         else:
             title += ", color shows class"
+        if ( self.saveDisplay ):
+            title += "    - saving display"
         view.printText( title,  (10,10) )
         
 
@@ -359,6 +379,11 @@ class SCBContext( PGContext ):
                         result.set( True, True )
                     else:
                         print "No state data!"
+                elif ( event.key == pygame.K_o and hasCtrl ):
+                    self.saveDisplay = not self.saveDisplay
+                    if ( not self.saveDisplay ):
+                        self.lastSaved = -1
+                    result.set( True, True )
         return result
 
     def handleMouse( self, event, view ):
