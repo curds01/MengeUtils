@@ -250,12 +250,13 @@ class AgentXMLParser( handler.ContentHandler ):
                 r = float( attrs[ 'r' ] )
             except:
                 r = self.agentSet.defRadius
-            if ( self.readingGoal ):
-                self.goal = ( x, y )
-            else:
-                self.agentSet.addAgent( (x, y), self.goal, r )
+            self.agentSet.addAgent( (x, y), self.goal, r )
         elif ( name == 'AgentSet' ):
             self.agentSet.defRadius = float( attrs[ 'r' ] )
+        elif ( name == 'Vertex' and self.readingGoal ):
+            x = float( attrs[ 'g_x' ] )
+            y = float( attrs[ 'g_y' ] )
+            self.goal = ( x, y )
         elif ( name == 'Goal' ):
             self.readingGoal = True
 
