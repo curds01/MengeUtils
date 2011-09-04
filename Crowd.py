@@ -1255,6 +1255,7 @@ def main():
     import os, sys
     import optparse
     parser = optparse.OptionParser()
+    # analysis to perform
     parser.add_option( "-d", "--density", help="Evaluate density.",
                        action="store_true", dest='density', default=False )
     parser.add_option( "-s", "--speed", help="Evaluate speed.",
@@ -1267,6 +1268,9 @@ def main():
                        action="store_true", dest='koshak', default=False )
     parser.add_option( "-i", "--include", help="Include all states",
                        action="store_true", dest='includeAll', default=False )
+    # analysis domain - start, frame count, frame step
+    parser.add_option( "-r", "--range", help="A triple of numbers: start frame, max frame count, frame step",
+                       nargs=3, action="store", dest='domain', type="int", default=(0, -1, 1) )
     options, args = parser.parse_args()
     
     srcFile = sys.argv[1]
@@ -1278,6 +1282,9 @@ def main():
     FRAME_WINDOW = 1
     START_FRAME = 0
     EXCLUDE_STATES = ()
+
+    START_FRAME, MAX_FRAMES, FRAME_STEP = options.domain
+    print "Command line:", START_FRAME, MAX_FRAMES, FRAME_STEP
 
     if ( True ):
         #increase the color bar specifications
@@ -1338,16 +1345,16 @@ def main():
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
 ##        srcFile = '20k_01'
         timeStep = 0.05
-        FRAME_STEP = 20
-        START_FRAME = 3000
-        START_FRAME = 5160
+##        FRAME_STEP = 20
+##        START_FRAME = 3000
+##        START_FRAME = 5160
         outPath = os.path.join( '/projects','tawaf','sim','jul2011','results' )
         path = os.path.join( outPath, '{0}.scb'.format( srcFile ) )
         print "Reading", path
         outPath = os.path.join( outPath, srcFile )
 ##        MAX_FRAMES = 120
-        MAX_FRAMES = 200
-        MAX_FRAMES = 5
+##        MAX_FRAMES = 200
+##        MAX_FRAMES = 5
         if ( not options.includeAll ):
             EXCLUDE_STATES = (1, 2, 3, 4, 5, 6, 7, 8, 9)
     elif ( False ):
