@@ -1374,6 +1374,7 @@ def main():
     # todo:    
 
     R = 2.0
+    R = 1.5
     
     def distFunc( dispX, dispY, radiusSqd ):
         """Constant distance function"""
