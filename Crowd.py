@@ -1343,18 +1343,11 @@ def main():
         size = Vector2( 175.0, 120.0 )
         minPt = Vector2( -75.0, -60.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
-##        srcFile = '20k_01'
         timeStep = 0.05
-##        FRAME_STEP = 20
-##        START_FRAME = 3000
-##        START_FRAME = 5160
         outPath = os.path.join( '/projects','tawaf','sim','jul2011','results' )
         path = os.path.join( outPath, '{0}.scb'.format( srcFile ) )
         print "Reading", path
         outPath = os.path.join( outPath, srcFile )
-##        MAX_FRAMES = 120
-##        MAX_FRAMES = 200
-##        MAX_FRAMES = 5
         if ( not options.includeAll ):
             EXCLUDE_STATES = (1, 2, 3, 4, 5, 6, 7, 8, 9)
     elif ( False ):
