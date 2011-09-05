@@ -772,7 +772,7 @@ def regionSpeedImages( dataFile, imagePath, polygons, colorMap, minCorner, size,
     m = pygame.image.load( 'regionMask.png' )
     drawPolygons( surf, obstacles.polys, worldToImg, [(255,255,255) for p in obstacles.polys] )
     surf = pygame.transform.flip( surf, False, True )
-    surf.blit( m, m.get_rect( ) )
+##    surf.blit( m, m.get_rect( ) )
     pygame.image.save( surf, '%s.png' % ( imagePath ) )
     
 
@@ -1340,8 +1340,12 @@ def main():
 ##        MAX_AGENTS = 50
         MAX_FRAMES = 120
     elif ( True ):
+        # This size doesn't work for 25k
         size = Vector2( 175.0, 120.0 )
         minPt = Vector2( -75.0, -60.0 )
+        # this size DOES work for 25k
+        size = Vector2( 215.0, 160.0 )
+        minPt = Vector2( -95.0, -80.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
         timeStep = 0.05
         outPath = os.path.join( '/projects','tawaf','sim','jul2011','results' )
