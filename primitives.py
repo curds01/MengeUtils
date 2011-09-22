@@ -18,6 +18,9 @@ class Vector2:
         self.y -= v.y
         return self
 
+    def __neg__( self, v ):
+        return Vector2( -self.x, -self.y )
+
     def __add__( self, v ):
         return Vector2( self.x + v.x, self.y + v.y )
 
@@ -30,6 +33,9 @@ class Vector2:
         return Vector2( self.x / s, self.y / s )
 
     def __mul__( self, s ):
+        return Vector2( self.x * s, self.y * s )
+
+    def __rmul__( self, s ):
         return Vector2( self.x * s, self.y * s )
 
     def normalize( self ):
@@ -49,6 +55,9 @@ class Vector2:
 
     def magnitude( self ):
         return sqrt( self.x * self.x + self.y * self.y )
+
+    def magSq( self ):
+        return self.x * self.x + self.y * self.y 
 
     def __getitem__( self, index ):
         if ( index == 0 ):
@@ -71,6 +80,10 @@ class Vector2:
 
     def __repr__( self ):
         return str(self)
+
+    def isZero( self ):
+        '''Reports if the vector is zero'''
+        return self.x == 0.0 and self.y == 0.0
 
 class Vector3:
     def __init__( self, x, y, z ):
