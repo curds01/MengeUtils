@@ -18,7 +18,7 @@ class Vector2:
         self.y -= v.y
         return self
 
-    def __neg__( self, v ):
+    def __neg__( self ):
         return Vector2( -self.x, -self.y )
 
     def __add__( self, v ):
