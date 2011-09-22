@@ -47,7 +47,7 @@ class BaseContext:
     def __str__( self ):
         return self.__class__.__name__
 
-    def drawGL( self ):
+    def drawGL( self, view ):
         """This gives the context the chance to draw in the OpenGL view"""
         pass
 
