@@ -363,9 +363,10 @@ def main():
         field = GLVectorField( (0,0), (1, 1), 1 )
         field.read( fieldName )
     else:
-        print "Instantiate vector field from geometry:", bb
-        bbSize = bb.max - bb.min    
-        field = GLVectorField( ( bb.min.x, bb.min.y ), ( bbSize.y, bbSize.x ), 2.0 )
+        field = None
+##        print "Instantiate vector field from geometry:", bb
+##        bbSize = bb.max - bb.min    
+##        field = GLVectorField( ( bb.min.x, bb.min.y ), ( bbSize.y, bbSize.x ), 2.0 )
     
     graph = Graph()
     if ( graphName ):
@@ -387,7 +388,8 @@ def main():
     pygame.key.set_repeat( 250, 10 )
     view.initGL()
 
-    field.newGLContext()
+    if ( field ):
+        field.newGLContext()
 ##    field = None
 
     context = ContextSwitcher()
@@ -413,7 +415,8 @@ def main():
                 redraw |= result.needsRedraw()
             elif ( event.type == pygame.VIDEORESIZE ):
                 view.resizeGL( event.size )
-                field.newGLContext()
+                if ( field ):
+                    field.newGLContext()
                 context.newGLContext()
                 redraw |= True
             elif ( event.type == pygame.VIDEOEXPOSE ):
