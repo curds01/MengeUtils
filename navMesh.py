@@ -16,6 +16,10 @@ class Node:
         self.center = Vector2(0.0, 0.0)
         self.edges = []
 
+    def addEdge( self, edgeID ):
+        '''Given the index of an internal edge, adds the edge to the definition'''
+        self.edges.append( edgeID )
+
     def toString( self, ascii=True ):
         '''Output the node data to a string'''
         if ( ascii ):
@@ -32,7 +36,7 @@ class Node:
         s += '\n\t%.5f %.5f' % ( self.center.x, self.center.y )
         s += '\n\t%d' % len( self.edges )
         for edge in self.edges:
-            s += '\n\t\t%s' % ( edge.asciiString() )
+            s += ' %d' % ( edge )
         return s
 
     def binaryString( self ):
@@ -59,6 +63,13 @@ class Edge:
         self.node0 = -1
         self.node1 = -1
 
+    def asciiString( self ):
+        '''Writes out the edge as an ascii string'''
+        s = '\n%.5f %.5f' % ( self.point.x, self.point.y )
+        s += '\n\t%.5f %.5f' % ( self.disp.x, self.disp.y )
+        s += '\n\t%d %.5f %.5f' % ( self.dist, self.node0, self.node1 )
+        return s
+
 class NavMesh:
     '''A simple navigation mesh'''
     def __init__( self ):
@@ -70,6 +81,12 @@ class NavMesh:
         '''Adds a node to the mesh and returns the index'''
         idx = len( self.nodes )
         self.nodes.append( node )
+        return idx
+
+    def addEdge( self, edge ):
+        '''Adds a edge to the mesh and returns the index'''
+        idx = len( self.edges )
+        self.edges.append( edge )
         return idx
 
     def writeNavFile( self, fileName, ascii=True ):
@@ -96,6 +113,8 @@ class NavMesh:
             f.write( n.asciiString() )            
         #edges
         f.write( '\n%d' % len( self.edges ) )
+        for e in self.edges:
+            f.write( e.asciiString() )  
         f.close()
 
     def writeNavFileBinary( self, fileName ):
@@ -111,6 +130,8 @@ class NavMesh:
             f.write( n.binaryString() )            
         # edges
         f.write( struct.pack('i', len( self.edges ) ) )
+        for e in self.edges:
+            f.write( e.binaryString() )  
         f.close()
         
 
