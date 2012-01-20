@@ -81,6 +81,8 @@ class FrameSet:
             self.readHeader2_0( scbFile )
         elif ( self.version == '2.1' ):
             self.readHeader2_1( scbFile )
+        elif ( self.version == '3.0' ):
+            self.readHeader3_0( scbFile )
         else:
             raise AttributeError, "Unrecognized scb version: %s" % ( version )
         
@@ -127,6 +129,20 @@ class FrameSet:
             2. float: y position
             3. float: orientation
             4. int:   state
+            
+            The header information is exactly the same.
+        '''
+        self.readHeader2_0( scbFile )
+        self.agentByteSize = 16
+
+    def readHeader3_0( self, scbFile ):
+        '''The 3.0 changes orientation representation.
+        Instead of an angle, it's a normalized direction vector.
+        The per-agent data consists of FOUR values:
+            1. float: x position
+            2. float: y position
+            3. float: orientation x
+            4. float: orientatino y
             
             The header information is exactly the same.
         '''
