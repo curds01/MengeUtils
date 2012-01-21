@@ -6,6 +6,163 @@ from navMesh import Node, Edge, NavMesh
 import numpy as np
 from primitives import Vector2
 
+def popEdge( e, vertMap, edges ):
+    '''Removes the edge, e, from all references in the vertMap'''
+    v0, v1 = edges[ e ]
+    try:
+        vertMap[ v0 ].pop( vertMap[ v0 ].index( e ) )
+        if ( not vertMap[ v0 ] ):
+            vertMap.pop( v0 )
+    except ValueError:
+        pass
+    
+    try:
+        vertMap[ v1 ].pop( vertMap[ v1 ].index( e ) )
+        if ( not vertMap[ v1 ] ):
+            vertMap.pop( v1 )
+    except ValueError:
+        pass
+
+def pushEdge( e, vertMap, edges ):
+    '''Places an edge into the vertex-edge map'''
+    v0, v1 = edges[ e ]
+    if ( vertMap.has_key( v0 ) ):
+        assert( e not in vertMap[ v0 ] )
+        vertMap[ v0 ].append( e )
+    else:
+        vertMap[ v0 ] = [e]
+        
+    if ( vertMap.has_key( v1 ) ):
+        assert( e not in vertMap[ v1 ] )
+        vertMap[ v1 ].append( e )
+    else:
+        vertMap[ v1 ] = [e]
+
+def extendEdge( e, o, edgeLoop, edges, vertMap ):
+    '''Extends the obstacle, o, with the given edge, e.  The edgeLoop gets extended
+    by the edge and the vertMap is modified to reflect success.
+
+    @return: -1 - path still valid
+             0 - invalid cycle created (i.e. e's final vertex in body of o
+             1 - valid cycle finished.
+    '''
+    edgeLoop.append( e )
+    popEdge( e, vertMap, edges )
+    vPrev, vNext = edges[ e ]
+    if ( vPrev != o[-1] ):
+        tmp = vPrev
+        vPrev = vNext
+        vNext = tmp
+        assert( vPrev == o[-1] )
+    if ( vNext == o[0] ):
+        # reached cycle - obstacle grown to loop
+        return 1
+    elif ( vNext in o ):
+        # created a cycle, but not with the first vertex
+        edgeLoop.pop( -1 )
+        pushEdge( e, vertMap, edges )
+        return 0
+    else:
+        o.append( vNext )
+        return -1
+
+def growObstacle( o, edgeLoop, edges, vertMap ):
+    '''Given an obstacle (and the corresponding edge loop) grows the obstacle to
+    a single, closed loop.
+
+    @param o: the current obstacle (a list of vertex indices)
+    @param edgeLoop: a list of edge indices.  The ith index in this list is the
+        edge consisting of the ith and i+1st vertices in o.
+    @param edges: the edge definitions (to which the edge indices refer)
+    @param vertMap: the mapping from vertex index to edges which share it
+    @return: boolean, reporting if a closed obstacle was found.        
+    '''
+    v = o[-1]
+    if ( len( vertMap[ v ] ) == 1 ):
+        # simple case -- take the only option
+        e = vertMap[ v ][ 0 ]
+        state = extendEdge( e, o, edgeLoop, edges, vertMap )
+        if ( state == 0  ):
+            return False
+        elif ( state == 1 ):
+            return True
+
+        if ( growObstacle( o, edgeLoop, edges, vertMap ) ):
+            return True
+        else:
+            # this path failed to produce a loop
+            edgeLoop.pop( -1 )
+            pushEdge( e, vertMap )
+    else:
+        for e in vertMap[ v ]:
+            state = extendEdge( e, o, edgeLoop, edges, vertMap )
+            if ( state == 0  ):
+                return False
+            elif ( state == 1 ):
+                return True
+
+            if ( growObstacle( o, edgeLoop, edges, vertMap ) ):
+                return True
+            else:
+                # this path failed to produce a loop
+                edgeLoop.pop( -1 )
+                pushEdge( e, vertMap )
+        return False
+    
+def startObstacle( vertMap, edges, obstacles ):
+    '''Starts a new obstacle from the vertex-edge map.  Modifies the vertex
+    map in place (by removing used data) and returns the current vertex and
+    an obstacle, and, finally, adds that obstacle to the obstacles list.'''
+    v = vertMap.keys()[0]
+    e = vertMap[ v ][ 0 ] 
+    # remove edge from vert mapping
+    popEdge( e, vertMap, edges )
+
+    o = list( edges[ e ] )
+    obstacles.append( o )
+    return o, e
+
+def processObstacles( edges, navMesh ):
+    '''Given a list of external edges (represented by a 2-tuple, (v0, v1), creates a
+    list of obstacles'''
+    # The obstacle is simply an ordered list of vertex indices
+    #   The order depends on which side of the obstacle is free space
+    #   Counter-clockwise --> outside is freespace, clockwise --> inside is freespace
+    #   It is assumed that all obstacles are closed
+    vertMap = {}
+    for i, edge in enumerate( edges ):
+        v0, v1 = edge
+        if ( vertMap.has_key( v0 ) ):
+            vertMap[ v0 ].append( i )
+        else:
+            vertMap[ v0 ] = [ i ]
+        if ( vertMap.has_key( v1 ) ):
+            vertMap[ v1 ].append( i )
+        else:
+            vertMap[ v1 ] = [ i ]
+    # furthermore, every vertex should have an EVEN number of incident edges
+    #   Each obstacle boundary is a unique loop.  An edge in requires a unique
+    #   edge out.  The only way out of that is if a single edge was used in two
+    #   loops, which is impossible as that would require an edge connected to NO
+    #   faces (or badly constructed geometry)
+    #
+    # This implicitly catches the case where there is an open vertex (i.e.
+    #   degree == 1 --> degree is odd
+    # And I'm not testing for the case where degree is zero, because that is
+    #   impossible.  A vertex wouldn't be entered into the list if it wasn't part
+    #   of an edge
+    degrees = map( lambda x: len( x ), vertMap.values() )
+    assert( sum( map( lambda x: x % 2, degrees ) ) == 0 )
+
+    obstacles = []
+
+    while ( vertMap ):
+        o, e = startObstacle( vertMap, edges, obstacles )
+        assert( growObstacle( o, [e], edges, vertMap ) )
+
+    return obstacles
+    
+
 def projectVertices( vertexList ):
     '''Given 3D vertices, projects them to 2D for the navigation mesh.'''
     #TODO: Eventually the navigation mesh will require 3D data when it is no longer topologically planar
@@ -48,11 +205,11 @@ def buildNavMesh( objFile ):
             nextIdx = face.verts[ ( v + 1 ) % vCount ] - 1
             edge = ( min( vIdx, nextIdx ), max( vIdx, nextIdx ) )
             if ( not edgeMap.has_key( edge ) ):
-                edgeMap[ edge ] = [ f ]
+                edgeMap[ edge ] = [ (f,face) ]
             elif ( len( edgeMap[ edge ] ) > 1 ):
                 raise AttributeError, "Edge %s has too many incident faces" % ( edge )
             else:
-                edgeMap[ edge ].append( f )
+                edgeMap[ edge ].append( (f,face) )
             
         node.center.x = X / vCount
         node.center.y = Z / vCount
@@ -77,7 +234,9 @@ def buildNavMesh( objFile ):
     # process the internal edges
     for i, e in enumerate( internal ):
         v0, v1 = e
-        a, b = edgeMap[ e ]
+        A, B = edgeMap[ e ]
+        a, aFace = A
+        b, bFace = B
         na = navMesh.nodes[ a ]
         na.addEdge( i )
         nb = navMesh.nodes[ b ]
@@ -96,11 +255,25 @@ def buildNavMesh( objFile ):
         navMesh.addEdge( edge )
 
     # process the external edges
-    #   TODO: I need to do this
-    #   At its simplest I can dump out each external edge as a single obstacle.
-    #   Better yet, I should string them back up.
-    #   WINDING: I need to string them up in such a way that the navigation mesh is on the "inside"
-    #       of the obstacle
+    # for each external edge, make sure the "winding" is opposite that of the face
+    tempEdges = []
+    for e in external:
+        f, face = edgeMap[ e ][0]
+        v0, v1 = e
+        i0 = face.verts.index( v0 + 1 )
+        vCount = len( face.verts )
+        if ( face.verts[ ( i0 + 1 ) % vCount ] == (v1+1) ):
+            tempEdges.append( ( v1, v0 ) )
+        else:
+            tempEdges.append( e )
+             
+    obstacles = processObstacles( external, navMesh )
+    navMesh.extendObstacles( obstacles )
+    print "Found %d obstacles" % len( obstacles )
+
+    for o in obstacles:
+        print '\t', ' '.join( map( lambda x: str(x), o ) )
+    
         
     return navMesh
 

@@ -47,9 +47,8 @@ class Node:
         s += struct.pack('fffff', self.A, self.B, self.C, self.center.x, self.center.y )
         s += struct.pack( 'i', len( self.edges ) )
         for edge in self.edges:
-            s += edge.binaryString()
+            s += struct.pack( 'i', edge )
         return s
-            
 
 class Edge:
     '''The edge of a navigation mesh'''
@@ -70,12 +69,20 @@ class Edge:
         s += '\n\t%d %.5f %.5f' % ( self.dist, self.node0, self.node1 )
         return s
 
+    def binaryString( self ):
+        '''Writes out a binary string representation of the string'''
+        s = struct.pack( 'ff', self.point.x, self.point.y )
+        s += struct.pack( 'ff', self.disp.x, self.disp.y )
+        s += struct.pack( 'iff', self.dist, self.node0, self.node1 )
+        return s
+
 class NavMesh:
     '''A simple navigation mesh'''
     def __init__( self ):
         self.vertices = []  # the set of vertices in the mesh
         self.nodes = []
         self.edges = []
+        self.obstacles = []
 
     def addNode( self, node ):
         '''Adds a node to the mesh and returns the index'''
@@ -89,6 +96,16 @@ class NavMesh:
         self.edges.append( edge )
         return idx
 
+    def addObstacle( self, o ):
+        '''Adds an obstacle (a list of vertex indices) to the obstacle list'''
+        idx = len( self.obstacles )
+        self.obstacles.append( o )
+        return idx
+
+    def extendObstacles( self, obstList ):
+        '''Extends the obstacles with the list of obstacles'''
+        self.obstacles.extend( obstList )
+        
     def writeNavFile( self, fileName, ascii=True ):
         '''Outputs the navigation mesh into a .nav file'''
         if ( ascii ):
@@ -114,7 +131,11 @@ class NavMesh:
         #edges
         f.write( '\n%d' % len( self.edges ) )
         for e in self.edges:
-            f.write( e.asciiString() )  
+            f.write( e.asciiString() )
+        # obstacles
+        f.write( '\n%d' % len( self.obstacles ) )
+        for o in self.obstacles:
+            f.write( '\n\t%s' % ' '.join( map( lambda x: str(x), o ) ) )
         f.close()
 
     def writeNavFileBinary( self, fileName ):
@@ -131,7 +152,11 @@ class NavMesh:
         # edges
         f.write( struct.pack('i', len( self.edges ) ) )
         for e in self.edges:
-            f.write( e.binaryString() )  
+            f.write( e.binaryString() )
+        # obstacles
+        f.write( struct.pack( 'i', len( self.obstacles ) ) )
+        for o in self.obstacles:
+            f.write( ''.join( map( lambda x: struct.pack( 'i',x ), o ) ) )
         f.close()
         
 
