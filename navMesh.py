@@ -135,7 +135,7 @@ class NavMesh:
         # obstacles
         f.write( '\n%d' % len( self.obstacles ) )
         for o in self.obstacles:
-            f.write( '\n\t%s' % ' '.join( map( lambda x: str(x), o ) ) )
+            f.write( '\n\t%d %s' % ( len( o ), ' '.join( map( lambda x: str(x), o ) ) ) )
         f.close()
 
     def writeNavFileBinary( self, fileName ):
@@ -156,6 +156,7 @@ class NavMesh:
         # obstacles
         f.write( struct.pack( 'i', len( self.obstacles ) ) )
         for o in self.obstacles:
+            f.write( struct.pack('i', len( o ) ) )
             f.write( ''.join( map( lambda x: struct.pack( 'i',x ), o ) ) )
         f.close()
         
