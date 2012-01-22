@@ -66,14 +66,14 @@ class Edge:
         '''Writes out the edge as an ascii string'''
         s = '\n%.5f %.5f' % ( self.point.x, self.point.y )
         s += '\n\t%.5f %.5f' % ( self.disp.x, self.disp.y )
-        s += '\n\t%d %.5f %.5f' % ( self.dist, self.node0, self.node1 )
+        s += '\n\t%.5f %d %d' % ( self.dist, self.node0, self.node1 )
         return s
 
     def binaryString( self ):
         '''Writes out a binary string representation of the string'''
         s = struct.pack( 'ff', self.point.x, self.point.y )
         s += struct.pack( 'ff', self.disp.x, self.disp.y )
-        s += struct.pack( 'iff', self.dist, self.node0, self.node1 )
+        s += struct.pack( 'fii', self.dist, self.node0, self.node1 )
         return s
 
 class NavMesh:
