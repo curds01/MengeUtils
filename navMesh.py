@@ -123,15 +123,15 @@ class NavMesh:
         # vertices
         f.write( '%d' % len( self.vertices) )
         for x,y in self.vertices:
-            f.write( '\n\t%.5f, %.5f' % ( x, y ) )
-        # nodes
-        f.write( '\n%d' % len( self.nodes ) )
-        for n in self.nodes:
-            f.write( n.asciiString() )            
+            f.write( '\n\t%.5f %.5f' % ( x, y ) )
         #edges
         f.write( '\n%d' % len( self.edges ) )
         for e in self.edges:
             f.write( e.asciiString() )
+        # nodes
+        f.write( '\n%d' % len( self.nodes ) )
+        for n in self.nodes:
+            f.write( n.asciiString() )            
         # obstacles
         f.write( '\n%d' % len( self.obstacles ) )
         for o in self.obstacles:
@@ -145,14 +145,14 @@ class NavMesh:
         f.write( struct.pack('i', len( self.vertices ) ) )
         for x,y in self.vertices:
             f.write( struct.pack('ff', x, y ) )
-        # nodes
-        f.write( struct.pack('i', len( self.nodes ) ) )
-        for n in self.nodes:
-            f.write( n.binaryString() )            
         # edges
         f.write( struct.pack('i', len( self.edges ) ) )
         for e in self.edges:
             f.write( e.binaryString() )
+        # nodes
+        f.write( struct.pack('i', len( self.nodes ) ) )
+        for n in self.nodes:
+            f.write( n.binaryString() )            
         # obstacles
         f.write( struct.pack( 'i', len( self.obstacles ) ) )
         for o in self.obstacles:
