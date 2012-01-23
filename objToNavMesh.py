@@ -263,11 +263,11 @@ def buildNavMesh( objFile ):
         i0 = face.verts.index( v0 + 1 )
         vCount = len( face.verts )
         if ( face.verts[ ( i0 + 1 ) % vCount ] == (v1+1) ):
-            tempEdges.append( ( v1, v0 ) )
-        else:
             tempEdges.append( e )
+        else:
+            tempEdges.append( ( v1, v0 ) )
              
-    obstacles = processObstacles( external, navMesh )
+    obstacles = processObstacles( tempEdges, navMesh )
     navMesh.extendObstacles( obstacles )
     print "Found %d obstacles" % len( obstacles )
 
