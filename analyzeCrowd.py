@@ -236,11 +236,12 @@ class CrowdWindow( QtGui.QMainWindow):
 
     def createMenus( self ):
         self.fileMenu = self.menuBar().addMenu("&Input")
+        self.fileMenu.setEnabled( False )
         self.fileMenu.addAction( self.readInConfigAct )
         self.fileMenu.addAction( self.saveInConfigAct )
-        self.fileMenu = self.menuBar().addMenu("&Settings")
-        self.fileMenu.addAction( self.readConfigAct )
-        self.fileMenu.addAction( self.saveConfigAct )
+        self.settingsMenu = self.menuBar().addMenu("&Settings")
+        self.settingsMenu.addAction( self.readConfigAct )
+        self.settingsMenu.addAction( self.saveConfigAct )
 
     def createStatusBar(self):
         self.statusBar().showMessage("Ready")
