@@ -330,10 +330,10 @@ class CrowdWindow( QtGui.QMainWindow):
             f = open( fileName, 'r' )
             cfg = Config()
             cfg.fromFile( f )
-            self.console.appendPlainText('Read full config file %s\n' % fileName )
+            self.logMessage('Read full config file %s\n' % fileName )
             self.setFullConfig( cfg )
         except IOError:
-            self.console.appendPlainText('Error reading full config file %s\n' % fileName )
+            self.logMessage('Error reading full config file %s\n' % fileName )
             
     def setFullConfig( self, cfg ):
         """Given a config object for the full application, sets the application state"""
@@ -469,16 +469,16 @@ class CrowdWindow( QtGui.QMainWindow):
             QtCore.QObject.connect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )
             self.workThread.processMessage.connect( self.logMessage )
             self.workThread.start()
-            self.console.appendPlainText( '\nStarting processing' )
+            self.logMessage( '\nStarting processing' )
         else:
-            self.console.appendPlainText( 'Already running' )
+            self.logMessage( 'Already running' )
 
 
     def loadObstacle( self ):
         """Causes the indicated obstacle file to be loaded into the OpenGL viewer"""
         obstFileName = str( self.obstFilePathGUI.text() )
         if ( obstFileName ):
-            self.console.appendPlainText('Reading obstacle file: %s' % obstFileName )
+            self.logMessage('Reading obstacle file: %s' % obstFileName )
             try:
                 flipY = True
                 obstacles, bb = readObstacles( obstFileName, flipY )                
@@ -491,9 +491,9 @@ class CrowdWindow( QtGui.QMainWindow):
                 self.glWindow.resizeGL( glSize.width(), glSize.height() )
                 self.glWindow.updateGL()
             except:
-                self.console.appendPlainText('Error reading obstacle file: %s' % obstFileName )
+                self.logMessage('Error reading obstacle file: %s' % obstFileName )
         else:
-            self.console.appendPlainText('No obstacle file to load' )
+            self.logMessage('No obstacle file to load' )
                                           
 
 if __name__ == '__main__':
