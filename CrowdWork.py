@@ -67,18 +67,18 @@ class CrowdAnalyzeThread( QtCore.QThread ):
             pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
             self.processMessage.emit( 'done in %.2f seconds' % ( time.clock() - s ) )            
 
-        advecAction = self.data[ 'ADVEC_ACTION' ]
-        if ( advecAction == 1 or advecAction == 3 ):
-            self.processMessage.emit( 'Computing advection...' )
-            s = time.clock()
-            grids.computeAdvecFlow( domainMin, domainSize, res, dfunc, 3.0, 3 * R, frameSet, self.data[ 'ADVEC_LINES' ] )
-            self.processMessage.emit( 'done in %.2f seconds' % ( time.clock() - s ) )
-        if ( advecAction >= 2 ):
-            imageName = os.path.join( self.data[ 'outDir' ], 'advec_' )
-            self.processMessage.emit( 'Creating flow advection images...' )
-            s = time.clock()
-            grids.makeImages( colorMap, imageName, 'advec' )
-            pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
-            self.processMessage.emit( 'done in %.2f seconds' % ( time.clock() - s ) )        
+##        advecAction = self.data[ 'ADVEC_ACTION' ]
+##        if ( advecAction == 1 or advecAction == 3 ):
+##            self.processMessage.emit( 'Computing advection...' )
+##            s = time.clock()
+##            grids.computeAdvecFlow( domainMin, domainSize, res, dfunc, 3.0, 3 * R, frameSet, self.data[ 'ADVEC_LINES' ] )
+##            self.processMessage.emit( 'done in %.2f seconds' % ( time.clock() - s ) )
+##        if ( advecAction >= 2 ):
+##            imageName = os.path.join( self.data[ 'outDir' ], 'advec_' )
+##            self.processMessage.emit( 'Creating flow advection images...' )
+##            s = time.clock()
+##            grids.makeImages( colorMap, imageName, 'advec' )
+##            pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
+##            self.processMessage.emit( 'done in %.2f seconds' % ( time.clock() - s ) )        
         
         self.processMessage.emit( 'FINISHED' )

@@ -156,43 +156,59 @@ class CrowdWindow( QtGui.QMainWindow):
         fLayout.setColumnStretch( 0, 0 )
         fLayout.setColumnStretch( 1, 0 )
         fLayout.setColumnStretch( 2, 1 )
+        fLayout.setColumnStretch( 3, 1 )
         
         # density
         fLayout.addWidget( QtGui.QLabel("Density"), 0, 0, 1, 1 )
         self.doDensityGUI = QtGui.QComboBox( box )
         self.doDensityGUI.addItems( ("No action", "Compute", "Visualize", "Compute and Vis." ) )
-        fLayout.addWidget( self.doDensityGUI, 0, 1, 1, 2 )
+        fLayout.addWidget( self.doDensityGUI, 0, 1, 1, 3 )
         # speed
         
         fLayout.addWidget( QtGui.QLabel("Speed"), 1, 0, 1, 1 )
         self.doSpeedGUI = QtGui.QComboBox( box )
         self.doSpeedGUI.addItems( ("No action", "Compute", "Visualize", "Compute and Vis." ) )
         QtCore.QObject.connect( self.doSpeedGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.toggleSpeed )
-        fLayout.addWidget( self.doSpeedGUI, 1, 1, 1, 2 )
+        fLayout.addWidget( self.doSpeedGUI, 1, 1, 1, 3 )
         fLayout.addWidget( QtGui.QLabel( "Temporal window" ), 2, 1, 1, 1, QtCore.Qt.AlignRight )
         self.speedWindowGUI = QtGui.QSpinBox( box )
         self.speedWindowGUI.setMinimum( 1 )
         self.speedWindowGUI.setEnabled( False )
-        fLayout.addWidget( self.speedWindowGUI, 2, 2, 1, 1 )
+        fLayout.addWidget( self.speedWindowGUI, 2, 2, 1, 2 )
 
-        # flow advection
-        fLayout.addWidget( QtGui.QLabel("Advec. Flow"), 3, 0, 1, 1 )
-        self.doFlowAdvecGUI = QtGui.QComboBox( box )
-        self.doFlowAdvecGUI.addItems( ("No action", "Compute", "Visualize", "Compute and Vis." ) )
-        QtCore.QObject.connect( self.doFlowAdvecGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.flowAdvecChanged )
-        fLayout.addWidget( self.doFlowAdvecGUI, 3, 1, 1, 1 )
-        self.setFlowAdvecLine = QtGui.QPushButton( 'Set line' )
-        self.setFlowAdvecLine.setCheckable( True )
-        self.setFlowAdvecLine.setEnabled( False )
-        QtCore.QObject.connect( self.setFlowAdvecLine, QtCore.SIGNAL('toggled(bool)'), self.setFlowAdvecLineCB )
-        fLayout.addWidget( self.setFlowAdvecLine, 3, 2, 1, 1 )
-        fLayout.addWidget( QtGui.QLabel( "Number of lines" ), 4, 1, 1, 1, QtCore.Qt.AlignRight )
-        self.advecFlowCountGui = QtGui.QSpinBox( box )
-        self.advecFlowCountGui.setMinimum( 1 )
-        self.advecFlowCountGui.setEnabled( False )
-        QtCore.QObject.connect( self.advecFlowCountGui, QtCore.SIGNAL('valueChanged(int)'), self.flowCountChange )
-        fLayout.addWidget( self.advecFlowCountGui, 4, 2, 1, 1 )
-        self.flowAdvecLineCtx = LineContext( 1 )
+        # flow analysis - draw some lines and count the agents that cross the line
+        fLayout.addWidget( QtGui.QLabel("Flow"), 3, 0, 1, 1 )
+        self.doFlowGUI = QtGui.QComboBox( box )
+        self.doFlowGUI.addItems( ("No action", "Compute", "Visualize", "Compute and Vis." ) )
+        QtCore.QObject.connect( self.doFlowGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.flowChangedCB )
+        fLayout.addWidget( self.doFlowGUI, 3, 1, 1, 1 )
+
+        # line control
+        self.linesGUI = QtGui.QComboBox( box )
+        self.linesGUI.setEnabled( False )
+        QtCore.QObject.connect( self.linesGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.lineChangedCB )
+        fLayout.addWidget( QtGui.QLabel("Line No."), 3, 2, 1, 1, QtCore.Qt.AlignRight )
+        fLayout.addWidget( self.linesGUI, 3, 3, 1, 1 )
+        # buttons
+        self.addFlowLineBtn = QtGui.QPushButton( 'Add' )
+        self.addFlowLineBtn.setEnabled( False )
+        QtCore.QObject.connect( self.addFlowLineBtn, QtCore.SIGNAL('clicked()'), self.addFlowLineCB )
+        self.delFlowLineBtn = QtGui.QPushButton( 'Delete' )
+        self.delFlowLineBtn.setEnabled( False )
+        QtCore.QObject.connect( self.delFlowLineBtn, QtCore.SIGNAL('clicked()'), self.delFlowLineCB )
+        self.editFlowLineBtn = QtGui.QPushButton( 'Edit' )
+        self.editFlowLineBtn.setCheckable( True )
+        self.editFlowLineBtn.setEnabled( False )
+        QtCore.QObject.connect( self.editFlowLineBtn, QtCore.SIGNAL('toggled(bool)'), self.editFlowLineCB )
+        self.flipFlowLineBtn = QtGui.QPushButton( 'Flip' )
+        self.flipFlowLineBtn.setEnabled( False )
+        QtCore.QObject.connect( self.flipFlowLineBtn, QtCore.SIGNAL('clicked()'), self.flipFlowLineCB )
+        fLayout.addWidget( self.addFlowLineBtn, 4, 2, 1, 1 )
+        fLayout.addWidget( self.delFlowLineBtn, 4, 3, 1, 1 )
+        fLayout.addWidget( self.editFlowLineBtn, 5, 2, 1, 1 )
+        fLayout.addWidget( self.flipFlowLineBtn, 5, 3, 1, 1 )
+        
+        self.flowLineCtx = LineContext( self.cancelAddFlowLine )
         vLayout.addWidget( box, 0 )
 
     def createRasterBox( self, vLayout ):
@@ -277,25 +293,76 @@ class CrowdWindow( QtGui.QMainWindow):
     def toggleSpeed( self ):
         self.speedWindowGUI.setEnabled( self.doSpeedGUI.currentIndex() != 0 )
 
-    def flowCountChange( self, count ):
-        '''Changes the number of lines that can be drawn in the context'''
-        if ( self.flowAdvecLineCtx.setMaximumLineCount( count) ):
-            self.glWindow.updateGL()
-        
-    def flowAdvecChanged( self ):
-        """When the flow advec computation state changes, the button might deactivate"""
-        active = self.doFlowAdvecGUI.currentIndex() != 0
-        self.setFlowAdvecLine.setEnabled( active )
-        self.advecFlowCountGui.setEnabled( active )
-
-    def setFlowAdvecLineCB( self, checked ):
-        """Flow advection works by marking agents with a line"""
-        if ( checked ):
-            self.glWindow.setUserContext( self.flowAdvecLineCtx )
+    def flowChangedCB( self ):
+        """When the flow computation state changes, update gui state"""
+        active = self.doFlowGUI.currentIndex() != 0
+        self.linesGUI.setEnabled( active )
+        self.addFlowLineBtn.setEnabled( active )
+        lineSelected = self.linesGUI.currentIndex() >= 0
+        self.delFlowLineBtn.setEnabled( active and lineSelected )
+        self.editFlowLineBtn.setEnabled( active and lineSelected )
+        self.flipFlowLineBtn.setEnabled( active and lineSelected )
+        if ( active ):
+            self.glWindow.setUserContext( self.flowLineCtx )
         else:
+            self.linesGUI.setCurrentIndex( -1 )
+            self.editFlowLineBtn.setChecked( False )
             self.glWindow.setUserContext( None )
         self.glWindow.updateGL()
-    
+
+    def lineChangedCB( self ):
+        '''Called when the line number changes'''
+        idx = self.linesGUI.currentIndex()
+        active = idx > -1
+        self.delFlowLineBtn.setEnabled( active )
+        self.editFlowLineBtn.setEnabled( active )
+        self.flipFlowLineBtn.setEnabled( active )
+        # TODO: context should highlight line
+        self.flowLineCtx.setActive( idx )
+        self.glWindow.updateGL()
+        if ( not active ):
+            self.editFlowLineBtn.setChecked( False )
+
+    def cancelAddFlowLine( self ):
+        '''Called when an add flow line action is canceled'''
+        self.linesGUI.removeItem( self.linesGUI.count() - 1 )
+        self.linesGUI.setCurrentIndex( -1 )
+
+    def addFlowLineCB( self ):
+        '''When the add flow line is clicked, we add the flow line and update the GUI appropriately'''
+        nextIdx = self.linesGUI.count()
+        self.flowLineCtx.addLine()
+        self.linesGUI.addItem( '%d' % nextIdx )
+        self.linesGUI.setCurrentIndex( nextIdx )
+        self.editFlowLineBtn.setChecked( True ) # this should call the callback and automatically enable the context to draw a line
+        self.glWindow.updateGL()
+
+    def delFlowLineCB( self ):
+        '''Remove the current selected line'''
+        idx = self.linesGUI.currentIndex()
+        assert( idx > -1 )  # this button shouldn't be enabled if this isn't true
+        self.flowLineCtx.deleteLine( idx )
+        self.glWindow.updateGL()
+        self.linesGUI.removeItem( self.linesGUI.count() - 1 )
+        self.linesGUI.setCurrentIndex( -1 )
+
+    def flipFlowLineCB( self ):
+        '''Flip the current line'''
+        idx = self.linesGUI.currentIndex()
+        assert( idx > -1 )  # this button shouldn't be enabled if this isn't true
+        self.flowLineCtx.flipLine( idx )
+        self.glWindow.updateGL()
+
+    def editFlowLineCB( self, checked ):
+        '''Cause the current line to be editable'''
+        idx = self.linesGUI.currentIndex()
+        if ( checked ):
+            assert( idx > -1 )  # this button shouldn't be enabled if this isn't true
+            self.flowLineCtx.editLine( idx )
+        else:
+            self.flowLineCtx.stopEdit()
+        self.glWindow.updateGL()
+        
     def readInConfigFileDlg( self ):
         """Spawns a dialog to read an input configuration file"""
         pass
@@ -403,15 +470,14 @@ class CrowdWindow( QtGui.QMainWindow):
         except:
             pass
         try:
-            self.doFlowAdvecGUI.setCurrentIndex( self.doFlowAdvecGUI.findText( cfg[ 'advecFlow' ] ) )
+            self.doFlowGUI.setCurrentIndex( self.doFlowGUI.findText( cfg[ 'flow' ] ) )
         except:
             pass
         try:
-            self.flowAdvecLineCtx.setFromString( cfg[ 'advecFlowLines' ] )
-        except:
-            pass
-        try:
-            self.advecFlowCountGui.setValue( self.flowAdvecLineCtx.getMaxLineCount() )
+            self.flowLineCtx.setFromString( cfg[ 'flowLines' ] )
+            ids = range( self.flowLineCtx.getLineCount() )
+            ids = map( lambda x: str( x ), ids )
+            self.linesGUI.addItems( ids )
         except:
             pass
         self.glWindow.updateGL()
@@ -436,8 +502,8 @@ class CrowdWindow( QtGui.QMainWindow):
         cfg[ 'kernelSize' ] = self.kernelSizeGUI.value()
         cfg[ 'cellSize' ] = self.cellSizeGUI.value()
         cfg[ 'colorMap' ] = str( self.colorMapGUI.currentText() )
-        cfg[ 'advecFlow' ] = str( self.doFlowAdvecGUI.currentText() )
-        cfg[ 'advecFlowLines' ] = self.flowAdvecLineCtx.toConfigString()
+        cfg[ 'flow' ] = str( self.doFlowGUI.currentText() )
+        cfg[ 'flowLines' ] = self.flowLineCtx.toConfigString()
         return cfg
 
     def collectInputConfig( self ):
@@ -462,8 +528,8 @@ class CrowdWindow( QtGui.QMainWindow):
             cfg = self.collectFullConfig()
             cfg[ 'DENSE_ACTION' ] = self.doDensityGUI.currentIndex()
             cfg[ 'SPEED_ACTION' ] = self.doSpeedGUI.currentIndex()
-            cfg[ 'ADVEC_ACTION' ] = self.doFlowAdvecGUI.currentIndex()
-            cfg[ 'ADVEC_LINES' ] = self.flowAdvecLineCtx.lines
+##            cfg[ 'ADVEC_ACTION' ] = self.doFlowAdvecGUI.currentIndex()
+##            cfg[ 'ADVEC_LINES' ] = self.flowAdvecLineCtx.lines
             self.workThread = CrowdAnalyzeThread( cfg )
             # Make connections that allow the thread to inform the gui when finished and output messages
             QtCore.QObject.connect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )

@@ -3,8 +3,8 @@ from primitives import Vector2
 from OpenGL.GL import *
 from Context import *
 
-class GLLine:
-    """Simple line object"""
+class Segment:
+    '''A line segment'''
     def __init__( self, p1, p2 ):
         self.p1 = p1
         self.p2 = p2
@@ -22,19 +22,20 @@ class GLLine:
         except TypeError:
             print type( self.p1 ), type( self.p2 )
 
-    def drawGL( self, color=(0.1, 1.0, 0.1) ):
-        glPushAttrib( GL_COLOR_BUFFER_BIT )
-        glBegin( GL_LINES )
-        glColor3fv( color )
-        glVertex2f( self.p1.x, self.p1.y )
-        glVertex2f( self.p2.x, self.p2.y )
-        glEnd()
-        glPopAttrib()
-
     def magnitude( self ):
         """Returns length of the line"""
         return ( self.p2 - self.p1 ).magnitude()
 
+    def normal( self ):
+        '''Returns the normal of the line'''
+        disp = self.p2 - self.p1
+        segLen = disp.magnitude()
+        if ( segLen ):
+            norm = disp / segLen
+            return Vector2( -norm.y, norm.x )
+        else:
+            return Vector2( 0, 0 )
+    
     def pointDistance( self, p ):
         """Computes the distance between this line segment and a point p"""
         disp = self.p2 - self.p1
@@ -51,60 +52,151 @@ class GLLine:
             B = norm.x
             C = -( A * self.p1.x + B * self.p1.y )
             return abs( A * p.x + B * p.y + C )
-    
+
+    def flip( self ):
+        '''Reverses the direction of the line'''
+        t = self.p1
+        self.p1 = self.p2
+        self.p2 = t
+            
+        
+class GLLine( Segment):
+    """Simple line object"""
+    def __init__( self, p1, p2 ):
+        Segment.__init__( self, p1, p2 )
+
+    def __str__( self ):
+        return "GLLine (%s, %s)" % ( self.p1, self.p2 )
+
+    def __repr__( self ):
+        return str( self )
+
+    def drawGL( self, color=(0.1, 1.0, 0.1) ):
+        glPushAttrib( GL_COLOR_BUFFER_BIT )
+        glBegin( GL_LINES )
+        glColor3fv( color )
+        glVertex2f( self.p1.x, self.p1.y )
+        glVertex2f( self.p2.x, self.p2.y )
+        glEnd()
+        glPopAttrib()
+
+class GLFlowLine( Segment ):
+    '''Flow line object'''
+    def __init__( self, p1, p2 ):
+        Segment.__init__( self, p1, p2 )
+
+    def __str__( self ):
+        return "GLFlowLine (%s, %s)" % ( self.p1, self.p2 )
+
+    def __repr__( self ):
+        return str( self )
+
+    def drawGL( self, color=(0.1, 1.0, 0.1) ):
+        glPushAttrib( GL_COLOR_BUFFER_BIT )
+        glBegin( GL_LINES )
+        glColor3fv( color )
+        glVertex2f( self.p1.x, self.p1.y )
+        glVertex2f( self.p2.x, self.p2.y )
+        mp = self.midPoint()
+        l = self.magnitude()
+        n = self.normal() * (0.25 * l )
+        
+        end = mp + n
+        glVertex2f( mp.x, mp.y )
+        glVertex2f( end.x, end.y )
+        glEnd()
+        glPopAttrib()
+
 class LineContext( BaseContext ):
-    """Context which allows for drawing and displaying one or more lines"""
-    MIN_LINE_LENGTH = 3 # the minimum line must be at least 3 pixels in length
-    def __init__( self, maxLines=100000 ):
+    '''Context for drawing, creating and editing lines'''
+    MIN_LINE_LENGTH = 2 # the minimum drag required to draw a line
+    # edit state - used for knowing what to do with the active line and cancellation
+    NO_EDIT = 0
+    EDIT = 1
+    ADD = 2
+    def __init__( self, cancelCB, lineClass=None ):
         BaseContext.__init__( self )
-        self.maxLines = maxLines        # limit to how many lines can be drawn
         self.lines = []
+
+        self.activeID = -1  # the line currently affected by modifications
+        self.editState = self.NO_EDIT
+        self.cancelCB = cancelCB
+        
         self.activeLine = None
-        self.oldLine = None
+        self.canDraw = False
         self.dragging = False
         self.downPost = None
+        if ( type( lineClass ) == type( GLFlowLine ) ):
+            self.Line = lineClass
+        else:
+            self.Line = GLFlowLine
 
+    def addLine( self ):
+        '''Causes the context to go into new line mode'''
+        self.canDraw = True
+        self.editState = self.ADD
+        self.activeID = -1
+
+    def editLine( self, idx ):
+        '''Edits the indicated line'''
+        if ( self.editState == self.ADD): return
+        if ( idx < 0 ):
+            self.editState = self.NO_EDIT
+            self.canDraw = False
+            self.activeID = -1
+        else:
+            self.editState = self.EDIT
+            self.canDraw = True
+            self.activeID = idx
+
+    def deleteLine( self, idx ):
+        '''Removes a line from the set'''
+        assert( idx >= 0 and idx < len( self.lines ) )
+        self.lines.pop( idx )
+        self.activeID = -1
+
+    def flipLine( self, idx ):
+        '''Flips the direction of the line in the set'''
+        assert( idx >= 0 and idx < len( self.lines ) )
+        self.lines[ idx ].flip()
+
+    def setActive( self, idx ):
+        '''Sets the active line'''
+        self.activeID = idx
+
+    def stopEdit( self ):
+        '''Stops the ability to edit'''
+        self.editState = self.NO_EDIT
+        self.canDraw = False
+        
     def getLineCount( self ):
         """Returns the number of defined lines"""
         return len( self.lines )
 
-    def getMaxLineCount( self ):
-        """Returns the maximum number of lines"""
-        return self.maxLines
-    
     def toConfigString( self ):
         """Creates a parseable config string so that the context can be reconsituted"""
-        s = '%d %d' % ( len( self.lines ), self.maxLines )
+        s = ''
         for line in self.lines:
             s += ' %.5f %.5f %.5f %.5f' % ( line.p1.x, line.p1.y, line.p2.x, line.p2.y )
         return s
 
     def setFromString( self, s ):
-        """Reads a string written by "toConfigString" and sets the context"""
-        self.lines = []
+        '''Parses the string created by toConfigString into a set of lines'''
         tokens = s.split()
-        lineCount = int( tokens[0] )
-        self.maxLines = int( tokens[1] )
-        v = 2
-        for i in range( lineCount ):
-            x1 = float( tokens[ v ] ); v += 1
-            y1 = float( tokens[ v ] ); v += 1
-            x2 = float( tokens[ v ] ); v += 1
-            y2 = float( tokens[ v ] ); v += 1
-            self.lines.append( GLLine( Vector2( x1, y1 ), Vector2( x2, y2 ) ) )
-
-    def setMaximumLineCount( self, count ):
-        """Sets the maximum number of lines - reports if lines are lost"""
-        # If there are two many lines, it removes the oldest lines
-        self.maxLines = count
-        linesLost = len( self.lines ) > count
-        while ( len( self.lines ) > count ):
-            self.lines.pop(0)
-        return linesLost
+        assert( len( tokens ) % 4 == 0 )  # four floats per line
+        self.lines = []
+        self.activeID = -1
+        self.editState = self.NO_EDIT
+        while tokens:
+            x1, y1, x2, y2 = tokens[:4]
+            tokens = tokens[ 4: ]
+            self.lines.append( self.Line( Vector2( x1, y1 ), Vector2( x2, y2 ) ) )
 
     def handleMouse ( self, event, view ):
         """Detects click, drag, release and creates a line"""
         result = ContextResult()
+        if ( not self.canDraw ):
+            return result
         mods = event.modifiers()
         noMods = mods == QtCore.Qt.NoModifier
         if ( noMods ):
@@ -117,28 +209,30 @@ class LineContext( BaseContext ):
                     self.downPos = Vector2( event.x(), event.y() )
                     x, y = view.screenToWorld( (event.x(), event.y() ) )
                     p1 = Vector2( x, y )
-                    self.activeLine = GLLine( p1, p1 )
-                    if ( len( self.lines ) >= self.maxLines ):
-                        self.oldLine = self.lines.pop(0)
+                    self.activeLine = self.Line( p1, p1 )
                     result.set( True, True, False )
                     self.dragging = True
                 elif ( btn == QtCore.Qt.RightButton and self.dragging ):
-                    if ( self.oldLine ):
-                        self.lines.insert( 0, self.oldLine )
-                    self.oldLine = None
+                    # cancel the edit
+                    if ( self.editState == self.ADD ):
+                        self.editState = self.NO_EDIT
+                        self.cancelCB()
+                    canceled = self.activeLine != None
                     self.activeLine = None
                     self.dragging = False
-                    self.activeLine = None
-                    result.set( True, True, False )
+                    result.set( canceled, canceled, False )
             elif ( event.type() == QtCore.QEvent.MouseButtonRelease ):
                 if ( btn == QtCore.Qt.LeftButton and self.dragging ):
                     endPos = Vector2( event.x(), event.y() )
                     if ( (endPos - self.downPos).magnitude() >= LineContext.MIN_LINE_LENGTH  ):
-                        self.lines.append( self.activeLine )
+                        if ( self.editState == self.ADD ):
+                            self.lines.append( self.activeLine )
+                            self.editState = self.EDIT
+                            self.activeID = len( self.lines ) - 1
+                        elif ( self.editState == self.EDIT ):
+                            assert( self.activeID > -1 )
+                            self.lines[ self.activeID ] = self.activeLine
                         self.activeLine = None
-                    elif ( self.oldLine ):
-                        self.lines.insert( 0, self.oldLine )
-                    self.oldLine = None
                     self.activeLine = None  
                     self.dragging = False
                     result.set( True, True, False )
@@ -151,11 +245,18 @@ class LineContext( BaseContext ):
         return result
 
     def drawGL( self ):
+        '''Basic lines are drawn in default (green), the active line is drawn in yellow,
+        and when it is being edited, the original disappears and the new line is drawn in
+        cyan.'''
         if ( self.activeLine ):
-            self.activeLine.drawGL( ( 1.0, 1.0, 0.1 ) )
-        for line in self.lines:
+            self.activeLine.drawGL( ( 0.1, 1.0, 1.0 ) )
+        elif ( self.activeID > -1 and self.editState != self.ADD ):
+            self.lines[ self.activeID ].drawGL( ( 1.0, 1.0, 0.1 ) )
+            
+        for i, line in enumerate( self.lines ):
+            if ( i == self.activeID ): continue
             line.drawGL()
-
+        
 if __name__ == '__main__':
     print
     line = GLLine( Vector2( -1.0, -1.0 ), Vector2( 1.0, 1.0 ) )
