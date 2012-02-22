@@ -281,9 +281,11 @@ class NPFrameSet( FrameSet ):
         return self.currFrame, self.currFrameIndex
 
     def fullData( self ):
-        """Returns an N X 3 X K array consisting of all trajectory info for the frame set"""
+        """Returns an N X M X K array consisting of all trajectory info for the frame set, for
+        N agents, M floats per agent and K time steps"""
+        M = self.agentByteSize / 4
         frameCount = self.totalFrames()
-        data = np.empty( ( self.readAgtCount, 3, frameCount ) )
+        data = np.empty( ( self.readAgtCount, M, frameCount ) )
         self.setNext( 0 )
         for i in range( frameCount ):
             frame, idx = self.next()
