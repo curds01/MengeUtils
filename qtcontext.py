@@ -1,65 +1,8 @@
 from PyQt4 import QtCore, QtGui, QtOpenGL
-from primitives import Vector2
+from primitives import Vector2, Segment, segmentsFromString
 from OpenGL.GL import *
 from Context import *
 
-class Segment:
-    '''A line segment'''
-    def __init__( self, p1, p2 ):
-        self.p1 = p1
-        self.p2 = p2
-
-    def __str__( self ):
-        return "Line (%s, %s)" % ( self.p1, self.p2 )
-
-    def __repr__( self ):
-        return str( self )
-
-    def midPoint( self ):
-        """Returns the mid-point of the line"""
-        try:
-            return ( self.p1 + self.p2 ) * 0.5
-        except TypeError:
-            print type( self.p1 ), type( self.p2 )
-
-    def magnitude( self ):
-        """Returns length of the line"""
-        return ( self.p2 - self.p1 ).magnitude()
-
-    def normal( self ):
-        '''Returns the normal of the line'''
-        disp = self.p2 - self.p1
-        segLen = disp.magnitude()
-        if ( segLen ):
-            norm = disp / segLen
-            return Vector2( -norm.y, norm.x )
-        else:
-            return Vector2( 0, 0 )
-    
-    def pointDistance( self, p ):
-        """Computes the distance between this line segment and a point p"""
-        disp = self.p2 - self.p1
-        segLen = disp.magnitude()
-        norm = disp / segLen
-        dispP = p - self.p1
-        dp = norm.dot( dispP )
-        if ( dp < 0 ):      
-            return (p - self.p1).magnitude()
-        elif ( dp > segLen ):
-            return ( p - self.p2).magnitude()
-        else:
-            A = -norm.y
-            B = norm.x
-            C = -( A * self.p1.x + B * self.p1.y )
-            return abs( A * p.x + B * p.y + C )
-
-    def flip( self ):
-        '''Reverses the direction of the line'''
-        t = self.p1
-        self.p1 = self.p2
-        self.p2 = t
-            
-        
 class GLLine( Segment):
     """Simple line object"""
     def __init__( self, p1, p2 ):
@@ -182,15 +125,10 @@ class LineContext( BaseContext ):
 
     def setFromString( self, s ):
         '''Parses the string created by toConfigString into a set of lines'''
-        tokens = s.split()
-        assert( len( tokens ) % 4 == 0 )  # four floats per line
         self.lines = []
         self.activeID = -1
         self.editState = self.NO_EDIT
-        while tokens:
-            x1, y1, x2, y2 = tokens[:4]
-            tokens = tokens[ 4: ]
-            self.lines.append( self.Line( Vector2( x1, y1 ), Vector2( x2, y2 ) ) )
+        self.lines = segmentsFromString( s, self.Line )
 
     def handleMouse ( self, event, view ):
         """Detects click, drag, release and creates a line"""
