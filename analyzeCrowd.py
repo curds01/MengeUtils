@@ -385,7 +385,6 @@ class CrowdWindow( QtGui.QMainWindow):
             file = open( fileName, 'w' )
             config.toFile( file )
             file.close()
-            
     
     def readInConfigFile( self, fileName ):
         """Reads an input configuration file"""
@@ -530,6 +529,7 @@ class CrowdWindow( QtGui.QMainWindow):
             cfg[ 'SPEED_ACTION' ] = self.doSpeedGUI.currentIndex()
 ##            cfg[ 'ADVEC_ACTION' ] = self.doFlowAdvecGUI.currentIndex()
 ##            cfg[ 'ADVEC_LINES' ] = self.flowAdvecLineCtx.lines
+            cfg[ 'FLOW_ACTION' ] = self.doFlowGUI.currentIndex()
             self.workThread = CrowdAnalyzeThread( cfg )
             # Make connections that allow the thread to inform the gui when finished and output messages
             QtCore.QObject.connect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )
