@@ -318,6 +318,8 @@ def main():
                        action="store", dest='agtName', default='' )
     parser.add_option( "-f", "--field", help="Optional vector field file to load.",
                        action="store", dest='fieldName', default='' )
+    parser.add_option( "-c", "--createField", help='Creates a field based on the domain of the obstacles - ignored if --field(-f) is specified',
+                       action='store_true', dest='createField', default=False )
     parser.add_option( "-s", "--scb", help="Optional scb file to load.",
                        action="store", dest='scbName', default='' )
     parser.add_option( "-i", "--inDir", help="Optional directory to find input files - only applied to file names with relative paths",
@@ -362,11 +364,12 @@ def main():
     if ( fieldName ):
         field = GLVectorField( (0,0), (1, 1), 1 )
         field.read( fieldName )
+    elif ( options.createField ):
+        print "Instantiate vector field from geometry:", bb
+        bbSize = bb.max - bb.min    
+        field = GLVectorField( ( bb.min.x, bb.min.y ), ( bbSize.y, bbSize.x ), 2.0 )
     else:
         field = None
-##        print "Instantiate vector field from geometry:", bb
-##        bbSize = bb.max - bb.min    
-##        field = GLVectorField( ( bb.min.x, bb.min.y ), ( bbSize.y, bbSize.x ), 2.0 )
     
     graph = Graph()
     if ( graphName ):
@@ -394,7 +397,8 @@ def main():
 
     context = ContextSwitcher()
     context.addContext( AgentContext( agents, obstacles ), pygame.K_a )
-    context.addContext( FieldEditContext( field ), pygame.K_f )
+    if ( field ):
+        context.addContext( FieldEditContext( field ), pygame.K_f )
     if ( scbName != '' ):
         context.addContext( SCBContext( scbName, agents.defRadius ), pygame.K_s )
     context.newGLContext()
