@@ -395,7 +395,6 @@ class Segment:
 def segmentsFromString( s, LineClass ):
     '''Given a string of floats, constructs a list of segments.  For N segments there
     must be 4N floats.'''
-    print 'segments from string'
     lines = []
     tokens = s.split()
     assert( len( tokens ) % 4 == 0 )  # four floats per line
