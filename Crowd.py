@@ -31,6 +31,7 @@ from trace import renderTraces
 import pylab as plt
 from ObjSlice import Polygon
 from obstacles import *
+import pylab as plt
 
 class StatRecord:
     '''A simple, callable object for accumulating statistical information about the
@@ -802,7 +803,7 @@ class GridFileSequence:
         """
 
         renderTraces( minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase )
-        
+
     def computeDensity( self, minCorner, size, resolution, distFunc, maxRad, frameSet ):
         '''Creates a binary file representing the density scalar fields of each frame'''
         global ACTIVE_RASTER_THREADS
@@ -1167,7 +1168,6 @@ class GridFileSequence:
                     print "Error on frame", i
                     raise
                 pygame.image.save( s, '{0}{1:0{2}d}.png'.format( fileBase, i, digits ) )
-##                pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
             f.close()
 
     def computeAdvecFlow( self,  minCorner, size, resolution, distFunc, maxDist, kernelSize, frameSet, lines ):
@@ -1230,8 +1230,115 @@ class GridFileSequence:
         data = np.array( speeds )
         np.savetxt( self.outFileName + ".region", data, fmt='%.5f' )
 
+
+def plotFlow( outFileName, timeStep ):
+    '''Given the data in outFileName and the given timestep, creates plots'''
+    plt.clf()
+    dataFile = outFileName + ".flow"
+    data = np.loadtxt( dataFile )
+    data[:,0] *= timeStep
+    plt.plot( data[:,0], data[:, 1:] )
+    legendStr = [ 'Line %d' % i for i in range( data.shape[1] - 1 ) ]
+    plt.legend( legendStr, loc='upper left' )
+    plt.xlabel( 'Simulation time (s)' )
+    plt.ylabel( 'Agents past marker' )
+    plt.title( 'Flow' )
+    plt.savefig( outFileName + ".flow.png" )
+
+def computeFlow( frameSet, segments, outFileName ):
+    '''Compute the flow of agents past the indicated line segments.
+    Output is an NxM array where there are N time steps and M segments.
+    Each segment has direction and every agent will only be counted at most once w.r.t.
+    each segment.'''
+    # In this scenario, there are N agents and M segments
+
+    # compute parameters for each segment
+    segCount = len( segments )
+    agtCount = frameSet.agentCount()
+    # these are the x and y values of each segment's 0th and 1st points
+    S0X = np.zeros( (1, segCount ) )
+    S0Y = np.zeros( (1, segCount ) )
+    S1X = np.zeros( (1, segCount ) )
+    S1Y = np.zeros( (1, segCount ) )
+    for i, seg in enumerate( segments ):
+        S0X[ 0, i ] = seg.p1.x
+        S0Y[ 0, i ] = seg.p1.y
+        S1X[ 0, i ] = seg.p2.x
+        S1Y[ 0, i ] = seg.p2.y
+    dX = S1X - S0X
+    dY = S1Y - S0Y
+    L = np.sqrt( dX * dX + dY * dY )
+    # this (plus S0X/S0Y) used to determine if position lies between
+    dX /= L
+    dY /= L
+    # this computes signed distance to LINE on which segment lies
+    A = -dY
+    B = dX
+    C = dY * S0X - dX * S0Y
+    
+        
+    outFile = open( outFileName + '.flow', 'w' )
+
+    frameSet.setNext( 0 )
+    # prime the set by computing the data for the first frame
+    prevIdx = 0
+    frame, idx = frameSet.next()
+    # the number of agents who have crossed each segment
+    crossed = np.zeros( segCount, dtype=np.int )
+    # An NxM array indicating which segment each agent has already crossed
+    alreadyCrossed = np.zeros( ( agtCount, segCount ), dtype=np.bool )
+    
+    outFile.write('{0:10d}'.format( idx ) )
+    for val in crossed:
+        outFile.write('{0:10d}'.format( val ) )
+    outFile.write('\n')
+
+    # note: I'm doing this strange syntax so that they are Nx1 arrays (instead of just N arrays)
+    #   this makes the broadcasting work better.
+    pX = frame[:, :1 ]
+    pY = frame[:, 1:2 ]
+
+    # SDIST: an N x M array.  The cell[i, j] reports if agent i is on the right side of
+    #   segment j to cross it (according to indicated flow direction)
+    PREV_SDIST = ( A * pX + B * pY + C ) < 0 
+    T = (pX - S0X) * dX + (pY - S0Y) * dY
+    # BETWEEN: an N x M array.  The cell[i, j] reports if the agent i lies between the endpoints
+    #   of segment j.
+    BETWEEN = ( T >= 0 ) & ( T <= L )
+    # COULD_CROSS: an N x M array.  The cell[i, j] reports if the agent i is in a position to
+    #   cross segment j.  (i.e., it lies between the endpoints and is on the negative side.)
+    COULD_CROSS = PREV_SDIST & BETWEEN
+    
+    frame, idx = frameSet.next()
+ 
+    while ( prevIdx != idx ):
+        # compute crossability for the current frame
+        pX = frame[:, :1 ]
+        pY = frame[:, 1:2 ]
+        SDIST = ( A * pX + B * pY + C ) < 0 
+        T = (pX - S0X) * dX + (pY - S0Y) * dY
+        BETWEEN = ( T >= 0 ) & ( T <= L )
+        # in order to cross, in the previous time step, I had to be in a position to cross
+        #   and in this frame, my sign has to reversed AND I have to not already crossed it.
+        CROSSED = COULD_CROSS & ~SDIST & ~alreadyCrossed
+        alreadyCrossed |= CROSSED
+        crossed += CROSSED.sum( axis=0 )
+        outFile.write('{0:10d}'.format( idx ) )
+        for val in crossed:
+            outFile.write('{0:10d}'.format( val ) )
+        outFile.write('\n')
+        COULD_CROSS = SDIST & BETWEEN
+        prevIdx = idx
+        frame, idx = frameSet.next()
+
+    outFile.close()
+
+    crossings = alreadyCrossed.sum( axis=1 )
+    print "The following agents never crossed:", np.where( crossings == 0 )
+    
 def computeFlowLines( center, lines, frameSet ):
     """Computes the flow of agents past the various lines"""
+    # THIS VERSION IS HEAVILY TAWAF-CENTRIC - the simple computeFlow is far more generic
     # initialize
     flowRegion = FlowLineRegion()
     for line in lines:
