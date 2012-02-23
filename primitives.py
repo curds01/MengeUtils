@@ -343,7 +343,7 @@ class Segment:
         self.p2 = p2
 
     def __str__( self ):
-        return "Line (%s, %s)" % ( self.p1, self.p2 )
+        return "Segment (%s, %s)" % ( self.p1, self.p2 )
 
     def __repr__( self ):
         return str( self )
