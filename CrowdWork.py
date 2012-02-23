@@ -27,7 +27,10 @@ class CrowdAnalyzeThread( QtCore.QThread ):
         scbFile = self.data[ 'SCB' ]
 
         frameSet = FrameSet( scbFile )
-        
+
+        outPath = self.data[ 'tempDir' ]
+        if ( not os.path.exists( outPath ) ):
+            os.makedirs( outPath )
         tempFile = os.path.join( self.data[ 'tempDir' ], self.data[ 'tempName' ] )
         grids = Crowd.GridFileSequence( tempFile )
         colorMap = COLOR_MAPS[ self.data[ 'colorMap' ] ]()
