@@ -1147,15 +1147,15 @@ class GridFileSequence:
                 pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
             f.close()
 
-    def makeImages( self, colorMap, fileBase, ext ):
+    def makeImages( self, colorMap, fileBase, suffix, imgFormat='png' ):
         """Outputs the density images"""
         try:
-            f = open( self.outFileName + ".%s" % ( ext ), "rb" )
+            f = open( self.outFileName + ".%s" % ( suffix ), "rb" )
         except:
-            print "Can't open file: %.%s" % ( ext ) % ( self.outFileName )
+            print "Can't open file: %.%s" % ( suffix ) % ( self.outFileName )
         else:
             w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
-            print "%s images in range:" % ( ext ), minVal, maxVal
+            print "%s images in range:" % ( suffix ), minVal, maxVal
             gridSize = w * h * 4
             digits = int( np.ceil( np.log10( count ) ) )
             g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h) )
@@ -1167,7 +1167,7 @@ class GridFileSequence:
                 except MemoryError:
                     print "Error on frame", i
                     raise
-                pygame.image.save( s, '{0}{1:0{2}d}.png'.format( fileBase, i, digits ) )
+                pygame.image.save( s, '{0}{1:0{2}d}.{3}'.format( fileBase, i, digits, imgFormat ) )
             f.close()
 
     def computeAdvecFlow( self,  minCorner, size, resolution, distFunc, maxDist, kernelSize, frameSet, lines ):

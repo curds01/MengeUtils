@@ -58,8 +58,8 @@ class CrowdAnalyzeThread( QtCore.QThread ):
             imageName = os.path.join( imgPath, 'density_' )
             self.processMessage.emit( 'Creating density images...' )
             s = time.clock()
-            grids.makeImages( colorMap, imageName, 'density' )
-            pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
+            grids.makeImages( colorMap, imageName, 'density', self.data[ 'imgFormat' ] )
+            pygame.image.save( colorMap.lastMapBar(7), '%sbar.%s' % ( imageName, self.data[ 'imgFormat' ] ) )
             self.processMessage.emit( '    done in %.2f seconds' % ( time.clock() - s ) )
 
         speedAction = self.data[ 'SPEED_ACTION' ]
@@ -75,8 +75,8 @@ class CrowdAnalyzeThread( QtCore.QThread ):
             imageName = os.path.join( imgPath, 'speed_' )
             self.processMessage.emit( 'Creating speed images...' )
             s = time.clock()
-            grids.makeImages( colorMap, imageName, 'speed' )
-            pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
+            grids.makeImages( colorMap, imageName, 'speed', self.data[ 'imgFormat' ] )
+            pygame.image.save( colorMap.lastMapBar(7), '%sbar.%s' % ( imageName, self.data[ 'imgFormat' ] ) )
             self.processMessage.emit( '    done in %.2f seconds' % ( time.clock() - s ) )            
 
         frameSet = NPFrameSet( scbFile )

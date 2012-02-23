@@ -231,7 +231,16 @@ class CrowdWindow( QtGui.QMainWindow):
         cmaps = COLOR_MAPS.keys()
         cmaps.sort()
         self.colorMapGUI.addItems( cmaps )
-        fLayout.addWidget( self.colorMapGUI, 2, 1, 1, 1 )        
+        fLayout.addWidget( self.colorMapGUI, 2, 1, 1, 1 )
+
+        fLayout.addWidget( QtGui.QLabel( "Image format" ), 3, 0, 1, 1, QtCore.Qt.AlignRight )
+        self.imgFormatGUI = QtGui.QComboBox( box )
+        self.imgFormatGUI.addItems( ( 'jpg', 'bmp', 'png' ) )
+        def formatIdxChanged( idx ):
+            if ( idx == 2 ):
+                self.logMessage( 'There is a memory leak for png format!' )
+        QtCore.QObject.connect( self.imgFormatGUI, QtCore.SIGNAL('currentIndexChanged(int)'), formatIdxChanged )
+        fLayout.addWidget( self.imgFormatGUI, 3, 1, 1, 1 )        
         
         vLayout.addWidget( box, 0 )
                 
@@ -479,6 +488,10 @@ class CrowdWindow( QtGui.QMainWindow):
             self.linesGUI.addItems( ids )
         except:
             pass
+        try:
+            self.imgFormatGUI.setCurrentIndex( self.imgFormatGUI.findText( cfg[ 'imgFormat' ] ) )
+        except:
+            pass
         self.glWindow.updateGL()
 
                     
@@ -503,6 +516,7 @@ class CrowdWindow( QtGui.QMainWindow):
         cfg[ 'colorMap' ] = str( self.colorMapGUI.currentText() )
         cfg[ 'flow' ] = str( self.doFlowGUI.currentText() )
         cfg[ 'flowLines' ] = self.flowLineCtx.toConfigString()
+        cfg[ 'imgFormat' ] = self.imgFormatGUI.currentText()
         return cfg
 
     def collectInputConfig( self ):
