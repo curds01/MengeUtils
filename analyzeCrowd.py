@@ -546,7 +546,7 @@ class CrowdWindow( QtGui.QMainWindow):
         if ( obstFileName ):
             self.logMessage('Reading obstacle file: %s' % obstFileName )
             try:
-                flipY = True
+                flipY = False
                 obstacles, bb = readObstacles( obstFileName, flipY )                
                 self.glWindow.addDrawables( obstacles )
                 w = bb.max.x - bb.min.x
