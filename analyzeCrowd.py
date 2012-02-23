@@ -43,8 +43,11 @@ class CrowdWindow( QtGui.QMainWindow):
         self.workThread = None
         QtGui.QMainWindow.__init__( self, parent )
         self.setWindowTitle( 'Crowd Analysis' )
-        splitter = QtGui.QSplitter( self )
 
+        mainFrame = QtGui.QFrame( self )
+        mainVLayout = QtGui.QVBoxLayout( mainFrame )
+                
+        splitter = QtGui.QSplitter( mainFrame )
         f = QtGui.QFrame( splitter )
         vLayout = QtGui.QVBoxLayout( f )
 
@@ -57,15 +60,18 @@ class CrowdWindow( QtGui.QMainWindow):
         
         vLayout.addWidget( self.goBtn, 2 )
 
-        self.console = QtGui.QPlainTextEdit( splitter )
-        self.console.setReadOnly( True )
-
         self.glWindow = GLWidget(  (10,10),(0,0), (10,10),(0,0), (1,1), splitter )        
 
-        self.setCentralWidget(splitter )
         splitter.setStretchFactor( 0, 0 )
-        splitter.setStretchFactor( 1, 0 )
-        splitter.setStretchFactor( 2, 1 )
+        splitter.setStretchFactor( 1, 1 )
+
+        self.console = QtGui.QPlainTextEdit( mainFrame )
+        self.console.setReadOnly( True )
+        
+        mainVLayout.addWidget( splitter, 0 )
+        mainVLayout.addWidget( self.console, 1 )
+
+        self.setCentralWidget( mainFrame )
 
         self.createActions()
         self.createMenus()
