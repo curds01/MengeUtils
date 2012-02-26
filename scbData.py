@@ -57,12 +57,15 @@ class Frame:
             data[i,1] = agt.pos.y
         return data
 
-    def toBinary( self, version ):
+    def toBinary( self, version, agent=-1 ):
         '''Produces a binary string of the data in this frame'''
-        s = ''
-        for agt in self.agents:
-            s += agt.toBinary( version )
-        return s
+        if ( agent > -1 ):
+            return self.agents[ agent ].toBinary( version )
+        else:
+            s = ''
+            for agt in self.agents:
+                s += agt.toBinary( version )
+            return s
 
 class FrameSet:
     """A pseudo iterator for frames in an scb file"""
@@ -265,44 +268,53 @@ class FrameSet:
         #TODO: This might evolve
         return self.version == '2.1'
 
-    def getHeader( self ):
+    def getHeader( self, targetAgent=-1 ):
         '''Returns a binary string representing the header of this data set'''
         if ( self.version == '1.0' ):
-            return self.getHeader1_0()
+            return self.getHeader1_0( targetAgent )
         elif ( self.version == '2.0' ):
-            return self.getHeader2_0()
+            return self.getHeader2_0( targetAgent )
         elif ( self.version == '2.1' ):
-            return self.getHeader2_1()
+            return self.getHeader2_1( targetAgent )
         elif ( self.version == '3.0' ):
-            return self.getHeader3_0()
+            return self.getHeader3_0( targetAgent )
 
-    def getHeader1_0( self ):
+    def getHeader1_0( self, targetAgent ):
         '''Produces a header for version 1.0 of this data'''
         s = '1.0\x00'
-        s += struct.pack( 'i', self.readAgtCount )
+        if ( countOverride > -1 ):
+            s += struct.pack( 'i', targetAgent )
+        else:
+            s += struct.pack( 'i', self.readAgtCount )
         return s
 
-    def getHeader2Style( self, version ):
+    def getHeader2Style( self, version, targetAgent ):
         '''Produces a header for all headers that have the version 2 style.
             agent count, time step, and class ids for each agent'''
         s = version
-        s += struct.pack( 'i', self.readAgtCount )
+        if ( targetAgent > -1 ):
+            s += struct.pack( 'i', 1 )
+        else:
+            s += struct.pack( 'i', self.readAgtCount )
         s += struct.pack( 'f', self.effectiveTimeStep )
-        for id in self.ids[ :self.readAgtCount ]:
-            s += struct.pack( 'i', id )
+        if ( targetAgent > -1 ):
+            s += struct.pack( 'i', self.ids[ targetAgent ] )
+        else:
+            for id in self.ids[ :self.readAgtCount ]:
+                s += struct.pack( 'i', id )
         return s
 
-    def getHeader2_0( self ):
+    def getHeader2_0( self, countOverride ):
         '''Produces a header for version 2.0 of this data'''
-        return self.getHeader2Style( '2.0\x00' )
+        return self.getHeader2Style( '2.0\x00', countOverride )
 
-    def getHeader2_1( self ):
+    def getHeader2_1( self, countOverride ):
         '''Produces a header for version 2.1 of this data'''
-        return self.getHeader2Style( '2.1\x00' )
+        return self.getHeader2Style( '2.1\x00', countOverride )
 
-    def getHeader3_0( self ):
+    def getHeader3_0( self, countOverride ):
         '''Produces a header for version 3.0 of this data'''
-        return self.getHeader2Style( '3.0\x00' )
+        return self.getHeader2Style( '3.0\x00', countOverride )
 
 
     def write( self, output ):
@@ -317,11 +329,23 @@ class FrameSet:
             frame, idx = self.next()
         f.close()
 
-    def writeFrame( self, frame, file ):
+    def writeAgent( self, output, agentID ):
+        '''Writes a single agent to the target file'''
+        f = open( output, 'wb' )
+        f.write( self.getHeader( 1 ) )
+        prevIdx = -1
+        frame, idx = self.next()
+        while ( idx != prevIdx and frame != None ):
+            self.writeFrame( frame, f, agentID )
+            prevIdx = idx
+            frame, idx = self.next()
+        f.close()
+
+    def writeFrame( self, frame, file, agent=-1 ):
         '''Writes the generic frame to the file provided'''
         if ( version != '1.0' ):
             raise AttributeError, 'FrameSet only able to output version 1.0'
-        f.write( frame.toString() )
+        f.write( frame.toBinary( agent ) )
     
 class NPFrameSet( FrameSet ):
     """A frame set that uses numpy arrays instead of frames as the underlying structure"""
@@ -381,9 +405,13 @@ class NPFrameSet( FrameSet ):
             data[ :, :, i ] = frame
         return data
 
-    def writeFrame( self, frame, file ):
+    def writeFrame( self, frame, file, agent=-1 ):
         '''Writes the numpy array representing the agent data to the file'''
-        file.write( frame.tostring() )
+        if ( agent > -1 ):
+            print "Frame:", frame[ agent,: ]
+            file.write( frame[ agent, : ].tostring() )
+        else:
+            file.write( frame.tostring() )
 
 def writeNPSCB( fileName, array, frameSet, version=1 ):
     """Given an N X 3 X K array, writes out an scb file with the given data"""
