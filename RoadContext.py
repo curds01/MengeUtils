@@ -303,7 +303,7 @@ class SCBContext( PGContext ):
         else:
             title += "no scb file loaded"
         if ( self.selected != -1 ):
-            title += " (Agent %d selected)" % ( self.selected )
+            title += " (Agent %d selected: <%.2f, %.2f>)" % ( self.selected, self.currFrame[ self.selected, 0 ], self.currFrame[ self.selected, 1 ] )
         if ( self.visState ):
             title += ", color shows state"
         else:
