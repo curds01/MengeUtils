@@ -17,6 +17,11 @@ class Agent:
     def setPosition( self, pos ):
         self.pos = pos
 
+    def toBinary( self, version ):
+        '''Returns a binary string representing this agent'''
+        # ORIENTATION GETS LOST
+        return struct.pack( 'fff', self.pos.x, self.pos.y, 0.0 )
+
 class Frame:
     """A set of agents for a given time frame"""
     def __init__( self, agentCount ):
@@ -52,9 +57,16 @@ class Frame:
             data[i,1] = agt.pos.y
         return data
 
+    def toBinary( self, version ):
+        '''Produces a binary string of the data in this frame'''
+        s = ''
+        for agt in self.agents:
+            s += agt.toBinary( version )
+        return s
+
 class FrameSet:
     """A pseudo iterator for frames in an scb file"""
-    def __init__( self, scbFile, startFrame=0, maxFrames=-1, maxAgents=-1, frameStep=1 ):
+    def __init__( self, scbFile, startFrame=0, maxFrames=-1, maxAgents=-1, frameStep=1, verbose=False ):
         """Initializes an interator for walking through a an scb file.close
         By default, it creates a frame for every frame in the scb file, each
         frame consisting of all agents.
@@ -74,7 +86,8 @@ class FrameSet:
             self.maxFrames = maxFrames
         self.file = open( scbFile, 'rb' )
         self.version = self.file.read( 4 )[:-1]
-        print "SCB file version:", self.version
+        if verbose:
+            print "SCB file version:", self.version
         if ( self.version == '1.0' ):
             self.readHeader1_0( scbFile )
         elif ( self.version == '2.0' ):
@@ -85,20 +98,31 @@ class FrameSet:
             self.readHeader3_0( scbFile )
         else:
             raise AttributeError, "Unrecognized scb version: %s" % ( version )
-        
+
+        self.effectiveTimeStep = self.simStepSize * frameStep     
         self.readAgtCount = self.agtCount
         # this is how many bytes need to be read to get to the next frame
         # after reading self.readAgtCount agents worth of data
         self.readDelta = 0
+        if verbose:
+            print "Original file has %d agents" % ( self.agtCount )
         if ( maxAgents > 0 and maxAgents < self.agtCount ):
             self.readAgtCount = maxAgents
-            # number of unread agents * size of agent 
+            # number of unread agents * size of agent
             self.readDelta = ( self.agtCount - maxAgents ) * self.agentByteSize
-        print "\t%d agents" % ( self.agtCount )
+            if verbose:
+                print "\tReading only %d agents" % ( self.readAgtCount )
+                print "\tAgent byte size:", self.agentByteSize
+                print "\tBlock of memory, per frame, not read:", self.readDelta
         # this is the size of the frame in the scbfile (and doesn't necessarily reflect how many
         # agents are in the returned frame.
-        self.frameSize = self.agtCount * self.agentByteSize 
+        self.frameSize = self.agtCount * self.agentByteSize
+        self.readFrameSize = self.readAgtCount * self.agentByteSize
+        if verbose:
+            print "\tFull frame size:", self.frameSize, "bytes"
+            print "\tRead frame size:", self.readFrameSize, "bytes"
         self.strideDelta = ( frameStep - 1 ) * self.frameSize
+        if verbose: print "\tStride size:    ", self.strideDelta, "bytes"
         self.currFrameIndex = -1
         self.currFrame = None
 
@@ -165,6 +189,8 @@ class FrameSet:
         if ( majorVersion == '1' ):
             return 8
         elif ( majorVersion == '2' ):
+            return 8 + 4 + 4 * self.agtCount
+        elif ( majorVersion == '3' ):
             return 8 + 4 + 4 * self.agtCount
         raise ValueError, "Can't compute header for version: %s" % ( self.version )
 
@@ -233,32 +259,95 @@ class FrameSet:
         # NOTE: it returns the number of read agents, not total agents, in case
         #   I'm only reading a sub-set
         return self.readAgtCount
+    
     def hasStateData( self ):
         '''Reports if the scb data contains state data'''
         #TODO: This might evolve
         return self.version == '2.1'
+
+    def getHeader( self ):
+        '''Returns a binary string representing the header of this data set'''
+        if ( self.version == '1.0' ):
+            return self.getHeader1_0()
+        elif ( self.version == '2.0' ):
+            return self.getHeader2_0()
+        elif ( self.version == '2.1' ):
+            return self.getHeader2_1()
+        elif ( self.version == '3.0' ):
+            return self.getHeader3_0()
+
+    def getHeader1_0( self ):
+        '''Produces a header for version 1.0 of this data'''
+        s = '1.0\x00'
+        s += struct.pack( 'i', self.readAgtCount )
+        return s
+
+    def getHeader2Style( self, version ):
+        '''Produces a header for all headers that have the version 2 style.
+            agent count, time step, and class ids for each agent'''
+        s = version
+        s += struct.pack( 'i', self.readAgtCount )
+        s += struct.pack( 'f', self.effectiveTimeStep )
+        for id in self.ids[ :self.readAgtCount ]:
+            s += struct.pack( 'i', id )
+        return s
+
+    def getHeader2_0( self ):
+        '''Produces a header for version 2.0 of this data'''
+        return self.getHeader2Style( '2.0\x00' )
+
+    def getHeader2_1( self ):
+        '''Produces a header for version 2.1 of this data'''
+        return self.getHeader2Style( '2.1\x00' )
+
+    def getHeader3_0( self ):
+        '''Produces a header for version 3.0 of this data'''
+        return self.getHeader2Style( '3.0\x00' )
+
+
+    def write( self, output ):
+        '''Writes this data to the target file'''
+        f = open( output, 'wb' )
+        f.write( self.getHeader() )
+        prevIdx = -1
+        frame, idx = self.next()
+        while ( idx != prevIdx and frame != None ):
+            self.writeFrame( frame, f )
+            prevIdx = idx
+            frame, idx = self.next()
+        f.close()
+
+    def writeFrame( self, frame, file ):
+        '''Writes the generic frame to the file provided'''
+        if ( version != '1.0' ):
+            raise AttributeError, 'FrameSet only able to output version 1.0'
+        f.write( frame.toString() )
     
 class NPFrameSet( FrameSet ):
     """A frame set that uses numpy arrays instead of frames as the underlying structure"""
     def __init__( self, scbFile, startFrame=0, maxFrames=-1, maxAgents=-1, frameStep=1 ):
         FrameSet.__init__( self, scbFile, startFrame, maxFrames, maxAgents, frameStep )
+        # number of columns, per-frame, for the data
+        self.colCount = self.agentByteSize / 4
 
     def next( self, stride=1 ):
         """Returns the next frame in sequence from current point"""
         if ( self.currFrameIndex >= self.maxFrames - 1 ):
             return None, self.currFrameIndex
-        colCount = self.agentByteSize / 4
+        
         if ( self.currFrame == None):
-            self.currFrame = np.empty( ( self.readAgtCount, colCount ), dtype=np.float32 )
+            self.currFrame = np.empty( ( self.readAgtCount, self.colCount ), dtype=np.float32 )
         try:
             skipAmount = stride - 1
             if ( skipAmount ):
                 self.file.seek( skipAmount * ( self.readDelta + self.strideDelta+ self.frameSize ), 1 )
-            self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.frameSize ), np.float32, self.readAgtCount * colCount ), ( self.readAgtCount, colCount ) )
+            self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.readFrameSize ), np.float32, self.readAgtCount * self.colCount ), ( self.readAgtCount, self.colCount ) )
             self.currFrameIndex += stride
             # seek forward based on skipping
-            self.file.seek( self.readDelta, 1 ) # advance to next frame
-            self.file.seek( self.strideDelta, 1 ) # advance according to stride
+            if ( self.readDelta ):
+                self.file.seek( self.readDelta, 1 ) # advance to next frame
+            if ( self.strideDelta ):
+                self.file.seek( self.strideDelta, 1 ) # advance according to stride
         except ValueError:
             pass
 
@@ -267,13 +356,13 @@ class NPFrameSet( FrameSet ):
     def prev( self, stride=1 ):
         """Returns the next frame in sequence from current point"""
         if ( self.currFrameIndex >= stride ):
-            colCount = self.agentByteSize / 4
+            self.colCount = self.agentByteSize / 4
             
             self.currFrameIndex -= stride
             self.file.seek( -(stride+1) * ( self.readDelta + self.strideDelta+ self.frameSize ), 1 )
             if ( self.currFrame == None):
-                self.currFrame = np.empty( ( self.readAgtCount, colCount ), dtype=np.float32 )
-            self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.frameSize ), np.float32, self.readAgtCount * colCount ), ( self.readAgtCount, colCount ) )
+                self.currFrame = np.empty( ( self.readAgtCount, self.colCount ), dtype=np.float32 )
+            self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.frameSize ), np.float32, self.readAgtCount * self.colCount ), ( self.readAgtCount, self.colCount ) )
             # seek forward based on skipping
             self.file.seek( self.readDelta, 1 ) # advance to next frame
             self.file.seek( self.strideDelta, 1 ) # advance according to stride
@@ -291,6 +380,10 @@ class NPFrameSet( FrameSet ):
             frame, idx = self.next()
             data[ :, :, i ] = frame
         return data
+
+    def writeFrame( self, frame, file ):
+        '''Writes the numpy array representing the agent data to the file'''
+        file.write( frame.tostring() )
 
 def writeNPSCB( fileName, array, frameSet, version=1 ):
     """Given an N X 3 X K array, writes out an scb file with the given data"""
@@ -375,7 +468,26 @@ def testNP():
         frame, idx = f1.next()
         if ( error > 1e-5 ):
             print "Error on frame %d: %f" % ( i + 1, error )
-        
+
+def main():
+    '''A simple script for summarizing the script'''
+    import sys
+    if ( len( sys.argv ) < 1 ):
+        print "Provide the name of an scb file to get summary"
+        sys.exit(1)
+
+    data = NPFrameSet( sys.argv[ 1 ] )
+    print "SCB file loaded"
+    print "\tVersion:", data.version
+    print "\tAgents: ", data.agentCount()
+    print "\tTime step:", data.simStepSize
+    print "\tDuration (frames):", data.totalFrames()
+    print "\tInitial positions:"
+##    data.setNext( 0 )
+##    f, i = data.next()
+##    for r, row in enumerate( f ):
+##        print "\t\tAgent %d:" % r, row[0], row[1]
+    
 if __name__ == '__main__':
-    testNP()
+    main()
     
