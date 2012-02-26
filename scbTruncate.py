@@ -7,42 +7,25 @@ import scbData
 
 DEFAULT_OUTPUT = 'output.scb'
 
-def copyNFrames( inName, outName, count, step, tgtAgtCount ):
+def copyNFrames( inName, outName, start, count, step, tgtAgtCount ):
     """Copies at most count frames from the scb inName to
     the outName.  It copies every step-th frame.
     Reports number of frames copied.  Copying
     includes header.
     If count == -1, all frames are copied."""
-    data = scbData.NPFrameSet( inName, maxFrames=count, maxAgents=tgtAgtCount, frameStep=step )
+    data = scbData.NPFrameSet( inName, startFrame=start, maxFrames=count, maxAgents=tgtAgtCount, frameStep=step )
     data.write( outName )
     return data.totalFrames()
 
-def copyAgent( inName, outName, count, step, agtID ):
+def copyAgent( inName, outName, start, count, step, agtID ):
     """Copies at most count frames from the scb inName to
     the outName for one specific agent: agtID.  It copies every step-th frame.
     Reports number of frames copied.  Copying includes header.
     If count == -1, all frames are copied."""
-    data = scbData.NPFrameSet( inName, maxFrames=count, frameStep=step )
+    data = scbData.NPFrameSet( inName, startFrame=start, maxFrames=count, frameStep=step )
     data.writeAgent( outName, agtID )
     return data.totalFrames()
 
-def usage():
-    print "Truncate an scb file"
-    print
-    print "scbTruncate -in filename <-out filename.scb> -n # -step # <-agt *>"
-    print
-    print "  -in filename     - the name of the file to truncate"
-    print "                     must be valid scb file"
-    print "  -n #             - an integer, at most n frames will be"
-    print "                     included in the truncated file"
-    print "  -out filename    - the name of the output file."
-    print "                     if not provided, output file defaults to %s" % ( DEFAULT_OUTPUT )
-    print "  -step #          - the number of frames between the sampled frames"
-    print "                      defaults to 1 (i.e. EVERY frame"
-    print "  -agt #           - up to the first # agents will be exported"
-    print "                     by default, all are exported"
-    sys.exit(1)
-    
 def main():
     """Determine the input file, output file and number of frames"""
     import optparse
@@ -59,7 +42,9 @@ def main():
     parser.add_option( '-a', '--agentCount', help='The maximum number of agents to include (-1 is all agents)',
                        action='store', dest='agtCount', type='int', default=-1 )
     parser.add_option( '-e', '--extractAgent', help='Extract a single agent from the set by ID',
-                       action='store', dest='extract', default=-1, type='int' ) 
+                       action='store', dest='extract', default=-1, type='int' )
+    parser.add_option( '-b', '--beginFrame', help='The frame at which to start the extraction',
+                       action='store', dest='begin', type='int', default=0 )
 
     options, args = parser.parse_args()    
 
@@ -90,9 +75,9 @@ def main():
         print agentCount
 
     if ( options.extract != -1 ):
-        nCopied = copyAgent( inName, outName, count, step, options.extract )
+        nCopied = copyAgent( inName, outName, options.begin, count, step, options.extract )
     else:
-        nCopied = copyNFrames( inName, outName, count, step, agentCount )
+        nCopied = copyNFrames( inName, outName, options.begin, count, step, agentCount )
     print "Copied %d frames into %s" % ( nCopied, outName )
 
 if __name__ == '__main__':
