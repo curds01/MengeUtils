@@ -3,48 +3,21 @@
 
 import struct
 import sys
+import scbData
 
 DEFAULT_OUTPUT = 'output.scb'
 
-def copyNFrames( inFile, outFile, count, step, tgtAgtCount ):
-    """Copies at most count frames from the scb inFile to
-    the outFile.  It copies every step-th frame.
+def copyNFrames( inName, outName, count, step, tgtAgtCount ):
+    """Copies at most count frames from the scb inName to
+    the outName.  It copies every step-th frame.
     Reports number of frames copied.  Copying
-    includes header"""
+    includes header.
+    If count == -1, all frames are copied."""
     # assume both inFile and outFile are at position 0
     # copy header - 4 bytes for version, 4 bytes for agent count
-    version = inFile.read( 4 )
-    print "Version", version
-    outFile.write( version )
-    agtCount = struct.unpack( 'i', inFile.read( 4 ) )[0]
-    if ( tgtAgtCount == -1 or tgtAgtCount > agtCount):
-        tgtAgtCount = agtCount
-    outFile.write( struct.pack('i', tgtAgtCount ) )
-    
-    if ( version == '2.0\x00' ):
-        print "Version 2"
-        stepSize = struct.unpack( 'f', inFile.read( 4 ) )[0]
-        stepSize = stepSize * step
-        outFile.write( struct.pack( 'f', stepSize ) )
-        idReadSize = agtCount * 4
-        idWriteSize = tgtAgtCount * 4
-        ids = inFile.read( idReadSize )
-        outFile.write( ids[ :idWriteSize ] )
-    frameSize = agtCount * 4 * 3  # three, four-byte floats per agent
-    copySize = tgtAgtCount * 4 * 3  # three, four-byte floats per agent
-    actual = 0
-    readFrame = 0
-    while ( actual < count ):
-        data = inFile.read( frameSize )
-        if ( data ):
-            if ( readFrame % step == 0 ):
-                outFile.write( data[:copySize] )
-                actual += 1
-            readFrame += 1
-        else:
-            break
-    return actual
-    
+    data = scbData.NPFrameSet( inName, maxFrames=count, maxAgents=tgtAgtCount, frameStep=step )
+    data.write( outName )
+    return data.totalFrames()
 
 def usage():
     print "Truncate an scb file"
@@ -65,35 +38,46 @@ def usage():
     
 def main():
     """Determine the input file, output file and number of frames"""
-    from commandline import SimpleParamManager
-    
-    # parse command-line arguments
-    try:
-        pMan = SimpleParamManager( sys.argv[1:], {'in':'', 'out':DEFAULT_OUTPUT, 'n':0, 'step':1, 'agt':-1 } )
-    except IOError:
-        usage()
+    import optparse
+    parser = optparse.OptionParser()
+    parser.add_option( '-i', '--in', help='The name of the file to truncate (must be valid scb file)',
+                       action='store', dest='inFileName', default='' )
+    parser.add_option( '-n', '--numFrames', help='The number of frames to include in the truncated file (default is all frames, -1)',
+                       action='store', dest='n', type='int', default=-1 )
+    parser.add_option( '-o', '--out', help='The name of the output truncated scb file',
+                       action='store', dest='outFileName', default=DEFAULT_OUTPUT )
+    parser.add_option( '-s', '--stride', help='The stride value of the sampled frames.  The default value is 1 (i.e. every frame)',
+                       action='store', dest='stride', type='int', default='1' )
+    parser.add_option( '-a', '--agentCount', help='The maximum number of agents to include (-1 is all agents)',
+                       action='store', dest='agtCount', type='int', default=-1 )
 
-    inName = pMan[ 'in' ]
-    outName = pMan[ 'out' ]
-    count = int( pMan[ 'n' ] )
-    step = int( pMan['step'] )
-    agentCount = int( pMan['agt'] )
+    options, args = parser.parse_args()    
+
+    inName = options.inFileName
+    outName = options.outFileName
+    count = options.n
+    step = options.stride
+    agentCount = options.agtCount
     
     if ( not count ):
         print "ERROR! Invalid number of frames: ", count
         usage()
-    try:
-        inFile = open( inName, 'rb' )
-    except IOError:
-        print "ERROR! Couldn't open input file %s" % ( inName )
-        usage()
-    try:
-        outFile = open( outName, 'wb' )
-    except IOError:
-        print "ERROR! Couldn't open output file:", outFile
-        usage()
 
-    nCopied = copyNFrames( inFile, outFile, count, step, agentCount )
+    print "Truncating scb file: ", inName
+    print "\tOutput file:", outName
+    print "\tMaximum number of frames:",
+    if ( count == -1 ):
+        print "ALL FRAMES"
+    else:
+        print count
+    print "\tFrame sample stride:", step
+    print "\tMaximum number of agents",
+    if ( agentCount == -1 ):
+        print "All agents"
+    else:
+        print agentCount
+            
+    nCopied = copyNFrames( inName, outName, count, step, agentCount )
     print "Copied %d frames into %s" % ( nCopied, outName )
 
 if __name__ == '__main__':
