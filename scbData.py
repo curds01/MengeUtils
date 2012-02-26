@@ -126,8 +126,8 @@ class FrameSet:
             print "\tRead frame size:", self.readFrameSize, "bytes"
         self.strideDelta = ( frameStep - 1 ) * self.frameSize
         if verbose: print "\tStride size:    ", self.strideDelta, "bytes"
-        self.currFrameIndex = -1
         self.currFrame = None
+        self.setNext( 0 )
 
     def readHeader1_0( self, scbFile ):
         '''Reads the header for a version 1.0 scb file'''
@@ -241,8 +241,7 @@ class FrameSet:
         """Reports the total number of frames in the file"""
         # does this by scanning the whole file
         currentPos = self.file.tell()
-        #TODO: make this dependent on the version
-        self.file.seek( self.headerOffset() ) # scan to the end of the head
+        self.setNext( 0 )
         frameCount = 0
         data = self.file.read( self.frameSize )
         while ( len( data ) == self.frameSize ):
@@ -408,7 +407,6 @@ class NPFrameSet( FrameSet ):
     def writeFrame( self, frame, file, agent=-1 ):
         '''Writes the numpy array representing the agent data to the file'''
         if ( agent > -1 ):
-            print "Frame:", frame[ agent,: ]
             file.write( frame[ agent, : ].tostring() )
         else:
             file.write( frame.tostring() )
