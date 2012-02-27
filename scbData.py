@@ -281,7 +281,7 @@ class FrameSet:
     def getHeader1_0( self, targetAgent ):
         '''Produces a header for version 1.0 of this data'''
         s = '1.0\x00'
-        if ( countOverride > -1 ):
+        if ( targetAgent > -1 ):
             s += struct.pack( 'i', targetAgent )
         else:
             s += struct.pack( 'i', self.readAgtCount )
@@ -303,17 +303,17 @@ class FrameSet:
                 s += struct.pack( 'i', id )
         return s
 
-    def getHeader2_0( self, countOverride ):
+    def getHeader2_0( self, targetAgent ):
         '''Produces a header for version 2.0 of this data'''
-        return self.getHeader2Style( '2.0\x00', countOverride )
+        return self.getHeader2Style( '2.0\x00', targetAgent )
 
-    def getHeader2_1( self, countOverride ):
+    def getHeader2_1( self, targetAgent ):
         '''Produces a header for version 2.1 of this data'''
-        return self.getHeader2Style( '2.1\x00', countOverride )
+        return self.getHeader2Style( '2.1\x00', targetAgent )
 
-    def getHeader3_0( self, countOverride ):
+    def getHeader3_0( self, targetAgent ):
         '''Produces a header for version 3.0 of this data'''
-        return self.getHeader2Style( '3.0\x00', countOverride )
+        return self.getHeader2Style( '3.0\x00', targetAgent )
 
 
     def write( self, output ):
