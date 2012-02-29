@@ -97,10 +97,10 @@ class FrameSet:
             self.readHeader2_0( scbFile )
         elif ( self.version == '2.1' ):
             self.readHeader2_1( scbFile )
+        elif ( self.version == '2.2' ):
+            self.readHeader2_2( scbFile )
         elif ( self.version == '3.0' ):
             self.readHeader3_0( scbFile )
-        elif ( self.version == '3.1' ):
-            self.readHeader3_1( scbFile )
         else:
             raise AttributeError, "Unrecognized scb version: %s" % ( version )
 
@@ -164,6 +164,21 @@ class FrameSet:
         self.readHeader2_0( scbFile )
         self.agentByteSize = 16
 
+    def readHeader2_2( self, scbFile ):
+        '''The 2.2 header is the same as 2.0  But the per-agent data is SIGNIFICANTLY
+        different:
+            1. float: x position
+            2. float: y position
+            3. float: orientation angle
+            4. float: state  (although it is an integer value)
+            5. float: pref vel x
+            6. float: pref vel y
+            7. float: vel x
+            8. float: vel y
+        '''
+        self.readHeader2_0( scbFile )
+        self.agentByteSize = 32
+
     def readHeader3_0( self, scbFile ):
         '''The 3.0 changes orientation representation.
         Instead of an angle, it's a normalized direction vector.
@@ -177,21 +192,6 @@ class FrameSet:
         '''
         self.readHeader2_0( scbFile )
         self.agentByteSize = 16
-
-    def readHeader3_1( self, scbFile ):
-        '''The 3.1 header is the same as 2.0  But the per-agent data is SIGNIFICANTLY
-        different:
-            1. float: x position
-            2. float: y position
-            3. float: orientation angle
-            4. float: state  (although it is an integer value)
-            5. float: pref vel x
-            6. float: pref vel y
-            7. float: vel x
-            8. float: vel y
-        '''
-        self.readHeader2_0( scbFile )
-        self.agentByteSize = 32
 
     def getClasses( self ):
         '''Returns a dictionary mapping class id to each agent with that class'''
@@ -282,7 +282,7 @@ class FrameSet:
     def hasStateData( self ):
         '''Reports if the scb data contains state data'''
         #TODO: This might evolve
-        return self.version == '2.1'
+        return self.version == '2.1' or self.version == '2.2'
 
     def getHeader( self, targetAgent=-1 ):
         '''Returns a binary string representing the header of this data set'''
@@ -292,6 +292,8 @@ class FrameSet:
             return self.getHeader2_0( targetAgent )
         elif ( self.version == '2.1' ):
             return self.getHeader2_1( targetAgent )
+        elif ( self.version == '2.2' ):
+            return self.getHeader2_2( targetAgent )
         elif ( self.version == '3.0' ):
             return self.getHeader3_0( targetAgent )
 
@@ -328,10 +330,13 @@ class FrameSet:
         '''Produces a header for version 2.1 of this data'''
         return self.getHeader2Style( '2.1\x00', targetAgent )
 
+    def getHeader2_2( self, targetAgent ):
+        '''Produces a header for version 2.1 of this data'''
+        return self.getHeader2Style( '2.2\x00', targetAgent )
+
     def getHeader3_0( self, targetAgent ):
         '''Produces a header for version 3.0 of this data'''
         return self.getHeader2Style( '3.0\x00', targetAgent )
-
 
     def write( self, output ):
         '''Writes this data to the target file'''
@@ -369,7 +374,7 @@ class NPFrameSet( FrameSet ):
         FrameSet.__init__( self, scbFile, startFrame, maxFrames, maxAgents, frameStep )
         # number of columns, per-frame, for the data
         self.colCount = self.agentByteSize / 4
-
+        
     def next( self, stride=1 ):
         """Returns the next frame in sequence from current point"""
         if ( self.currFrameIndex >= self.maxFrames - 1 ):
