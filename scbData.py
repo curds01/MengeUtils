@@ -99,6 +99,8 @@ class FrameSet:
             self.readHeader2_1( scbFile )
         elif ( self.version == '3.0' ):
             self.readHeader3_0( scbFile )
+        elif ( self.version == '3.1' ):
+            self.readHeader3_1( scbFile )
         else:
             raise AttributeError, "Unrecognized scb version: %s" % ( version )
 
@@ -138,7 +140,7 @@ class FrameSet:
         self.agentByteSize = 12
 
     def readHeader2_0( self, scbFile ):
-        '''Reads the header for a version 1.0 scb file'''
+        '''Reads the header for a version 2.0 scb file'''
         data = self.file.read( 4 )
         self.agtCount = struct.unpack( 'i', data )[0]
         self.ids = [ 0 for i in range( self.agtCount ) ]
@@ -155,7 +157,7 @@ class FrameSet:
             1. float: x position
             2. float: y position
             3. float: orientation
-            4. int:   state
+            4. float: state  (although it is an integer value)
             
             The header information is exactly the same.
         '''
@@ -175,6 +177,21 @@ class FrameSet:
         '''
         self.readHeader2_0( scbFile )
         self.agentByteSize = 16
+
+    def readHeader3_1( self, scbFile ):
+        '''The 3.1 header is the same as 2.0  But the per-agent data is SIGNIFICANTLY
+        different:
+            1. float: x position
+            2. float: y position
+            3. float: orientation angle
+            4. float: state  (although it is an integer value)
+            5. float: pref vel x
+            6. float: pref vel y
+            7. float: vel x
+            8. float: vel y
+        '''
+        self.readHeader2_0( scbFile )
+        self.agentByteSize = 32
 
     def getClasses( self ):
         '''Returns a dictionary mapping class id to each agent with that class'''
