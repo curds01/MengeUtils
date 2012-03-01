@@ -350,8 +350,12 @@ class SCBContext( PGContext ):
                             if ( hasCtrl ): AMT += 10
                             if ( hasAlt ): AMT += 10
                             if ( hasShift ): AMT += 10
-                            self.currFrame, self.currFrameID = self.scbData.next( AMT )
-                            result.set( True, True )
+                            try:
+                                self.currFrame, self.currFrameID = self.scbData.next( AMT )
+                            except StopIteration:
+                                pass
+                            else:
+                                result.set( True, True )
                 elif ( event.key == pygame.K_LEFT ):
                     if ( noMods ):
                         if ( self.scbData ):

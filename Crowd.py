@@ -1193,7 +1193,7 @@ class GridFileSequence:
         maxVal = 0        
         gridCount = 0
         gridSize = resolution[0] * resolution[1]
-        while ( f ):
+        while ( True ):
             g = Grid( minCorner, size, resolution )
             g.rasterizeValue( f, distFunc, kernelSize )
             M = g.maxVal()
@@ -1201,7 +1201,10 @@ class GridFileSequence:
                 maxVal = M
             outFile.write( g.binaryString() )
             gridCount += 1
-            f, i = frameSet.next( True )
+            try:
+                f, i = frameSet.next( True )
+            except StopIteration:
+                break
 
         # add the additional information about grid count and maximum values            
         outFile.seek( 8 )
@@ -1351,9 +1354,12 @@ def computeFlowLines( center, lines, frameSet ):
     flowRegion.sortAgents( f.agents )
 
     f, i = frameSet.next( True )
-    while( f ):
+    while( True ):
         flowRegion.step()
-        f, i = frameSet.next( True )
+        try:
+            f, i = frameSet.next( True )
+        except StopIteration:
+            break
     return flowRegion
     
 def main():

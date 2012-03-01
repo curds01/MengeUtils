@@ -217,7 +217,7 @@ class FrameSet:
     def next( self, stride=1, newInstance=True ):
         """Returns the next frame in sequence from current point"""
         if ( self.currFrameIndex >= self.maxFrames - 1 ):
-            return None, self.currFrameIndex
+            raise StopIteration
         self.currFrameIndex += stride
         if ( newInstance or self.currFrame == None):
             self.currFrame = Frame( self.readAgtCount )
@@ -378,7 +378,7 @@ class NPFrameSet( FrameSet ):
     def next( self, stride=1 ):
         """Returns the next frame in sequence from current point"""
         if ( self.currFrameIndex >= self.maxFrames - 1 ):
-            return None, self.currFrameIndex
+            raise StopIteration  # TODO: make everything rely on this exception
         
         if ( self.currFrame == None):
             self.currFrame = np.empty( ( self.readAgtCount, self.colCount ), dtype=np.float32 )
