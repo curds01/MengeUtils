@@ -89,6 +89,24 @@ class DataReader:
         self.currIdx += 1
         return self.currFrame
 
+class DataWriter:
+    '''Base class for writing a data file based on frames of agent data'''
+    def __init__( self, fileName ):
+        '''Opens the file and reserves space for the agent count and the frame count'''
+        self.file = open( fileName, 'wb' )
+        self.writeHeaderBlock()
+
+    def writeHeaderBlock( self ):
+        '''Write the initial memory block in the file for header information'''
+        raise NotImplementedError( "Sub-class must implement writeHeaderBlock" )
+    
+    def close( self ):
+        self.file.close()
+
+    def write( self, data ):
+        '''Writes the frame of deviation data'''
+        self.file.write( data.tostring() )    
+
 class ConsistencyReader( DataReader) :
     '''A class for reading the deviation file'''
     AGT_SIZE_BYTES = 24    # number of bytes per agent in a frame: 6 floats = 24 bytes
@@ -119,11 +137,14 @@ class ConsistencyReader( DataReader) :
 #           each row is an agent with the columns being:
 #               x & y of first principal axis, x & y of second, first fraction of variance, second fraction
 
-class ConsistencyWriter:
+class ConsistencyWriter( DataWriter ):
     '''A class for managing the deviation file'''
     def __init__( self, fileName ):
         '''Opens the file and reserves space for the agent count and the frame count'''
-        self.file = open( fileName, 'wb' )
+        DataWriter.__init__( self, fileName )
+
+    def writeHeaderBlock( self ):
+        '''Write the initial memory block in the file for header information'''
         self.file.write( struct.pack( 'iii', 0, 0, 0 ) )
 
     def setWindowSize( self, window ):
@@ -143,13 +164,6 @@ class ConsistencyWriter:
         self.file.seek( 8, os.SEEK_SET )
         self.file.write( struct.pack('i', frameCount ) )
         self.file.seek( 0, os.SEEK_END )    # go to end of file
-
-    def close( self ):
-        self.file.close()
-
-    def write( self, data ):
-        '''Writes the frame of deviation data'''
-        self.file.write( data.tostring() )
         
 def consistencyFile( config ):
     '''Given the config specifications, creates the file for storing consistency
@@ -259,11 +273,14 @@ class DeviationReader( DataReader ):
         return 'DeviationReader: %d agents in %d frames' % ( self.agtCount, self.frameCount )
     
         
-class DeviationWriter:
+class DeviationWriter( DataWriter ):
     '''A class for managing the deviation file'''
     def __init__( self, fileName ):
         '''Opens the file and reserves space for the agent count and the frame count'''
-        self.file = open( fileName, 'wb' )
+        DataWriter.__init__( self, fileName )
+
+    def writeHeaderBlock( self ):
+        '''Write the initial memory block in the file for header information'''
         self.file.write( struct.pack( 'ii', 0, 0 ) )
 
     def setAgentCount( self, agtCount ):
@@ -277,13 +294,6 @@ class DeviationWriter:
         self.file.seek( 4, os.SEEK_SET )
         self.file.write( struct.pack('i', frameCount ) )
         self.file.seek( 0, os.SEEK_END )    # go to end of file
-
-    def close( self ):
-        self.file.close()
-
-    def write( self, data ):
-        '''Writes the frame of deviation data'''
-        self.file.write( data.tostring() )
 
 def deviationFile( config ):
     '''Given the config specifications, returns the name of the deviation file'''
