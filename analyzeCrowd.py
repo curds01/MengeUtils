@@ -11,7 +11,26 @@ from obstacles import readObstacles
 from qtcontext import *
 from CrowdWork import CrowdAnalyzeThread
 from config import Config
-        
+import sys
+    
+STDOUT = sys.stdout
+
+class ConsoleFile( QtCore.QObject ):
+    processMessage = QtCore.pyqtSignal(str)
+    def __init__( self ):
+        QtCore.QObject.__init__( self )
+        self.buffer = ''
+
+    def write( self, s ):
+        self.buffer += s
+        if ( s == '\n' ):
+            self.processMessage.emit( self.buffer )
+            self.buffer = ''
+
+    def flush( self ):
+        self.processMessage.emit( self.buffer )
+        self.buffer = ''
+
 class CrowdWindow( QtGui.QMainWindow):
     def __init__( self, configName='', parent = None ):
         self.workThread = None
@@ -41,6 +60,8 @@ class CrowdWindow( QtGui.QMainWindow):
 
         self.console = QtGui.QPlainTextEdit( mainFrame )
         self.console.setReadOnly( True )
+        sys.stdout = ConsoleFile()
+        sys.stdout.processMessage.connect( self.logMessage )
         
         mainVLayout.addWidget( splitter, 0 )
         mainVLayout.addWidget( self.console, 1 )
@@ -511,7 +532,6 @@ class CrowdWindow( QtGui.QMainWindow):
         '''Work has finished, reactivate the button'''
         self.goBtn.setEnabled( True )
         QtCore.QObject.disconnect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )
-        self.workThread.processMessage.disconnect( self.logMessage )
         self.workThread = None
         
 
@@ -527,7 +547,6 @@ class CrowdWindow( QtGui.QMainWindow):
             self.workThread = CrowdAnalyzeThread( cfg )
             # Make connections that allow the thread to inform the gui when finished and output messages
             QtCore.QObject.connect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )
-            self.workThread.processMessage.connect( self.logMessage )
             self.workThread.start()
             self.logMessage( '\nStarting processing' )
         else:
@@ -557,7 +576,6 @@ class CrowdWindow( QtGui.QMainWindow):
                                           
 
 if __name__ == '__main__':
-    import sys
     import pygame
     pygame.init()
     app = QtGui.QApplication( sys.argv )
