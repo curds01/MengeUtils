@@ -49,6 +49,65 @@ import struct
 from matplotlib import mlab
 import warnings
 
+class DataReader:
+    '''Base class for reading a data file based on frames of agent data'''
+    AGT_SIZE_BYTES = 24    # number of bytes per agent in a frame: 6 floats = 24 bytes
+    AGT_SIZE_FLOATS = 6
+    HEADER_SIZE = 12 # two ints: time window, agent count, frame count
+    def __init__( self, fileName ):
+        '''Opens the file, reads agent and frame count, and prepares for reading frames'''
+        self.file = open( fileName, 'rb' )
+        self.agtCount = 0
+        self.frameCount = 0
+        self.readHeader()
+        
+        self.frameSizeBytes = self.agtCount * self.AGT_SIZE_BYTES
+        self.frameSizeFloats = self.agtCount * self.AGT_SIZE_FLOATS
+        self.currIdx = 0
+        self.currFrame = np.zeros( ( self.agtCount, self.AGT_SIZE_FLOATS ), dtype=np.float32 )
+
+    def readHeader( self ):
+        '''Reads the header information from the file'''
+        raise NotImplementedError( "Sub-class must implement readHeader" )
+
+    def setNext( self, index ):
+        '''Sets the reading point in the file to the index'd frame'''
+        assert( index < self.frameCount )
+        byteAddr = self.HEADER_SIZE + index * self.frameSizeBytes
+        self.file.seek( byteAddr, os.SEEK_SET )
+
+    def next( self ):
+        '''Reads the next frame, returns an Nx2 numpy array of the data.agentCount
+        Note: this data will be replaced with each call to next, so if two frames need
+        to be maintained indepdently, the results must be copied.
+
+        Raises a StopIteration exception when there are no more frames'''
+        if ( self.currIdx >= self.frameCount ):
+            raise StopIteration
+        s = self.file.read( self.frameSizeBytes )
+        self.currFrame[ :, : ] = np.reshape( np.fromstring( s, np.float32, self.frameSizeFloats ), ( self.agtCount, self.AGT_SIZE_FLOATS ) )
+        self.currIdx += 1
+        return self.currFrame
+
+class ConsistencyReader( DataReader) :
+    '''A class for reading the deviation file'''
+    AGT_SIZE_BYTES = 24    # number of bytes per agent in a frame: 6 floats = 24 bytes
+    AGT_SIZE_FLOATS = 6
+    HEADER_SIZE = 12 # two ints: time window, agent count, frame count
+    def __init__( self, fileName ):
+        '''Opens the file, reads agent and frame count, and prepares for reading frames'''
+        DataReader.__init__( self, fileName )
+        
+    def readHeader( self ):
+        '''Reads the header information from the file'''
+        self.file.seek( 0, os.SEEK_SET )
+        self.T = struct.unpack( 'i', self.file.read( 4 ) )[ 0 ]
+        self.agtCount = struct.unpack( 'i', self.file.read( 4 ) )[ 0 ]
+        self.frameCount = struct.unpack( 'i', self.file.read( 4 ) )[ 0 ]
+
+    def __str__( self ):
+        return 'ConsistencyReader: %d agents in %d frames with T = %d' % ( self.agtCount, self.frameCount, self.T )
+
 # consistency file format
 #   HEADER:
 #       window size, T, (in frames): integer (must be odd)
@@ -181,18 +240,14 @@ def computeConsistency( config ):
 #   R_{v^{0}} & = & \left[ \begin{array}{cc} \hat{v}^0_x & \hat{v}^0_y\\ -\hat{v}^0_y & \hat{v}^0_x \end{array} \right].
 #   \hat{v}^0 & = & \frac{ \V{v}^0 }{ |\\V{v}^0\|}
 
-class DeviationReader:
+class DeviationReader( DataReader ):
     '''A class for reading the deviation file'''
-    AGT_SIZE = 8    # number of bytes per agent in a frame: 2 floats = 8 bytes
-    HEADER_SIZE = 8 # two ints: agent count, frame count
+    AGT_SIZE_BYTES = 8      # number of bytes per agent in a frame: 2 floats = 8 bytes
+    AGT_SIZE_FLOATS = 2
+    HEADER_SIZE = 8         # two ints: agent count, frame count
     def __init__( self, fileName ):
         '''Opens the file, reads agent and frame count, and prepares for reading frames'''
-        self.file = open( fileName, 'rb' )
-        self.readHeader()
-        self.frameSizeBytes = self.agtCount * self.AGT_SIZE
-        self.frameSizeFloats = self.agtCount * 2
-        self.currIdx = 0
-        self.currFrame = np.zeros( ( self.agtCount, 2 ), dtype=np.float32 )
+        DataReader.__init__( self, fileName )
 
     def readHeader( self ):
         '''Reads the header information from the file'''
@@ -203,24 +258,6 @@ class DeviationReader:
     def __str__( self ):
         return 'DeviationReader: %d agents in %d frames' % ( self.agtCount, self.frameCount )
     
-    def setNext( self, index ):
-        '''Sets the reading point in the file to the index'd frame'''
-        assert( index < self.frameCount )
-        byteAddr = self.HEADER_SIZE + index * self.frameSizeBytes
-        self.file.seek( byteAddr, os.SEEK_SET )
-
-    def next( self ):
-        '''Reads the next frame, returns an Nx2 numpy array of the data.agentCount
-        Note: this data will be replaced with each call to next, so if two frames need
-        to be maintained indepdently, the results must be copied.
-
-        Raises a StopIteration exception when there are no more frames'''
-        if ( self.currIdx >= self.frameCount ):
-            raise StopIteration
-        s = self.file.read( self.frameSizeBytes )
-        self.currFrame[ :, : ] = np.reshape( np.fromstring( s, np.float32, self.frameSizeFloats ), ( self.agtCount, 2 ) )
-        self.currIdx += 1
-        return self.currFrame
         
 class DeviationWriter:
     '''A class for managing the deviation file'''
