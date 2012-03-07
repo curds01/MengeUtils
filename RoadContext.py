@@ -342,8 +342,11 @@ class SCBContext( PGContext ):
                 if ( event.key == pygame.K_RIGHT ):
                     if ( noMods ):
                         if ( self.scbData ):
-                            self.currFrame, self.currFrameID = self.scbData.next()
-                            result.set( True, True )
+                            try:
+                                self.currFrame, self.currFrameID = self.scbData.next()
+                                result.set( True, True )
+                            except StopIteration:
+                                pass
                     else:
                         if ( self.scbData ):
                             AMT = 0

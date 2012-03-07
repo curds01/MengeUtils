@@ -222,10 +222,10 @@ class FrameSet:
         if ( newInstance or self.currFrame == None):
             self.currFrame = Frame( self.readAgtCount )
         for i in range( self.readAgtCount ):
-            data = self.file.read( self.agentByteSize ) 
+            data = self.file.read( self.agentByteSize )
             if ( data == '' ):
                 self.currFrame = None
-                break
+                raise StopIteration
             else:
                 
                 try:
@@ -237,7 +237,7 @@ class FrameSet:
                         self.currFrame.agents[i].state = s
                 except struct.error:
                     self.currFrame = None
-                    break
+                    raise StopIteration
                 
         # seek forward based on skipping
         self.file.seek( self.readDelta, 1 ) # advance to next frame
@@ -382,19 +382,20 @@ class NPFrameSet( FrameSet ):
         
         if ( self.currFrame == None):
             self.currFrame = np.empty( ( self.readAgtCount, self.colCount ), dtype=np.float32 )
+
+        skipAmount = stride - 1
+        if ( skipAmount ):
+            self.file.seek( skipAmount * ( self.readDelta + self.strideDelta+ self.frameSize ), 1 )
         try:
-            skipAmount = stride - 1
-            if ( skipAmount ):
-                self.file.seek( skipAmount * ( self.readDelta + self.strideDelta+ self.frameSize ), 1 )
             self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.readFrameSize ), np.float32, self.readAgtCount * self.colCount ), ( self.readAgtCount, self.colCount ) )
-            self.currFrameIndex += stride
-            # seek forward based on skipping
-            if ( self.readDelta ):
-                self.file.seek( self.readDelta, 1 ) # advance to next frame
-            if ( self.strideDelta ):
-                self.file.seek( self.strideDelta, 1 ) # advance according to stride
         except ValueError:
-            pass
+            raise StopIteration
+        self.currFrameIndex += stride
+        # seek forward based on skipping
+        if ( self.readDelta ):
+            self.file.seek( self.readDelta, 1 ) # advance to next frame
+        if ( self.strideDelta ):
+            self.file.seek( self.strideDelta, 1 ) # advance according to stride
 
         return self.currFrame, self.currFrameIndex
 
