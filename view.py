@@ -1,6 +1,7 @@
 import pygame
 from OpenGL.GL import *
 from OpenGL.GLU import *
+import Select
 
 # OpenGL View
 class View:
@@ -65,11 +66,17 @@ class View:
         self.vBottom = centerY - 0.5 * self.vHeight
         self.initGL()
         self._setOrtho()
+        
 
     def select( self, x, y, selectable, selectEdges=False ):
         self._setOrtho( True, x, y )
         
-        glSelectBuffer( 512L )
+        # this needs to be large enough to handle evrything that can push into
+        #   the select buffer - THIS SHOULD WORK, but the agent context isn't
+        #   using the select buffer.  :(
+##        glSelectBuffer( Select.Selectable.ID * 2)
+        glSelectBuffer( 4096L )
+        
         glRenderMode( GL_SELECT )
             
         glInitNames()
