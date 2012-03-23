@@ -675,6 +675,10 @@ class Grid( AbstractGrid ):
         """Replaces all cells with the value oldVal with newVal"""
         self.cells[ self.cells == oldVal ] = newVal
 
+    def clampMax( self, maxValue ):
+        '''Makes sure that the grid contains no value greater than maxValue'''
+        self.cells[ self.cells > maxValue ] = maxValue
+
 
 ##          HELPER FUNCTION FOR REGION TESTS
 def findCurrentRegion( frame, polygons, excludeStates ):
