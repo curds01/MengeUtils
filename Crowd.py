@@ -920,7 +920,7 @@ class GridFileSequence:
 
         # TODO: This will probably break for some other speed vis method
         stats = StatRecord( frameSet.agentCount() )              
-        while ( data[ -1 ][0] ):
+        while ( data[ -1 ][0] != None ):
             f1, i1 = data.pop(0)
             f2, i2 = data[ -1 ]
             g = gridFunc() 
@@ -1130,7 +1130,7 @@ class GridFileSequence:
             f.close()
 
     def speedImages( self, colorMap, fileBase, limit, maxFrames=-1 ):
-        """Outputs the density images"""
+        """Outputs the speed images"""
         try:
             f = open( self.outFileName + ".speed", "rb" )
         except:
