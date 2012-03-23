@@ -45,7 +45,9 @@ class GLPoly ( Polygon ):
                 glBegin( GL_POINTS )
                 glVertex3f( v.x, v.y, 0 )
                 glEnd()   
-        
+
+Obstacle = GLPoly
+
 class ObstacleSet:
     def __init__( self ):
         self.edgeCount = 0
