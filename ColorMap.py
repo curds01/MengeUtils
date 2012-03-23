@@ -30,7 +30,12 @@ class ColorMap:
             self.dataRange = dataRange
             self.fixedRange = True
         if ( ColorMap.FONT == None ):
-            ColorMap.FONT = pygame.font.Font( 'arialn.ttf', ColorMap.FONT_SIZE )
+            if ( not pygame.font.get_init() ):
+                pygame.font.init()
+            try:
+                ColorMap.FONT = pygame.font.Font( 'arialn.ttf', ColorMap.FONT_SIZE )
+            except IOError:
+                ColorMap.FONT = pygame.font.Font( pygame.font.get_default_font(), ColorMap.FONT_SIZE )
 
     def getColor( self, value, (minVal, maxVal) ):
         '''Given a range of values (minVal and maxVal) and a single value, returns
