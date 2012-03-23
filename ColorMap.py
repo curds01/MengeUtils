@@ -184,7 +184,7 @@ class FlameMap( ColorMap ):
         return color
 
     def colorOnSurface( self, dataRange, data ):
-        """Creates a greyscale map the same size as the data"""
+        """Creates a flame-colored map the same size as the data"""
         assert( len( data.shape ) == 2 )
         if ( not self.fixedRange ):
             self.dataRange = dataRange
