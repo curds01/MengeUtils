@@ -858,6 +858,45 @@ class GridFileSequence:
         outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
         outFile.close()
 
+    def splatAgents( self, minCorner, size, resolution, radius, frameSet ):
+        '''Simply splats the agents onto the grid'''
+        print "Splatting agents:"
+        print "\tminCorner:  ", minCorner
+        print "\tsize:       ", size
+        print "\tresolution: ", resolution
+        print "\tradius:     ", radius
+        outFile = open( self.outFileName + '.splat', 'wb' )
+        outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
+        outFile.write( struct.pack( 'i', 0 ) )                              # grid count
+        outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
+
+        frameSet.setNext( 0 )
+
+        # all of this together should make a function which draws filled-in circles
+        #   at APPROXIMATELY the center of the agents.
+        maxRad = radius / 3.0   # this makes it work with the kernel generation
+        def inCircle( dispX, dispY, rSqd ):
+            dispSqd = ( dispX * dispX + dispY * dispY )
+            return ( dispSqd <= rSqd ) * 1.0
+        dFunc = lambda x, y: inCircle( x, y, radius * radius )
+
+        gridCount = 0        
+        while ( True ):
+            try:
+                frame, index = frameSet.next()
+            except StopIteration:
+                break
+            grid = Grid( minCorner, size, resolution, 0.0 )
+            
+            grid.rasterizePosition( frame, dFunc, maxRad )
+            outFile.write( grid.binaryString() )
+            gridCount += 1
+            
+        outFile.seek( 8 )
+        outFile.write( struct.pack( 'i', gridCount ) )
+        outFile.write( struct.pack( 'ff', 0.0, 1.0 ) )
+        outFile.close()
+        
     def computeSpeeds( self, minCorner, size, resolution, maxRad, frameSet, timeStep, excludeStates, speedType=NORM_CONTRIB_SPEED, timeWindow=1 ):
         """Computes the displacements from one cell to the next"""
         print "Computing speeds:"
