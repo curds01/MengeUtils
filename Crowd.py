@@ -100,13 +100,16 @@ class BufferGrid:
 # The thread that does the rasterization work
 ACTIVE_RASTER_THREADS = 0
 def threadRasterize( log, bufferLock, buffer, frameLock, frameSet, minCorner, size, resolution, distFunc, maxRad ):
-    # acquire frame
-    frameLock.acquire()
-    frame, index = frameSet.next()
-    frameLock.release()
-    
-    while ( frame ):
+    while ( True ):
         # create grid and rasterize
+        # acquire frame
+        frameLock.acquire()
+        try:
+            frame, index = frameSet.next()
+        except StopIteration:
+            break
+        finally:            
+            frameLock.release()
         g = Grid( minCorner, size, resolution )
         g.rasterizePosition( frame, distFunc, maxRad )
         # update log
@@ -116,10 +119,10 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet, minCorner, si
         bufferLock.acquire()
         buffer.append( BufferGrid(index, g ) )
         bufferLock.release()
-        # acquire next frame
-        frameLock.acquire()
-        frame, index = frameSet.next()
-        frameLock.release()
+##        # acquire next frame
+##        frameLock.acquire()
+##        frame, index = frameSet.next()
+##        frameLock.release()
 
 # the thread that does the file output
 def threadOutput( outFile, buffer, bufferLock, startTime ):
