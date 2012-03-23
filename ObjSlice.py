@@ -1,6 +1,7 @@
 from ObjReader import ObjFile
 from math import sqrt, atan2, acos
 from primitives import Vector3, Vector2
+from primitives import Segment as AltSegment    # I need to merge my segments
 
 class Plane:
     """The definition of a plane in R3 -- evaluating the plane returns distance"""
@@ -195,8 +196,31 @@ class Segment:
         
 class Polygon:
     """A polygon -- i.e. shape made up of segments with common vertices"""
+    class SegmentIterator:
+        '''An iterator through the segments of this polygon'''
+        def __init__( self, poly ):
+            self.poly = poly
+            self.nextSegment = 0
+
+        def __iter__( self ):
+            return self
+
+        def next( self ):
+            if ( self.nextSegment == None ):
+                raise StopIteration
+            p0 = self.poly.vertices[ self.nextSegment ]
+            p1 = self.poly.vertices[ ( self.nextSegment + 1 ) % len( self.poly.vertices ) ]
+            seg = AltSegment( p0, p1 )
+            self.nextSegment += 1
+            if ( ( self.nextSegment == len( self.poly.vertices ) - 1 and not self.poly.closed ) or
+                 ( self.nextSegment == len( self.poly.vertices ) ) ):
+                self.nextSegment = None
+            return seg
+                
     def __init__( self ):
         self.vertices = []      # vertices in adjacent order -- no guarantee on clock-wise/counter-clockwise
+        # TODO: A polygon that isn't closed isn't a polygon
+        #   I should have two different constructs: polyline (for open) and polygon (for closed)
         self.closed = False
 
     def __str__( self ):
@@ -209,6 +233,17 @@ class Polygon:
         for v in self.vertices:
             s += "%s " % v
         return s
+
+##    segments = property( segmentIterator )
+
+    @property
+    def segments( self ):
+        '''Returns an iterator to the segments of the poly'''
+        return self.SegmentIterator( self )
+
+    def segmentIterator( self ):
+        '''Creates an iterator over the segments of this polygon'''
+        pass
 
     def flipY( self ):
         """Flips the y-values of the polygon (and reverses the order"""
@@ -233,7 +268,10 @@ class Polygon:
         return s
     
     def __len__( self ):
-        return len( self.vertices )
+        if ( self.closed ):
+            return len( self.vertices )
+        else:
+            return len( self.vertices ) - 1
 
     def isCCW( self, upDirection ):
         """Reports if this polygon is wound in a counter-clockwise direction (with respect to the up direction"""
