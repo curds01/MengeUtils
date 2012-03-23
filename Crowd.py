@@ -278,8 +278,9 @@ class Grid( AbstractGrid ):
         w, h = kernel.data.shape
         w /= 2
         h /= 2
-        for agt in frame.agents:
-            center = self.getCenter( agt.pos )
+        for agt in frame:
+            pos = agt[:2,]
+            center = self.getCenter( Vector2(pos[0], pos[1]) )
             l = center[0] - w
             r = center[0] + w + 1
             b = center[1] - h
