@@ -126,6 +126,9 @@ class Vector3:
         elif ( isinstance( v, Vector2 ) ):
             return Vector2( self.x - v.x, self.y - v.y )
 
+    def __div__( self, s ):
+        return Vector3( self.x / s, self.y / s, self.z / s )
+
     def __mul__( self, s ):
         return Vector3( self.x * s, self.y * s, self.z * s )
 
@@ -159,6 +162,9 @@ class Vector3:
 
     def length( self ):
         return sqrt( self.lengthSquared() )
+
+    def magnitude( self ):
+        return self.length()
 
     def normalize_ip( self ):
         lenRecip = 1.0 / self.length()
