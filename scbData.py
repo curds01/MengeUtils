@@ -3,6 +3,16 @@ from primitives import Vector2
 import struct
 import numpy as np
 
+# In order for the scbData to offer the same interface as the trajectories from Julich,
+# where each frame can consist of a DIFFERENT number of agents, for each frame generated,
+#   a mapping from their index in the frame to their global identifier is provided.
+#   In the case of the scbData, it the ids identical.  So, this class simply reflects back
+#   the index when accessed.  (i.e. ids[i] returns i
+class IDMap:
+    '''Maps the frame index to the full simulation index'''
+    def __getitem__( self, i ):
+        return i
+    
 class Agent:
     """Basic agent class"""
     def __init__( self, position ):
@@ -27,6 +37,9 @@ class Frame:
     def __init__( self, agentCount ):
         self.agents = []
         self.setAgentCount( agentCount )
+
+    def ids( self ):
+        return IDMap()
 
     def setAgentCount( self, agentCount ):
         """Sets the number of agents in the frame"""
@@ -433,7 +446,10 @@ class NPFrameSet( FrameSet ):
             file.write( frame[ agent, : ].tostring() )
         else:
             file.write( frame.tostring() )
-
+    def getFrameIds( self ):
+        '''Returns a mapping from index in the frame to global identifier'''
+        # For this data set, it's tautological
+        return IDMap()
 def writeNPSCB( fileName, array, frameSet, version=1 ):
     """Given an N X 3 X K array, writes out an scb file with the given data"""
     print "Writing %s with %d agents and %d frames" % ( fileName, array.shape[0], array.shape[2] )
