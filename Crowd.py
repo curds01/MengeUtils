@@ -301,11 +301,13 @@ class Grid( AbstractGrid ):
                 kt -= t - self.resolution[1]
                 t = self.resolution[1]
             try:
-                self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]
+                if ( l < r and b < t and kl < kr and kb < kt ):
+                    self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]
             except ValueError, e:
                 print "Value error!"
                 print "\tAgent at", center
                 print "\tGrid resolution:", self.resolution
+                print "\tKernel size:", kernel.data.shape
                 print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
                 raise e
 
@@ -1280,19 +1282,72 @@ class GridFileSequence:
         data = np.array( speeds )
         np.savetxt( self.outFileName + ".region", data, fmt='%.5f' )
 
+def firstDeriv( data, timeStep, k=1 ):
+    '''Computes a 2nd order approximation of the first derivative using
+    center-differences and the appropriate, 2nd-order, one-sided stencil at the ends.
+    It samples values k elements away with dt equal to timestep for each step'''
+    deriv = np.zeros_like( data )
+    # center differences
+    denom = 1.0 / ( 2 * k * timeStep )
+    deriv[ k:-k ] = ( data[ 2 * k: ] - data[ :-2*k ] ) * denom
+    # one-sided
+    # start
+##    deriv[ :k ] = ( data[k:2*k] - data[:k] ) / ( k * timeStep )
+##    deriv[ :k ] = ( -3 * data[:k] + 4 * data[k:2*k] - data[2*k:3*k] ) * denom
+    #end
+##    deriv[ -k: ] = ( -data[-k:] + 4 * data[-2*k:-k] -3 * data[-3*k:-2*k] ) * denom
+    return deriv
+    
+def gaussKernel1D( dx, sigma ):
+    '''Create a 1D gaussian kernel with given sigma, sampled every dx values'''
+    width = 6 * sigma
+    kWidth = int( width / dx + 0.5 )
 
-def plotFlow( outFileName, timeStep ):
+    if ( kWidth % 2 == 0 ):
+        kWidth += 1
+    hWidth = kWidth / 2
+    x = np.linspace( -hWidth * dx, hWidth * dx, kWidth )
+    A = 1.0 / ( sigma * np.sqrt( 2 * np.pi ) )
+    kernel = A * np.exp( -( x * x ) / ( 2 * sigma * sigma ) )
+    return kernel
+
+def plotFlow( outFileName, timeStep, titlePrefix='', legendStr=None, newFig=False, xlimits=None, ylimits=None ):
     '''Given the data in outFileName and the given timestep, creates plots'''
-    plt.clf()
+    # SMOOTH IT
+    SIGMA = 8.0
+    kernel = gaussKernel1D( 1.0, SIGMA )
+
+    if ( newFig ):
+        fig = plt.figure()
+    else:
+        plt.clf()
+        fig = plt.gcf()
+    
     dataFile = outFileName + ".flow"
     data = np.loadtxt( dataFile )
     data[:,0] *= timeStep
-    plt.plot( data[:,0], data[:, 1:] )
-    legendStr = [ 'Line %d' % i for i in range( data.shape[1] - 1 ) ]
+    smoothFlows = np.empty_like( data[:, 1:] )
+    for col in xrange( data.shape[1] - 1 ):
+        smoothFlows[:, col] = np.convolve( data[:, col+1], kernel, 'same' )
+    ax = fig.add_subplot(2,1,1)
+    ax.set_title( '%s - Flow' % titlePrefix )
+##    plt.plot( data[:,0], data[:, 1:], linewidth=0.25 )
+    plt.plot( data[:,0], smoothFlows )
+    if ( legendStr == None ):
+        legendStr = [ 'Line %d' % i for i in range( data.shape[1] - 1 ) ]
     plt.legend( legendStr, loc='upper left' )
     plt.xlabel( 'Simulation time (s)' )
     plt.ylabel( 'Agents past marker' )
-    plt.title( 'Flow' )
+    ax = fig.add_subplot(2,1,2)
+    #plt.plot( data[:,0], np.clip( firstDeriv( data[:,1:], timeStep, 6 * 16 ), 0.0, 1e6 ) )
+    plt.plot( data[:,0], np.clip( firstDeriv( smoothFlows, timeStep, 4 * 16 ), 0.0, 1e6 ) )
+    plt.xlabel( 'Simulation time (s)' )
+    plt.ylabel( 'Flow (agents/s)' )
+    if ( xlimits != None ):
+        plt.xlim( xlimits )
+    if ( ylimits != None ):
+        plt.ylim( ylimits )
+    
     plt.savefig( outFileName + ".flow.png" )
 
 def computeFlow( frameSet, segments, outFileName ):
@@ -1325,24 +1380,25 @@ def computeFlow( frameSet, segments, outFileName ):
     A = -dY
     B = dX
     C = dY * S0X - dX * S0Y
-    
         
     outFile = open( outFileName + '.flow', 'w' )
 
     frameSet.setNext( 0 )
-    # prime the set by computing the data for the first frame
-    prevIdx = 0
-    frame, idx = frameSet.next()
     # the number of agents who have crossed each segment
     crossed = np.zeros( segCount, dtype=np.int )
     # An NxM array indicating which segment each agent has already crossed
     alreadyCrossed = np.zeros( ( agtCount, segCount ), dtype=np.bool )
     
-    outFile.write('{0:10d}'.format( idx ) )
+    outFile.write('{0:10d}'.format( 0 ) )
     for val in crossed:
         outFile.write('{0:10d}'.format( val ) )
     outFile.write('\n')
 
+    # prime the set by computing the data for the first frame
+    frame, idx = frameSet.next()
+    ids = frameSet.getFrameIds()   # mapping from frame IDs to global IDs
+    frameIDs = map( lambda x: ids[ x ], xrange( frame.shape[0] ) )
+    
     # note: I'm doing this strange syntax so that they are Nx1 arrays (instead of just N arrays)
     #   this makes the broadcasting work better.
     pX = frame[:, :1 ]
@@ -1357,29 +1413,47 @@ def computeFlow( frameSet, segments, outFileName ):
     BETWEEN = ( T >= 0 ) & ( T <= L )
     # COULD_CROSS: an N x M array.  The cell[i, j] reports if the agent i is in a position to
     #   cross segment j.  (i.e., it lies between the endpoints and is on the negative side.)
-    COULD_CROSS = PREV_SDIST & BETWEEN
+    COULD_CROSS = np.zeros( ( agtCount, segCount ), dtype=np.bool )
     
-    frame, idx = frameSet.next()
- 
-    while ( prevIdx != idx ):
+    # Only process the agents that are in the frame
+    COULD_CROSS[ frameIDs, : ] = PREV_SDIST & BETWEEN
+##    COULD_CROSS = PREV_SDIST & BETWEEN
+    
+    while ( True ):
+        try:
+            frame, idx = frameSet.next()
+        except StopIteration:
+            break
+        else:
+            ids = frameSet.getFrameIds()   # mapping from frame IDs to global IDs
+            frameIDs = map( lambda x: ids[ x ], xrange( frame.shape[0] ) )
         # compute crossability for the current frame
         pX = frame[:, :1 ]
         pY = frame[:, 1:2 ]
+##        if ( idx > 30 and idx < 40 ):
+##            print "Frame:", idx
+##            print "\tAgents in frame: ", frameIDs
+##            print "\tx:", pX.T
+##            print "\ty:", pY.T
         SDIST = ( A * pX + B * pY + C ) < 0 
         T = (pX - S0X) * dX + (pY - S0Y) * dY
         BETWEEN = ( T >= 0 ) & ( T <= L )
+##        if ( idx > 30 and idx < 40 ):
+##            print "\tSDIST:", SDIST
+##            print "\tBETWEEN:", BETWEEN
+##            print "\tCOULD_CROSS:", COULD_CROSS[ frameIDs,: ]
         # in order to cross, in the previous time step, I had to be in a position to cross
         #   and in this frame, my sign has to reversed AND I have to not already crossed it.
-        CROSSED = COULD_CROSS & ~SDIST & ~alreadyCrossed
-        alreadyCrossed |= CROSSED
+        CROSSED = COULD_CROSS[ frameIDs, : ] & ~SDIST & ~alreadyCrossed[ frameIDs, : ]
+        alreadyCrossed[ frameIDs, : ] |= CROSSED
         crossed += CROSSED.sum( axis=0 )
         outFile.write('{0:10d}'.format( idx ) )
         for val in crossed:
             outFile.write('{0:10d}'.format( val ) )
         outFile.write('\n')
-        COULD_CROSS = SDIST & BETWEEN
-        prevIdx = idx
-        frame, idx = frameSet.next()
+        COULD_CROSS[ frameIDs, : ] = SDIST & BETWEEN
+##        prevIdx = idx
+##        frame, idx = frameSet.next()
 
     outFile.close()
 
