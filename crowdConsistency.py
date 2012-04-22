@@ -107,6 +107,28 @@ class DataWriter:
         '''Writes the frame of deviation data'''
         self.file.write( data.tostring() )    
 
+
+# consistency correlation
+#   I want to link correlation with density
+#   For each agent, I compute the average density over the same time window the consistency
+#       was computed.
+#       A "consistency" score is basically going to be the area of the square with sides
+#       equal to the sigma of the PCA
+#   This goes into a single massive Qx2 array where Q = M * N, with N agents and M frames
+#       (note that's M frames in the consistency file)
+#   I can then take this MASSIVE data set and do the following:
+#       1. plot all of it as data points (consistency on the y-axis, density on the x)
+#       2. Clump it in bins based on density, and compute a bar plot based on the average
+#           of each bin's contents.
+#
+#   - unknown
+#       I should also be able to explore the kind of "inconsistency": speed, direction, etc.
+#       How do I visualize this?
+
+def correlateConsistency( config ):
+    '''Computes the correlation between consistency and density'''
+    pass
+
 class ConsistencyReader( DataReader) :
     '''A class for reading the deviation file'''
     AGT_SIZE_BYTES = 24    # number of bytes per agent in a frame: 6 floats = 24 bytes
@@ -359,10 +381,12 @@ def processConsistency( config, scbFile=None ):
     print "SCB file: ", scbFile
     print "\tNumber of agents:", data.agentCount()
 
+    # compute the deviation, producing a .deviation file
     computeDeviation( data, config )
+    # compute the consistency, producing a .consistency file
     computeConsistency( config )
-    
-    
+    # compute correlation between density and consistency
+    correlateConsistency( config )
 
 def main():
     from config import Config
