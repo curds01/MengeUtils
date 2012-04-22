@@ -446,10 +446,12 @@ class NPFrameSet( FrameSet ):
             file.write( frame[ agent, : ].tostring() )
         else:
             file.write( frame.tostring() )
+            
     def getFrameIds( self ):
         '''Returns a mapping from index in the frame to global identifier'''
         # For this data set, it's tautological
         return IDMap()
+    
 def writeNPSCB( fileName, array, frameSet, version=1 ):
     """Given an N X 3 X K array, writes out an scb file with the given data"""
     print "Writing %s with %d agents and %d frames" % ( fileName, array.shape[0], array.shape[2] )
