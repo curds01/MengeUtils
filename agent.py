@@ -241,9 +241,18 @@ class AgentXMLParser( handler.ContentHandler ):
         self.agentSet = agentSet
         self.goal = (0, 0)
         self.readingGoal = False
+        self.version = (1,0)
+        self.inAgentSet = False
 
     def startElement( self, name, attrs ):
-        if ( name == 'Agent' ):
+        if ( name == 'Experiment' ):
+            try:
+                vStr = attrs[ 'version' ]
+            except:
+                pass
+            else:
+                self.version = map( lambda x: int(x), vStr.split('.') )
+        elif ( name == 'Agent' ):
             x = float( attrs[ 'p_x' ] )
             y = float( attrs[ 'p_y' ] )
             try:
@@ -252,7 +261,12 @@ class AgentXMLParser( handler.ContentHandler ):
                 r = self.agentSet.defRadius
             self.agentSet.addAgent( (x, y), self.goal, r )
         elif ( name == 'AgentSet' ):
-            self.agentSet.defRadius = float( attrs[ 'r' ] )
+            self.inAgentSet = True
+            if ( self.version[0] == 1 ):
+                self.agentSet.defRadius = float( attrs[ 'r' ] )
+        elif ( name == 'Common' ):
+            if ( self.inAgentSet ):
+                self.agentSet.defRadius = float( attrs[ 'r' ] )
         elif ( name == 'Vertex' and self.readingGoal ):
             x = float( attrs[ 'g_x' ] )
             y = float( attrs[ 'g_y' ] )
@@ -263,4 +277,6 @@ class AgentXMLParser( handler.ContentHandler ):
     def endElement( self, name ):
         if ( name == 'Goal' ):
             self.readingGoal = False
+        elif ( name == 'AgentSet' ):
+            self.inAgentSet = False
             
