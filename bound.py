@@ -46,6 +46,14 @@ class AABB2D:
         '''Performs an inside test on the AABB with a point.  Only the x,y values are used'''
         return point[0] >= self.min.x and point[0] <= self.max.x and point[1] >= self.min.y and point[1] <= self.max.y
 
+    def width( self ):
+        '''Reports the width of the box'''
+        return self.max.x - self.min.x
+
+    def height( self ):
+        '''Reports the height of the box'''
+        return self.max.y - self.min.y
+    
     def area( self ):
         '''Computes the area based on the x, y values'''
         size = self.max - self.min
