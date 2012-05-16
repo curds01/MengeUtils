@@ -2,29 +2,64 @@
 
 import numpy as np
 
-def firstDeriv( x, dt, k=1 ):
+def firstDerivForward( x, dt, k=1 ):
     '''Given a time-dependent value, x, computes the first derivative.
+    It uses the first-order forward-difference approach
 
-    @param x: an Nx1 numpy array.ArrayType
-    @return: an (N-1)x1 numpy array of derivatives.'''
-    return ( x[k:] - x[:-k] ) / dt
-##    return np.diff( x, n=k ) / dt    
-    
+    @param x: an Nx1 numpy array.  The uniformly sampled time-dependent value.
+    @param dt: a float.  The time elapsed between samples in x.
+    @param k: an int. The sample rate at which to compute the derivative.  Bigger --> smoother.
+    @return: an (N-k)x1 numpy array of derivatives.'''
+    DT = k * dt
+    return ( x[k:] - x[:-k] ) / DT
+
+def firstDerivCenter( x, dt, k=1 ):
+    '''Given a time-dependent value, x, computes the first derivative.
+    It uses the second-order center-differences approach
+
+    @param x: an Nx1 numpy array.  The uniformly sampled time-dependent value.
+    @param dt: a float.  The time elapsed between samples in x.
+    @param k: an int. The sample rate at which to compute the derivative.  Bigger --> smoother.
+    @return: an (N-2k)x1 numpy array of derivatives.'''
+    DT = k * dt
+    k2 = 2 * k
+    return ( x[k2:] - x[:-k2] ) / ( 2 * DT )
+
+firstDeriv = firstDerivCenter
+
+def secondDeriv( x, dt, k=1 ):
+    '''Given a time-dependent value, x, computes the second derivative.
+    Uses a simple, second-order center-differences method.
+
+    @param x: an Nx1 numpy array.  The uniformly sampled time-dependent value.
+    @param dt: a float.  The time elapsed between samples in x.
+    @param k: an int. The sample rate at which to compute the derivative.  Bigger --> smoother.
+    @return: an (N-2k)x1 numpy array of derivatives.'''
+    DT = k * dt
+    dt2 = DT * DT 
+    k2 = 2 * k
+    return ( x[ k2: ] - 2 * x[ k:-k ] + x[ :-k2 ] ) / dt2
 
 def curvature( x, y, dt, k=1 ):
     '''Given two time-varying parameters (x, y), computes the curvature of the
     space-time curve w.r.t. time.'''
     # THIS IS THE SIGNED CURVATURE
     # KAPPA = \frac{ x'y'' - y'x'' }{ (x'^2 + y'^2)^(3/2)}
-    x1 = firstDeriv( x, dt, k )
-    x2 = firstDeriv( x1, dt, k )
-    x1 = x1[:-k]
-    y1 = firstDeriv( y, dt, k )
-    y2 = firstDeriv( y1, dt, k )
-    y1 = y1[:-k]
+    x1 = firstDerivCenter( x, dt, k )
+    x2 = secondDeriv( x, dt, k )
+    y1 = firstDerivCenter( y, dt, k )
+    y2 = secondDeriv( y, dt, k )
     
     num = x1 * y2 - y1 * x2
     denom = x1 * x1 + y1 * y1
+    badDenom = np.nonzero( denom < 0.01 )[0] # velocity falls to zero
+    for bad in badDenom:
+        if ( bad == 0 ):
+            denom[ bad ] = denom[1]
+        elif ( bad == denom.size - 1 ):
+            denom[ bad ] = denom[-2]
+        else:
+            denom[ bad ] = ( denom[ bad - 1 ] + denom[ bad + 1 ] ) / 2.0
     denom = denom * np.sqrt( denom )
     return num / denom
 
