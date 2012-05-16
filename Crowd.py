@@ -1336,7 +1336,7 @@ def plotFlow( outFileName, timeStep, titlePrefix='', legendStr=None, newFig=Fals
     if ( legendStr == None ):
         legendStr = [ 'Line %d' % i for i in range( data.shape[1] - 1 ) ]
     plt.legend( legendStr, loc='upper left' )
-    plt.xlabel( 'Simulation time (s)' )
+##    plt.xlabel( 'Simulation time (s)' )
     plt.ylabel( 'Agents past marker' )
     ax = fig.add_subplot(2,1,2)
     #plt.plot( data[:,0], np.clip( firstDeriv( data[:,1:], timeStep, 6 * 16 ), 0.0, 1e6 ) )
@@ -1349,6 +1349,7 @@ def plotFlow( outFileName, timeStep, titlePrefix='', legendStr=None, newFig=Fals
         plt.ylim( ylimits )
     
     plt.savefig( outFileName + ".flow.png" )
+    plt.savefig( outFileName + ".flow.eps" )
 
 def computeFlow( frameSet, segments, outFileName ):
     '''Compute the flow of agents past the indicated line segments.
