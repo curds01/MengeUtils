@@ -360,7 +360,10 @@ class FrameSet:
         while ( idx != prevIdx and frame != None ):
             self.writeFrame( frame, f )
             prevIdx = idx
-            frame, idx = self.next()
+            try:
+                frame, idx = self.next()
+            except StopIteration:
+                break
         f.close()
 
     def writeAgent( self, output, agentID ):
