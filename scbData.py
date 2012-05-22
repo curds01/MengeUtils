@@ -436,7 +436,7 @@ class NPFrameSet( FrameSet ):
         N agents, M floats per agent and K time steps"""
         M = self.agentByteSize / 4
         frameCount = self.totalFrames()
-        data = np.empty( ( self.readAgtCount, M, frameCount ) )
+        data = np.empty( ( self.readAgtCount, M, frameCount ), dtype=np.float32 )
         self.setNext( 0 )
         for i in range( frameCount ):
             frame, idx = self.next()
