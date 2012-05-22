@@ -383,6 +383,10 @@ class FrameSet:
         if ( version != '1.0' ):
             raise AttributeError, 'FrameSet only able to output version 1.0'
         f.write( frame.toBinary( agent ) )
+
+    def close( self ):
+        '''Closes the file'''
+        self.file.close()
     
 class NPFrameSet( FrameSet ):
     """A frame set that uses numpy arrays instead of frames as the underlying structure"""
