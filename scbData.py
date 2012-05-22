@@ -459,15 +459,15 @@ class NPFrameSet( FrameSet ):
         # For this data set, it's tautological
         return IDMap()
     
-def writeNPSCB( fileName, array, frameSet, version=1 ):
+def writeNPSCB( fileName, array, frameSet, version='1.0' ):
     """Given an N X 3 X K array, writes out an scb file with the given data"""
     print "Writing %s with %d agents and %d frames" % ( fileName, array.shape[0], array.shape[2] )
-    print "Writing version %.1f" % ( version )
-    if ( version == 1 ):
+    print "Writing version %s" % ( version )
+    if ( version == '1.0' ):
         _writeNPSCB_1_0( fileName, array )
-    elif ( version == 2 ):
+    elif ( version == '2.0' ):
         _writeNPSCB_2_0( fileName, array, frameSet )
-    elif ( version == 2.1 ):
+    elif ( version == '2.1' ):
         _writeNPSCB_2_1( fileName, array, frameSet )
     else:
         raise Exception, "Invalid write version for data: %s" % ( version )
