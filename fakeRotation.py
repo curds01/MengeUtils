@@ -7,7 +7,6 @@
 import numpy as np
 from scbData import NPFrameSet, writeNPSCB
 
-DEFAULT_OUTPUT = 'output.scb'
 DEF_VEL_LIMIT = 10.0 * np.pi / 180.0  # 10 degrees per sec
 
 # The minimum distance an agent has to travel in order to consider a possible angular change
@@ -98,8 +97,8 @@ def main():
     parser.set_description( 'Computes orientation for the agents trajectories after the fact.' )
     parser.add_option( '-i', '--in', help='The name of the file to add orientation to (must be valid scb file)',
                        action='store', dest='inFileName', default='' )
-    parser.add_option( '-o', '--out', help='The name of the output scb file (defaults to %s)' % DEFAULT_OUTPUT,
-                       action='store', dest='outFileName', default=DEFAULT_OUTPUT )
+    parser.add_option( '-o', '--out', help='The name of the output scb file (defaults to overwriting input file)',
+                       action='store', dest='outFileName', default='' )
     parser.add_option( '-a', '--angularVelocity', help='The maximum angular velocity allowed (in radians/s).  Default is %g' % DEF_VEL_LIMIT,
                        action='store', dest='velocity', type='float', default=DEF_VEL_LIMIT )
 
@@ -110,12 +109,16 @@ def main():
         parser.print_help()
         sys.exit( 1 )
 
+    outFile = options.outFileName
+    if ( options.outFileName == '' ):
+        outFile = options.inFileName
+
     print
     print "Adding orientation to:", options.inFileName
-    print "\tOutput to:", options.outFileName
+    print "\tOutput to:", outFile
     print "\tMaximum angular velocity: %g radians/s (%g deg/s)" % ( options.velocity, options.velocity / np.pi * 180.0 )
 
-    addSCBOrientation( options.inFileName, options.outFileName, options.velocity )
+    addSCBOrientation( options.inFileName, outFile, options.velocity )
 
 
 if __name__ == '__main__':
