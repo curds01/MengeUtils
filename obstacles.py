@@ -203,9 +203,70 @@ def readObstacles( fileName, yFlip=False ):
         raise Exception, "Invalid obstacle extension: %s" % ( fileName )
     return obstHandler.obstacles, obstHandler.bb
 
+def writeObj( obstacles, fileName ):
+    '''Given an obstacle set, writes the obstacles out as an obj file'''
+    f = open( fileName, 'w' )
+    f.write('# converted from obstacle xml file\n' )
+    currVertID = 1
+    vertDefs = []   # strings of vertex definitions
+    faceDefs = []   # strings which define the faces
+    for poly in obstacles.polys:
+        # Add vertices to the list
+        fStr = 'f'
+        for i, v in enumerate( poly.vertices ):
+            vertDefs.append( 'v %.5f 0.0 %.5f ' % ( -v.x, v.y ) )
+            fStr += ' %d' % ( i + currVertID )
+        faceDefs.append( fStr )
+        currVertID += len( poly.vertices )
+
+    for v in vertDefs:
+        f.write( '%s\n' % ( v ) )
+    for face in faceDefs:
+        f.write( '%s\n' % ( face ) )
+        
+    f.close()
+
+def main():
+    '''Simple operations on obstacles'''
+
+    OBJ_CONVERT = 1 # convert to obj
+    ACTIONS = { 'obj':OBJ_CONVERT,
+                OBJ_CONVERT:'obj' }
+    import optparse, sys, os
+    parser = optparse.OptionParser()
+    parser.set_description( 'Perform various operations on XML obstacle files' )
+    parser.add_option( '-i', '--input', help='The input xml file to read',
+                       action='store', dest='inFile', default='' )
+    parser.add_option( '-o', '--output', help='The output file to use (defaults to output.___, with the appropriate extension for the operation',
+                       action='store', dest='outFile', default='output' )
+    parser.add_option( '-a', '--action', help='The action to perform.  Options: 1) OBJ - convert to obj (default), 2) TBA',
+                       action='store', dest='actCode', default=ACTIONS[ OBJ_CONVERT ] )
+
+    options, args = parser.parse_args()
+
+    if ( options.inFile == '' ):
+        print '\nYou must specify an input file!\n'
+        parser.print_help()
+        sys.exit(1)
+
+    if ( not ACTIONS.has_key( options.actCode.lower() ) ):
+        print "\nInvalid action specified: %s\n" % options.actCode
+        parser.print_help()
+        sys.exit( 1 )
+
+    obstacles, bb = readObstacles( options.inFile )
+
+    act = ACTIONS[ options.actCode.lower() ]
+    if ( act == OBJ_CONVERT ):
+        base, ext = os.path.splitext( options.outFile )
+        outName = base + '.obj'
+        print outName
+        writeObj( obstacles, outName )
+    
 if __name__ == '__main__':
-    import sys
-    obstacles, bb = readObstacles( sys[1] )
-    for p in obstacles.polys:
-        p.inflate(3.0)
+    main()
+##    import sys
+##    obstacles, bb = readObstacles( sys[1] )
+##    for p in obstacles.polys:
+##        p.inflate(3.0)
     
