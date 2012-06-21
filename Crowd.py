@@ -75,31 +75,6 @@ class StatRecord:
         plt.title( title )
         plt.savefig( fileName )
         
-##class RasterReport:
-##    """Simple class to return the results of rasterization"""
-##    def __init__( self ):
-##        self.maxVal = 0.0
-##        self.count = 0
-##
-##    def incCount( self ):
-##        self.count += 1
-##
-##    def setMax( self, val ):
-##        if ( val > self.maxVal ):
-##            self.maxVal = val
-            
-class BufferGrid:
-    """Entry into a buffer for a grid"""
-    def __init__( self, id, grid ):
-        self.id = id
-        self.grid = grid
-
-    def __eq__( self, id ):
-        return self.id == id
-
-    def __str__( self ):
-        return "BufferGrid %d, %f" % ( self.id, self.grid.maxVal() )
-    
 ##          HELPER FUNCTION FOR REGION TESTS
 def findCurrentRegion( frame, polygons, excludeStates ):
     '''Given a frame, determines which region each agent is in.
