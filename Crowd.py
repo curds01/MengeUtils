@@ -97,7 +97,7 @@ class BufferGrid:
     def __str__( self ):
         return "BufferGrid %d, %f" % ( self.id, self.grid.maxVal() )
     
-# The thread that does the rasterization work
+# The   that does the rasterization work
 ACTIVE_RASTER_THREADS = 0
 def threadRasterize( log, bufferLock, buffer, frameLock, frameSet, minCorner, size, resolution, distFunc, maxRad ):
     while ( True ):
@@ -206,7 +206,8 @@ class AbstractGrid:
         self.minCorner = minCorner          # tuple (x, y)  - float
         self.size = size                    # tuple (x, y)  - float
         self.resolution = resolution        # tuple (x, y)  - int
-        self.cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )
+        # size of each cell in the world grid (not the kernel)
+        self.cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )  
 
     def getCenter( self, position ):
         """Returns the closest cell center to this position"""
@@ -227,6 +228,15 @@ class Grid( AbstractGrid ):
         AbstractGrid.__init__( self, minCorner, size, resolution )
         self.initVal = initVal
         self.clear()
+
+    def getCenters( self ):
+        '''Return NxNx2 array of the world positions of each cell center'''
+        firstCenter = self.minCorner + self.cellSize * 0.5
+        x = np.arange( self.resolution.x ) * self.cellSize.x + firstCenter.x
+        y = np.arange( self.resolution.y ) * self.cellSize.y + firstCenter.y
+        X, Y = np.meshgrid( x, y )
+        return np.dstack( (X,Y) )
+        
        
     def __str__( self ):
         s = 'Grid'
@@ -272,6 +282,7 @@ class Grid( AbstractGrid ):
 
     def rasterizePosition( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
+        # splat the kernel centered at the grid which contain agents
         kernel = Kernel( maxRad, distFunc, self.cellSize )
 
         # This assumes the kernel dimensions are ODD-sized        
@@ -280,6 +291,7 @@ class Grid( AbstractGrid ):
         h /= 2
         for agt in frame:
             pos = agt[:2,]
+            # get position of the agent the world grid
             center = self.getCenter( Vector2(pos[0], pos[1]) )
             l = center[0] - w
             r = center[0] + w + 1
@@ -1167,6 +1179,7 @@ class GridFileSequence:
                 data = f.read( gridSize )
                 g.setFromBinary( data )
                 s = g.surface( colorMap, minVal, maxVal )
+##                print "i : " + str(i)
                 pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
             f.close()
 
@@ -1507,7 +1520,8 @@ def main():
     parser.add_option( "-r", "--range", help="A triple of numbers: start frame, max frame count, frame step",
                        nargs=3, action="store", dest='domain', type="int", default=(0, -1, 1) )
     options, args = parser.parse_args()
-    
+
+    # input source file
     srcFile = sys.argv[1]
     pygame.init()
     CELL_SIZE = 0.2
@@ -1618,6 +1632,7 @@ def main():
     def distFunc( dispX, dispY, radiusSqd ):
         """Constant distance function"""
         # This is the local density function provided by Helbing
+        # using Gaussian, delta(in the equation) = radiusSqd
         return np.exp( -(dispX * dispX + dispY * dispY) / (2.0 * radiusSqd ) ) / ( 2.0 * np.pi * radiusSqd )       
 
     dfunc = lambda x, y: distFunc( x, y, R * R )
