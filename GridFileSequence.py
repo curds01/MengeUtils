@@ -8,7 +8,7 @@ import time
 
 from Grid import *
 from primitives import Vector2
-from ThreadFunctions import *
+from ThreadRasterization import *
 
 
 # the thread that does the file output

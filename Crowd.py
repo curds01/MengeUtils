@@ -100,51 +100,6 @@ class BufferGrid:
     def __str__( self ):
         return "BufferGrid %d, %f" % ( self.id, self.grid.maxVal() )
     
-### The   that does the rasterization work
-##ACTIVE_RASTER_THREADS = 0
-##def threadRasterize( log, bufferLock, buffer, frameLock, frameSet, minCorner, size, resolution, distFunc, maxRad ):
-##    while ( True ):
-##        # create grid and rasterize
-##        # acquire frame
-##        frameLock.acquire()
-##        try:
-##            frame, index = frameSet.next()
-##        except StopIteration:
-##            break
-##        finally:            
-##            frameLock.release()
-##        g = Grid( minCorner, size, resolution )
-##        g.rasterizePosition( frame, distFunc, maxRad )
-##        # update log
-##        log.setMax( g.maxVal() )
-##        log.incCount()
-##        # put into buffer
-##        bufferLock.acquire()
-##        buffer.append( BufferGrid(index, g ) )
-##        bufferLock.release()
-####        # acquire next frame
-####        frameLock.acquire()
-####        frame, index = frameSet.next()
-####        frameLock.release()
-##
-### the thread that does the file output
-##def threadOutput( outFile, buffer, bufferLock, startTime ):
-##    """Reads grids from the buffer and writes them to the output file"""
-##    nextGrid = 0
-##    while ( buffer or ACTIVE_RASTER_THREADS ):
-##        # keep doing the work as long as the buffer has contents or there are active raster threads
-##        bufferLock.acquire()
-##        try:
-##            i = buffer.index( nextGrid )
-##            bg = buffer.pop( i )
-##            bufferLock.release()
-##            print "\t\tWriting buffer %d at time %f s" % ( nextGrid, time.clock() - startTime )
-##            outFile.write( bg.grid.binaryString() )
-##            nextGrid += 1
-##        except ValueError:
-##            bufferLock.release()
-##            time.sleep( 1.0 )
-                
 ##          HELPER FUNCTION FOR REGION TESTS
 def findCurrentRegion( frame, polygons, excludeStates ):
     '''Given a frame, determines which region each agent is in.
