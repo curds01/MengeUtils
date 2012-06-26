@@ -1,6 +1,8 @@
 import numpy as np
 
 AGENTRADIUS = 1.0
+LAMBDA = 1.  # smoothing parameter in variable Gaussian
+LAMBDA_SQRD = LAMBDA * LAMBDA
 
 # Functions to estimate density used in Kernel class
 def uniformFunc( dispX, dispY, radius ):
@@ -45,13 +47,21 @@ def gaussianFunc( dispX, dispY, radiusSqd ):
     """ Density Estimation  using gaussian function """
     return np.exp( -(dispX * dispX + dispY * dispY) / (2.0 * radiusSqd ) ) / ( 2.0 * np.pi * radiusSqd )
 
-UNIFORM = lambda X, Y: uniformFunc( X, Y, AGENTRADIUS ) 
-GAUSS   = lambda X, Y: gaussianFunc( X, Y, AGENTRADIUS * AGENTRADIUS )
-LINEAR  = lambda X, Y: linearFunc( X, Y, AGENTRADIUS )
-BIWEIGHT = lambda X, Y: biweightFunc( X, Y, AGENTRADIUS )
+def variableGaussianFunc( dispX, dispY, radiusSqd ):
+    """ Density Estimation  using gaussian function with varied radius"""
+    # Have to be seperated from normal Gaussian for function pointer testing in Kernel and Grid file
+    return np.exp( -(dispX * dispX + dispY * dispY) / (2.0 * radiusSqd * LAMBDA_SQRD ) ) / ( 2.0 * np.pi *
+                                                                               radiusSqd * LAMBDA_SQRD )
+
+UNIFORM = lambda X, Y, R: uniformFunc( X, Y, R ) 
+GAUSS   = lambda X, Y, R: gaussianFunc( X, Y, R * R )
+LINEAR  = lambda X, Y, R: linearFunc( X, Y, R )
+BIWEIGHT = lambda X, Y,R: biweightFunc( X, Y, R )
+VARGAUSS = lambda X, Y,R: variableGaussianFunc( X, Y, R * R)
 
 FUNC_MAPS = { "uniform": UNIFORM,
               "gaussian": GAUSS,
+              "variable-gaussian":VARGAUSS,
               "linear": LINEAR,
               "biweight": BIWEIGHT
               }
