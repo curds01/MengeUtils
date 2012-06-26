@@ -17,7 +17,7 @@ class BufferGrid:
 
 # The   that does the rasterization work
 ACTIVE_RASTER_THREADS = 0
-def threadRasterize( log, bufferLock, buffer, frameLock, frameSet, minCorner, size, resolution, distFunc, maxRad ):
+def threadRasterize( log, bufferLock, buffer, frameLock, frameSet, minCorner, size, resolution, distFunc, maxRad, domainX, domainY ):
     while ( True ):
         # create grid and rasterize
         # acquire frame
@@ -28,7 +28,7 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet, minCorner, si
             break
         finally:            
             frameLock.release()
-        g = Grid( minCorner, size, resolution )
+        g = Grid( minCorner, size, resolution, domainX, domainY )
         g.rasterizePosition( frame, distFunc, maxRad )
         # update log
         log.setMax( g.maxVal() )
