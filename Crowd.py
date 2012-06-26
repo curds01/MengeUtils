@@ -504,7 +504,7 @@ def main():
     frameSet = FrameSet( path, START_FRAME, MAX_FRAMES, MAX_AGENTS, FRAME_STEP )
     print "Total frames:", frameSet.totalFrames()
 
-    grids = GridFileSequence( os.path.join( outPath, 'junk' ) )
+    grids = GridFileSequence( os.path.join( outPath, 'junk' ), Vector2(0,3.2), Vector2(-6., 6.))
     colorMap = FlameMap()
 
     # output the parameters used to create the data
