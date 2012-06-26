@@ -31,12 +31,19 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet, minCorner, si
         g = Grid( minCorner, size, resolution, domainX, domainY )
         g.rasterizePosition( frame, distFunc, maxRad )
         # update log
-        log.setMax( g.maxVal() )
+        log.setMax( 0.315256) #g.maxVal() )
         log.incCount()
         # put into buffer
+##        if (index == 42):
         bufferLock.acquire()
         buffer.append( BufferGrid(index, g ) )
         bufferLock.release()
+##            print "INTHREAD"
+##            print g.cells[g.cells > 0].sum()
+##            print len(buffer)
+##            gg = buffer[0]
+##            print type(gg)
+##            print gg.grid.cells[g.cells > 0].sum()
 ##        # acquire next frame
 ##        frameLock.acquire()
 ##        frame, index = frameSet.next()
