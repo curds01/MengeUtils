@@ -54,8 +54,12 @@ class GridFileSequence:
     NORM_CONTRIB_SPEED = 4 # distribute speed with normalized gaussian and then divide by contribution matrix
     LAPLACE_SPEED = 5   # compute the magnitude of the laplacian of the velocity field
     
-    def __init__( self, outFileName ):
+    def __init__( self, outFileName, domainX, domainY ):
+        """ domainX is a Vector2 storing range of value x from user. domainX[0] stores min value and domainX[1] stores max value.
+            domainY is a similar to domainX but in y-axis"""
         self.outFileName = outFileName
+        self.domainX = domainX
+        self.domainY = domainY
 
     def renderTraces( self, minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase ):
         """Creates a sequence of images of the traces of the agents.
@@ -91,7 +95,11 @@ class GridFileSequence:
         rasterLogs = []
         for i in range( THREAD_COUNT ):
             rasterLogs.append( RasterReport() )
-            rasterThreads.append( threading.Thread( target=threadRasterize, args=( rasterLogs[-1], bufferLock, buffer, frameLock, frameSet, minCorner, size, resolution, distFunc, maxRad ) )  )
+            rasterThreads.append( threading.Thread( target=threadRasterize, args=( rasterLogs[-1], bufferLock, buffer,
+                                                                                   frameLock, frameSet,
+                                                                                   minCorner, size, resolution,
+                                                                                   distFunc, maxRad,
+                                                                                   self.domainX, self.domainY) )  )
                 
         for i in range( THREAD_COUNT ):
             rasterThreads[i].start()
@@ -142,7 +150,7 @@ class GridFileSequence:
                 frame, index = frameSet.next()
             except StopIteration:
                 break
-            grid = Grid( minCorner, size, resolution, 0.0 )
+            grid = Grid( minCorner, size, resolution, self.domainX, self.domainY ,0.0)
             
             grid.rasterizePosition( frame, dFunc, maxRad )
             outFile.write( grid.binaryString() )
@@ -416,7 +424,7 @@ class GridFileSequence:
             w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
             print "Density images in range:", minVal, maxVal
             gridSize = w * h * 4
-            g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h) )
+            g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h), self.domainX, self.domainY )
             for i in range( count ):
                 data = f.read( gridSize )
                 g.setFromBinary( data )
