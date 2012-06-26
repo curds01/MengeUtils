@@ -1,6 +1,8 @@
 # This file contain Abstract Grida and Grid which is used in computing density
 
 import numpy as np
+import math
+import random
 from Kernels import *
 from primitives import Vector2
 
@@ -26,12 +28,17 @@ class AbstractGrid:
     
 class Grid( AbstractGrid ):
     """Class to discretize scalar field computation"""
-    def __init__( self, minCorner, size, resolution, initVal=0.0 ):
+    def __init__( self, minCorner, size, resolution, domainX, domainY, initVal=0.0  ):
         """Initializes the grid to span the space starting at minCorner,
-        extending size amount in each direction with resolution cells"""
+        extending size amount in each direction with resolution cells
+        domainX is a Vector2 storing range of value x from user.
+        domainX[0] stores min value and domainX[1] stores max value.
+        domainY is a similar to domainX but in y-axis"""
         AbstractGrid.__init__( self, minCorner, size, resolution )
         self.initVal = initVal
         self.clear()
+        self.domainX = domainX
+        self.domainY = domainY
 
     def getCenters( self ):
         '''Return NxNx2 array of the world positions of each cell center'''
@@ -69,6 +76,7 @@ class Grid( AbstractGrid ):
 
     def maxVal( self ):
         """Returns the maximum value of the grid"""
+##        print "Max" + str(self.cells.max())
         return self.cells.max()
 
     def minVal( self ):
@@ -87,14 +95,34 @@ class Grid( AbstractGrid ):
     def rasterizePosition( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
         # splat the kernel centered at the grid which contain agents
-        kernel = Kernel( maxRad, distFunc, self.cellSize )
-
-        # This assumes the kernel dimensions are ODD-sized        
-        w, h = kernel.data.shape
-        w /= 2
-        h /= 2
+        if ((distFunc != FUNC_MAPS['variable-gaussian'])):
+            kernel = Kernel( maxRad, distFunc, self.cellSize )
+            # This assumes the kernel dimensions are ODD-sized
+            w, h = kernel.data.shape
+            w /= 2
+            h /= 2
+            
         for agt in frame:
+##            print str(frame.shape)
             pos = agt[:2,]
+            if (distFunc == FUNC_MAPS['variable-gaussian']):
+                agentPos = pos
+                # calculate the distance to wall
+                distMinY = (agentPos[1] - self.domainY[0]) * (agentPos[1] - self.domainY[0])
+                distMaxY = (agentPos[1] - self.domainY[1]) * (agentPos[1] - self.domainY[1])
+                distMinX = (agentPos[0] - self.domainX[0]) * (agentPos[0] - self.domainX[0])
+                distMaxX = (agentPos[0] - self.domainX[1]) * (agentPos[0] - self.domainX[1])
+                minx = np.min([distMinX,distMaxX])
+                miny = np.min([distMinY,distMaxY])
+                distWall = np.min([minx, miny])
+                if (distWall < 0.1):
+                    distWall = 0.1
+                kernel = Kernel( distWall, distFunc, self.cellSize )
+                w, h = kernel.data.shape
+                w /= 2
+                h /= 2
+            # END IF
+            
             # get position of the agent the world grid
             center = self.getCenter( Vector2(pos[0], pos[1]) )
             l = center[0] - w
@@ -126,6 +154,8 @@ class Grid( AbstractGrid ):
                 print "\tKernel size:", kernel.data.shape
                 print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
                 raise e
+##        print self.cells[self.cells > 0].sum()
+##        print " "
 
     def rasterizePosition2( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
