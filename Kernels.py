@@ -14,9 +14,11 @@ class Kernel:
         (it need not be square.)  The values in each cell are determined
         by the distance of each cell from the center cell computed with
         dFunc.  Each cell is given a logical size of cSize"""
-        if (dFunc == FUNC_MAPS['gaussian']):
+##        print str(radius)
+        if (dFunc == FUNC_MAPS['gaussian'] or dFunc == FUNC_MAPS['variable-gaussian']):
 ##            print 'IN IF GAUSS'
             hCount = int( 6 * radius / cSize.x )
+##            print "hCount" + str(hCount)
         else:
 ##            print 'IN ELSE'
             hCount = int( radius / cSize.x )
@@ -24,7 +26,7 @@ class Kernel:
             hCount += 1
         o = np.arange( -(hCount/2), hCount/2 + 1) * cSize.x
         X, Y = np.meshgrid( o, o )
-        self.data = dFunc( X, Y )
+        self.data = dFunc( X, Y, radius )
 
 
     def max( self ):
@@ -66,4 +68,3 @@ class Kernel2:
         distSqd = deltaX + deltaY
         # the distance function must take an array as an argument.
         self.data = dfunc( distSqd )
-
