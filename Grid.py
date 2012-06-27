@@ -27,7 +27,38 @@ class AbstractGrid:
         x = int( ofX )
         y = int( ofY )
         return x, y
-    
+
+class DataGrid( AbstractGrid) :
+    """A Class to stroe information in grid based structure (i.e the one in Voronoi class ) """
+    def __init__( self, minCorner, size, resolution, initVal=0.0 ):
+        AbstractGrid.__init__( self, minCorner, size, resolution )
+        self.initVal = initVal
+        self.clear()
+
+    def getCenters( self ):
+        '''Return NxNx2 array of the world positions of each cell center'''
+        firstCenter = self.minCorner + self.cellSize * 0.5
+        x = np.arange( self.resolution.x ) * self.cellSize.x + firstCenter.x
+        y = np.arange( self.resolution.y ) * self.cellSize.y + firstCenter.y
+        X, Y = np.meshgrid( x, y )
+        return np.dstack( (X,Y) )
+           
+    def __str__( self ):
+        s = 'Grid'
+        for row in range( self.resolution[1] - 1, -1, -1 ):
+            s += '\n'
+            for col in range( self.resolution[0] ):
+                s += '%7.2f' % ( self.cells[ col ][ row ] )
+        return s
+
+    def clear( self ):
+        # Cells are a 2D array accessible with (x, y) values
+        #   x = column, y = row
+        if ( self.initVal == 0 ):
+            self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=np.float32 )
+        else:
+            self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=np.float32 ) + self.initVal
+
 class Grid( AbstractGrid ):
     """Class to discretize scalar field computation"""
     def __init__( self, minCorner, size, resolution, domainX, domainY, initVal=0.0  ):
@@ -136,7 +167,9 @@ class Grid( AbstractGrid ):
             h /= 2
             
         for agt in frame:
-##            print str(frame.shape)
+            print type(frame)
+            print frame.shape[0]
+            print frame[0,:]
             pos = agt[:2,]
             if (distFunc == FUNC_MAPS['variable-gaussian']):
 ##                distWall = self.computeDistanceToWall(agt)
