@@ -31,7 +31,7 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet, minCorner, si
         g = Grid( minCorner, size, resolution, domainX, domainY )
         g.rasterizePosition( frame, distFunc, maxRad )
         # update log
-        log.setMax( 0.315256) #g.maxVal() )
+        log.setMax( g.maxVal() )  # TODO :: FIX THIS PROBLEM
         log.incCount()
         # put into buffer
 ##        if (index == 42):

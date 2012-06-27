@@ -6,6 +6,8 @@ import random
 from Kernels import *
 from primitives import Vector2
 
+BUFFER_DIST = 0.46  # Based on Proxemics for Close Perosnal Distance
+
 class AbstractGrid:
     '''A class to index into an abstract grid'''
     def __init__( self, minCorner, size, resolution ):
@@ -91,6 +93,37 @@ class Grid( AbstractGrid ):
         else:
             self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=np.float32 ) + self.initVal
 
+    def computeDistanceToWall( self, agent):
+        agentPos = agent[:2,]
+        # calculate the distance to wall
+        distMinY = math.fabs(agentPos[1] - self.domainY[0])
+        distMaxY = math.fabs(agentPos[1] - self.domainY[1])
+        distMinX = math.fabs(agentPos[0] - self.domainX[0])
+        distMaxX = math.fabs(agentPos[0] - self.domainX[1])
+        return np.min([distMinX,distMaxX])
+
+    def computeClosestNeighbor( self, agent, frame ):
+        '''compute distance from current agent to every other. Running in O(n^2) as
+            we checking one against all others'''
+        agentPos = agent[:2,]
+        minDist = 1000.
+        distWall = self.computeDistanceToWall(agent)
+        if (frame.shape[0] == 1):
+            # Distance to the closet boundary
+            return distWall
+        for agt in frame:
+            agtPos = agt[:2,]
+            if (agentPos[0] == agtPos[0] and  agentPos[1] == agtPos[1]):
+                # Agent and agt is the same
+                continue
+            # get position of the agent the world grid
+            agtCenter = self.getCenter( Vector2(agtPos[0], agtPos[1]) )
+            diff = agtPos - agentPos
+            localMin = np.sum(diff * diff, axis=0)
+            if (localMin < minDist):
+                minDist = localMin
+        minDist = math.sqrt(minDist)
+        return np.min([distWall, minDist])
 
     def rasterizePosition( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
@@ -106,18 +139,12 @@ class Grid( AbstractGrid ):
 ##            print str(frame.shape)
             pos = agt[:2,]
             if (distFunc == FUNC_MAPS['variable-gaussian']):
-                agentPos = pos
-                # calculate the distance to wall
-                distMinY = (agentPos[1] - self.domainY[0]) * (agentPos[1] - self.domainY[0])
-                distMaxY = (agentPos[1] - self.domainY[1]) * (agentPos[1] - self.domainY[1])
-                distMinX = (agentPos[0] - self.domainX[0]) * (agentPos[0] - self.domainX[0])
-                distMaxX = (agentPos[0] - self.domainX[1]) * (agentPos[0] - self.domainX[1])
-                minx = np.min([distMinX,distMaxX])
-                miny = np.min([distMinY,distMaxY])
-                distWall = np.min([minx, miny])
-                if (distWall < 0.1):
-                    distWall = 0.1
-                kernel = Kernel( distWall, distFunc, self.cellSize )
+##                distWall = self.computeDistanceToWall(agt)
+##                print "distWall " + str(distWall)
+                minRadius = self.computeClosestNeighbor(agt, frame)
+                if (minRadius < BUFFER_DIST):
+                    minRadius = BUFFER_DIST
+                kernel = Kernel( minRadius, distFunc, self.cellSize )
                 w, h = kernel.data.shape
                 w /= 2
                 h /= 2
