@@ -10,13 +10,13 @@ class Voronoi:
     """ A class to partition world space into Voronoi region with agent's radius constraint """
     def __init__( self, minCorner, size, resolution  ):
         """ frame is a list of agent in the world at that point in time; worldGrid"""
+        self.minCorner = minCorner
+        self.size = size
+        self.resolution = resolution
         # Store shortest distance initally every cells has infinitely far away from agents
         self.distGrid = DataGrid( minCorner, size, resolution, 10000. )
         # Store index indicating who own the grid initially all the cells don't have any owner
         self.ownerGrid = DataGrid( minCorner, size, resolution, -1 )
-        # Store density in each cell of Voronoi region using 1/A
-        self.densityGrid = DataGrid( minCorner, size, resolution, 0. )
-
     
     def distField( self, points, testPoint ):
        '''computes the distance to testPoint of all the positions defined in points.
@@ -31,7 +31,7 @@ class Voronoi:
        dist = np.sqrt( np.sum( disp * disp, axis=2 ) )
        return dist
     
-    def calculateVoronoi( self, worldGrid, frame, agentRadius=1 ):
+    def computeVoronoi( self, worldGrid, frame, agentRadius=1 ):
         ''' Compute Voronoi region for particular frame
         @param worldGrid: discrete world in grid form
         @param frame: a NX2 storing agents' position
@@ -49,11 +49,22 @@ class Voronoi:
             for i in xrange( 1, frame.shape[0] ):
                 pos = frame[i, :]
                 workDist = self.distField( centers, pos )
-                region = (self.distGrid.cells > workDist) #& (workDist <= agentRadius)
+                region = (self.distGrid.cells > workDist) & (workDist <= agentRadius)
                 self.distGrid.cells[ region] = workDist[ region ]
                 self.ownerGrid.cells[ region ] = i
-                
-        
+            
+    def computeVoronoiDensity( self, worldGrid, frame, agentRadius=1 ):
+        ''' Compute Voronoi region for each agent and then calculate density in that region'''
+        # Compute Voronoi region for current frame
+        # Store density in each cell of Voronoi region using 1/A
+        densityGrid = Grid( self.minCorner, self.size, self.resolution, initVal=0 )
+        self.computeVoronoi( worldGrid, frame, agentRadius)
+        for i in xrange( 0, frame.shape[0] ):
+            areaMask = self.ownerGrid.cells == i
+            area = areaMask.sum()
+            densityGrid.cells[areaMask] = 1./area
+        return densityGrid
+
 def main():
     MIN_CORNER = Vector2(-5.0, -5.0)
     SIZE = Vector2(10.0, 10.0)
@@ -62,18 +73,18 @@ def main():
     worldGrid = Grid( MIN_CORNER, SIZE, RES, Vector2(0,3.2), Vector2(-6,6), 1000.0 )
 
     frame = np.array( ( (0, 0),
-                        (-3, 0) ,
-                     ( 1, 4 ),
-                     ( 2.5, -1 ),
-                     (-2, 1),
-                     (3,3),
-                     (4.5, -4.5)
+                        (-3, 0),
+                         ( 1, 4 ),
+                         ( 2.5, -1 ),
+                         (-2, 1),
+                         (3,3),
+                         (4.5, -4.5)
                      )
                    )
 
     agentRadius = 1.0
     v = Voronoi( MIN_CORNER,SIZE, RES )
-    v.calculateVoronoi( worldGrid, frame, agentRadius )
+    v.computeVoronoiDensity( worldGrid, frame, agentRadius )
     plt.imshow(  v.ownerGrid.cells[::-1, :] )
     plt.show()
     
