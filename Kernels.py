@@ -2,7 +2,7 @@
 # Uniform, Linear, Bi-weight, Gaussian (fixed and variable)
 
 import numpy as np
-from DistFuncs import FUNC_MAPS 
+from DistFuncs import FUNCS_MAP 
 
 class Kernel:
     """Distance function kernel"""
@@ -14,13 +14,9 @@ class Kernel:
         (it need not be square.)  The values in each cell are determined
         by the distance of each cell from the center cell computed with
         dFunc.  Each cell is given a logical size of cSize"""
-##        print str(radius)
-        if (dFunc == FUNC_MAPS['gaussian'] or dFunc == FUNC_MAPS['variable-gaussian']):
-##            print 'IN IF GAUSS'
+        if (dFunc == FUNCS_MAP['gaussian'] or dFunc == FUNCS_MAP['variable-gaussian']):
             hCount = int( 6 * radius / cSize.x )
-##            print "hCount" + str(hCount)
         else:
-##            print 'IN ELSE'
             hCount = int( radius / cSize.x )
         if ( hCount % 2 == 0 ):
             hCount += 1
