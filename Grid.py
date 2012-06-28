@@ -33,8 +33,16 @@ class AbstractGrid:
         firstCenter = self.minCorner + self.cellSize * 0.5
         x = np.arange( self.resolution.x ) * self.cellSize.x + firstCenter.x
         y = np.arange( self.resolution.y ) * self.cellSize.y + firstCenter.y
-        X, Y = np.meshgrid( x, y )
-        return np.dstack( (X,Y) )
+
+        # To be used for constructing shape in meshgrid 
+        xShape = np.empty( x.shape[0] )
+        yShape = np.empty( y.shape[0] )
+        _, X = np.meshgrid( yShape, x) 
+        Y, _ = np.meshgrid( y,xShape )
+##        X,Y = np.meshgrid( x,y )
+        stack = np.dstack( (X,Y) )
+##        print stack
+        return stack
     
     def __str__( self ):
         s = 'Grid'
@@ -83,7 +91,7 @@ class DataGrid( AbstractGrid) :
         AbstractGrid.__init__( self, minCorner, size, resolution )
         self.initVal = initVal
         self.clear()
- 
+
 class Grid( AbstractGrid ):
     """Class to discretize scalar field computation"""
     def __init__( self, minCorner, size, resolution,
@@ -248,9 +256,7 @@ class Grid( AbstractGrid ):
             if ( t >= self.resolution[1] ):
                 kt -= t - self.resolution[1]
                 t = self.resolution[1]
-            self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * agt.value        
-
-    
+            self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * agt.value            
 
     def rasterizeContribSpeed( self, kernel, f2, f1, distFunc, maxRad, timeStep ):
         """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
@@ -546,6 +552,54 @@ class Grid( AbstractGrid ):
             Y[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * disp.y
         self.cells = X + Y
         #self.cells = np.sqrt( X * X + Y * Y )
+
+    def rasterizeVoronoiDensity( self, frame, distFunc, maxRad ):
+        result = Grid( self.minCorner, self.size, self.resolution, initVal=0 )
+        """ Function to convolute kernel over the density computed using Voronoi"""
+        kernel = Kernel( maxRad, distFunc, self.cellSize )
+        # This assume the kernel dimensions are ODD-sized
+        w, h = kernel.data.shape
+        w /= 2
+        h /= 2
+
+        for agt in frame:
+            # Convolute box kernel centered at the agent position
+            pos = agt[:2,]
+            center = self.getCenter( Vector2(pos[0], pos[1] ) )
+            l = center[0] - w
+            r = center[0] + w + 1
+            b = center[1] - h
+            t = center[1] + h + 1
+            kl = 0
+            kb = 0
+            kr, kt = kernel.data.shape
+            if ( l < 0 ):
+                kl -= l
+                l = 0
+            if ( b < 0 ):
+                kb -= b
+                b = 0
+            if ( r >= self.resolution[0] ):
+                kr -= r - self.resolution[0]
+                r = self.resolution[0]
+            if ( t >= self.resolution[1] ):
+                kt -= t - self.resolution[1]
+                t = self.resolution[1]
+            try:
+                if ( l < r and b < t and kl < kr and kb < kt ):
+                    # Convolution self.cells store density valued calculated based on Voronoi region
+                    # if self.cells[i,j] is 0 then the multiplication will result in 0
+                    density = (self.cells[ l:r, b:t ] * kernel.data[ kl:kr, kb:kt ])
+                    print density
+                    print "sum " + str (density.sum())
+##                    result.cells[ l:r, b:t ] = self.cells[ l:r, b:t ] * kernel.data[ kl:kr, kb:kt ]
+            except ValueError, e:
+                print "Value error!"
+                print "\tAgent at", center
+                print "\tGrid resolution:", self.resolution
+                print "\tKernel size:", kernel.data.shape
+                print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
+                raise e         
 
     def surface( self, map, minVal, maxVal ):
         """Creates a pygame surface"""
