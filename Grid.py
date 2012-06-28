@@ -14,7 +14,7 @@ class AbstractGrid:
         self.minCorner = minCorner          # tuple (x, y)  - float
         self.size = size                    # tuple (x, y)  - float
         self.resolution = resolution        # tuple (x, y)  - int
-        # size of each cell in the world grid (not the kernel)
+        # size of each cell in the world grid
         self.cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )  
 
     def getCenter( self, position ):
@@ -28,13 +28,6 @@ class AbstractGrid:
         y = int( ofY )
         return x, y
 
-class DataGrid( AbstractGrid) :
-    """A Class to stroe information in grid based structure (i.e the one in Voronoi class ) """
-    def __init__( self, minCorner, size, resolution, initVal=0.0 ):
-        AbstractGrid.__init__( self, minCorner, size, resolution )
-        self.initVal = initVal
-        self.clear()
-
     def getCenters( self ):
         '''Return NxNx2 array of the world positions of each cell center'''
         firstCenter = self.minCorner + self.cellSize * 0.5
@@ -42,46 +35,7 @@ class DataGrid( AbstractGrid) :
         y = np.arange( self.resolution.y ) * self.cellSize.y + firstCenter.y
         X, Y = np.meshgrid( x, y )
         return np.dstack( (X,Y) )
-           
-    def __str__( self ):
-        s = 'Grid'
-        for row in range( self.resolution[1] - 1, -1, -1 ):
-            s += '\n'
-            for col in range( self.resolution[0] ):
-                s += '%7.2f' % ( self.cells[ col ][ row ] )
-        return s
-
-    def clear( self ):
-        # Cells are a 2D array accessible with (x, y) values
-        #   x = column, y = row
-        if ( self.initVal == 0 ):
-            self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=np.float32 )
-        else:
-            self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=np.float32 ) + self.initVal
-
-class Grid( AbstractGrid ):
-    """Class to discretize scalar field computation"""
-    def __init__( self, minCorner, size, resolution, domainX, domainY, initVal=0.0  ):
-        """Initializes the grid to span the space starting at minCorner,
-        extending size amount in each direction with resolution cells
-        domainX is a Vector2 storing range of value x from user.
-        domainX[0] stores min value and domainX[1] stores max value.
-        domainY is a similar to domainX but in y-axis"""
-        AbstractGrid.__init__( self, minCorner, size, resolution )
-        self.initVal = initVal
-        self.clear()
-        self.domainX = domainX
-        self.domainY = domainY
-
-    def getCenters( self ):
-        '''Return NxNx2 array of the world positions of each cell center'''
-        firstCenter = self.minCorner + self.cellSize * 0.5
-        x = np.arange( self.resolution.x ) * self.cellSize.x + firstCenter.x
-        y = np.arange( self.resolution.y ) * self.cellSize.y + firstCenter.y
-        X, Y = np.meshgrid( x, y )
-        return np.dstack( (X,Y) )
-        
-       
+    
     def __str__( self ):
         s = 'Grid'
         for row in range( self.resolution[1] - 1, -1, -1 ):
@@ -109,7 +63,6 @@ class Grid( AbstractGrid ):
 
     def maxVal( self ):
         """Returns the maximum value of the grid"""
-##        print "Max" + str(self.cells.max())
         return self.cells.max()
 
     def minVal( self ):
@@ -123,6 +76,29 @@ class Grid( AbstractGrid ):
             self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=np.float32 )
         else:
             self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=np.float32 ) + self.initVal
+
+class DataGrid( AbstractGrid) :
+    """A Class to stroe information in grid based structure (i.e the one in Voronoi class ) """
+    def __init__( self, minCorner, size, resolution, initVal=0.0 ):
+        AbstractGrid.__init__( self, minCorner, size, resolution )
+        self.initVal = initVal
+        self.clear()
+ 
+class Grid( AbstractGrid ):
+    """Class to discretize scalar field computation"""
+    def __init__( self, minCorner, size, resolution,
+                  domainX=Vector2(0.,3.2), domainY=Vector2(-6.,6.),
+                  initVal=0.0  ):
+        """Initializes the grid to span the space starting at minCorner,
+        extending size amount in each direction with resolution cells
+        domainX is a Vector2 storing range of value x from user.
+        domainX[0] stores min value and domainX[1] stores max value.
+        domainY is a similar to domainX but in y-axis"""
+        AbstractGrid.__init__( self, minCorner, size, resolution )
+        self.initVal = initVal
+        self.clear()
+        self.domainX = domainX
+        self.domainY = domainY
 
     def computeDistanceToWall( self, agent):
         agentPos = agent[:2,]
@@ -159,7 +135,7 @@ class Grid( AbstractGrid ):
     def rasterizePosition( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
         # splat the kernel centered at the grid which contain agents
-        if ((distFunc != FUNC_MAPS['variable-gaussian'])):
+        if ((distFunc != FUNCS_MAP['variable-gaussian'])):
             kernel = Kernel( maxRad, distFunc, self.cellSize )
             # This assumes the kernel dimensions are ODD-sized
             w, h = kernel.data.shape
@@ -167,13 +143,9 @@ class Grid( AbstractGrid ):
             h /= 2
             
         for agt in frame:
-            print type(frame)
-            print frame.shape[0]
-            print frame[0,:]
             pos = agt[:2,]
-            if (distFunc == FUNC_MAPS['variable-gaussian']):
-##                distWall = self.computeDistanceToWall(agt)
-##                print "distWall " + str(distWall)
+            if (distFunc == FUNCS_MAP['variable-gaussian']):
+                # Using variable Gaussian. Compute new radius for every agent
                 minRadius = self.computeClosestNeighbor(agt, frame)
                 if (minRadius < BUFFER_DIST):
                     minRadius = BUFFER_DIST
@@ -206,6 +178,7 @@ class Grid( AbstractGrid ):
                 t = self.resolution[1]
             try:
                 if ( l < r and b < t and kl < kr and kb < kt ):
+                    # Convolution
                     self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]
             except ValueError, e:
                 print "Value error!"
@@ -214,8 +187,7 @@ class Grid( AbstractGrid ):
                 print "\tKernel size:", kernel.data.shape
                 print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
                 raise e
-##        print self.cells[self.cells > 0].sum()
-##        print " "
+
 
     def rasterizePosition2( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
