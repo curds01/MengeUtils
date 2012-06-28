@@ -95,12 +95,18 @@ class GridFileSequence:
         rasterLogs = []
         for i in range( THREAD_COUNT ):
             rasterLogs.append( RasterReport() )
-            rasterThreads.append( threading.Thread( target=threadRasterize, args=( rasterLogs[-1], bufferLock, buffer,
-                                                                                   frameLock, frameSet,
-                                                                                   minCorner, size, resolution,
-                                                                                   distFunc, maxRad,
-                                                                                   self.domainX, self.domainY) )  )
-                
+            if (distFunc != FUNCS_MAP['vsquare']):
+                rasterThreads.append( threading.Thread( target=threadRasterize, args=( rasterLogs[-1], bufferLock, buffer,
+                                                                                       frameLock, frameSet,
+                                                                                       minCorner, size, resolution,
+                                                                                       distFunc, maxRad,
+                                                                                       self.domainX, self.domainY) )  )
+            else:
+                rasterThreads.append( threading.Thread( target=threadVoronoiRasterize, args=( rasterLogs[-1], bufferLock, buffer,
+                                                                                       frameLock, frameSet,
+                                                                                       minCorner, size, resolution,
+                                                                                       distFunc, maxRad,
+                                                                                       self.domainX, self.domainY) )  )
         for i in range( THREAD_COUNT ):
             rasterThreads[i].start()
         for i in range( THREAD_COUNT ):
