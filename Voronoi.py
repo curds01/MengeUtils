@@ -40,12 +40,12 @@ class Voronoi:
         if (frame.shape[0] != 0):
             centers = worldGrid.getCenters()
             # Calculate distance from agent[0] to eery cell in the grid
-            self.distGrid.cells[:,:] = self.distField( centers, frame[0,:] )
+            pos = frame[0,:]
+            self.distGrid.cells[:,:] = self.distField( centers, np.array((pos[0],pos[1])) )
             # if the distance is with in agent's radius then the cell belong to agent[0]
             region = self.distGrid.cells <= agentRadius
             # Assign the cell's owner to be agent[0]
             self.ownerGrid.cells[ region ] = 0
-
             for i in xrange( 1, frame.shape[0] ):
                 pos = frame[i, :]
                 workDist = self.distField( centers, pos )
@@ -59,34 +59,41 @@ class Voronoi:
         # Store density in each cell of Voronoi region using 1/A
         densityGrid = Grid( self.minCorner, self.size, self.resolution, initVal=0 )
         self.computeVoronoi( worldGrid, frame, agentRadius)
+        # Only for testing
+##        plt.imshow(  self.ownerGrid.cells[::-1, :] )
+##        plt.show()
+        
         for i in xrange( 0, frame.shape[0] ):
             areaMask = self.ownerGrid.cells == i
             area = areaMask.sum()
             densityGrid.cells[areaMask] = 1./area
+            print "area " + str(area)
+            print "den " + str(1./area)
         return densityGrid
 
 def main():
     MIN_CORNER = Vector2(-5.0, -5.0)
     SIZE = Vector2(10.0, 10.0)
-    RES = Vector2(321,1201)
+    RES = Vector2(11,15)
 
     worldGrid = Grid( MIN_CORNER, SIZE, RES, Vector2(0,3.2), Vector2(-6,6), 1000.0 )
 
-    frame = np.array( ( (0, 0),
-                        (-3, 0),
-                         ( 1, 4 ),
-                         ( 2.5, -1 ),
-                         (-2, 1),
-                         (3,3),
-                         (4.5, -4.5)
-                     )
-                   )
+##    frame = np.array( ( (0, 0),
+##                        (-0.3, 0),
+##                         ( 1, 4 ),
+##                         ( 2.5, -1 ),
+##                         (-2, 1),
+##                         (3,3),
+##                         (4.5, -4.5)
+##                     )
+##                   )
+    frame = np.array( ( (0.339322, 4.76095009)) )
 
     agentRadius = 1.0
     v = Voronoi( MIN_CORNER,SIZE, RES )
     v.computeVoronoiDensity( worldGrid, frame, agentRadius )
-    plt.imshow(  v.ownerGrid.cells[::-1, :] )
-    plt.show()
+##    plt.imshow(  v.ownerGrid.cells[::-1, :] )
+##    plt.show()
     
 if __name__ == '__main__':
     main()
