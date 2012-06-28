@@ -51,17 +51,19 @@ def variableGaussianFunc( dispX, dispY, radiusSqd ):
     """ Density Estimation  using gaussian function with varied radius"""
     # Have to be seperated from normal Gaussian for function pointer testing in Kernel and Grid file
     return np.exp( -(dispX * dispX + dispY * dispY) / (2.0 * radiusSqd * LAMBDA_SQRD ) ) / ( 2.0 * np.pi *
-                                                                               radiusSqd * LAMBDA_SQRD )
+                                                                radiusSqd * LAMBDA_SQRD )
 
 UNIFORM = lambda X, Y, R: uniformFunc( X, Y, R ) 
 GAUSS   = lambda X, Y, R: gaussianFunc( X, Y, R * R )
 LINEAR  = lambda X, Y, R: linearFunc( X, Y, R )
 BIWEIGHT = lambda X, Y,R: biweightFunc( X, Y, R )
 VARGAUSS = lambda X, Y,R: variableGaussianFunc( X, Y, R * R)
+VSQUARE = lambda X, Y, R: uniformFunc( X, Y, R) * 2
 
-FUNC_MAPS = { "uniform": UNIFORM,
+FUNCS_MAP = { "uniform": UNIFORM,
               "gaussian": GAUSS,
               "variable-gaussian":VARGAUSS,
               "linear": LINEAR,
-              "biweight": BIWEIGHT
+              "biweight": BIWEIGHT,
+              "vsquare": VSQUARE
               }
