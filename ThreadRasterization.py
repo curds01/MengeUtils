@@ -64,7 +64,7 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
         # Compute density based on Voronoi region
         densityGrid = vRegion.computeVoronoiDensity( g, frame ) # Default agent radius is 1
         # Perform Function convolution
-        densityGrid.rasterizePosition( frame, distFunc, maxRad )
+        densityGrid.rasterizeVoronoiDensity( frame, distFunc, maxRad )
 ##        g.rasterizePosition( frame, distFunc, maxRad )
         # update log
         log.setMax( g.maxVal() )  # TODO :: FIX THIS PROBLEM
