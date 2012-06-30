@@ -62,16 +62,16 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
         g = Grid( minCorner, size, resolution, domainX, domainY )
         vRegion = Voronoi( minCorner, size, resolution )
         # Compute density based on Voronoi region
-        densityGrid = vRegion.computeVoronoiDensity( g, frame ) # Default agent radius is 1
+        densityRegion = vRegion.computeVoronoiDensity( g, frame ) # Default agent radius is 1
         # Perform Function convolution
-        densityGrid.rasterizeVoronoiDensity( frame, distFunc, maxRad )
+        densityGrid = densityRegion.rasterizeVoronoiDensity( frame, distFunc, maxRad )
 ##        g.rasterizePosition( frame, distFunc, maxRad )
         # update log
-        log.setMax( g.maxVal() )  # TODO :: FIX THIS PROBLEM
+        log.setMax( densityGrid.maxVal() ) # vRegion.ownerGrid.maxVal() )  # TODO :: FIX THIS PROBLEM
         log.incCount()
         # put into buffer
         bufferLock.acquire()
-        buffer.append( BufferGrid(index, g ) )
+        buffer.append( BufferGrid( index, densityGrid ) )
         bufferLock.release()
 ##        # acquire next frame
 ##        frameLock.acquire()

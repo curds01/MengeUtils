@@ -31,17 +31,15 @@ class AbstractGrid:
     def getCenters( self ):
         '''Return NxNx2 array of the world positions of each cell center'''
         firstCenter = self.minCorner + self.cellSize * 0.5
-        x = np.arange( self.resolution.x ) * self.cellSize.x + firstCenter.x
-        y = np.arange( self.resolution.y ) * self.cellSize.y + firstCenter.y
-
-        # To be used for constructing shape in meshgrid 
-        xShape = np.empty( x.shape[0] )
-        yShape = np.empty( y.shape[0] )
-        _, X = np.meshgrid( yShape, x) 
-        Y, _ = np.meshgrid( y,xShape )
-##        X,Y = np.meshgrid( x,y )
+        resolution = self.resolution.y
+        if (self.resolution.x > self.resolution.y):
+            resolution = self.resolution.x
+        x = np.arange( resolution ) * self.cellSize.x + firstCenter.x
+        y = np.arange( resolution ) * self.cellSize.y + firstCenter.y
+        X, Y = np.meshgrid( y,x ) 
         stack = np.dstack( (X,Y) )
-##        print stack
+        # Truncate the stack down
+        stack = stack[0:self.resolution.x:1,0:self.resolution.y:1,:]
         return stack
     
     def __str__( self ):
@@ -540,7 +538,7 @@ class Grid( AbstractGrid ):
                 kl -= l
                 l = 0
             if ( b < 0 ):
-                kb -= b
+                kb -= bvRe
                 b = 0
             if ( r >= self.resolution[0] ):
                 kr -= r - self.resolution[0]
@@ -554,7 +552,7 @@ class Grid( AbstractGrid ):
         #self.cells = np.sqrt( X * X + Y * Y )
 
     def rasterizeVoronoiDensity( self, frame, distFunc, maxRad ):
-        result = Grid( self.minCorner, self.size, self.resolution, initVal=0 )
+        densityGrid = Grid( self.minCorner, self.size, self.resolution, initVal=0.0 )
         """ Function to convolute kernel over the density computed using Voronoi"""
         kernel = Kernel( maxRad, distFunc, self.cellSize )
         # This assume the kernel dimensions are ODD-sized
@@ -590,16 +588,21 @@ class Grid( AbstractGrid ):
                     # Convolution self.cells store density valued calculated based on Voronoi region
                     # if self.cells[i,j] is 0 then the multiplication will result in 0
                     density = (self.cells[ l:r, b:t ] * kernel.data[ kl:kr, kb:kt ])
-                    print density
+##                    print self.cells[ l:r, b:t ]
+##                    print (density > 0)
                     print "sum " + str (density.sum())
-##                    result.cells[ l:r, b:t ] = self.cells[ l:r, b:t ] * kernel.data[ kl:kr, kb:kt ]
+                    print "Kernel size " + str(kernel.data.size)
+                    density = (density.sum())/(1.)
+                    print "density " + str(density)
+                    densityGrid.cells[ l:r, b:t ] += density
             except ValueError, e:
                 print "Value error!"
                 print "\tAgent at", center
                 print "\tGrid resolution:", self.resolution
                 print "\tKernel size:", kernel.data.shape
                 print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
-                raise e         
+                raise e
+        return densityGrid
 
     def surface( self, map, minVal, maxVal ):
         """Creates a pygame surface"""
