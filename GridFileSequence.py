@@ -69,7 +69,6 @@ class GridFileSequence:
         The dimensions of the rasterized grid are determined by: minCorner, size, resolution.
         The rendered colors are then output via the colorMap and fileBase name.
         """
-
         renderTraces( minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase )
 
     def computeDensity( self, minCorner, size, resolution, distFunc, maxRad, frameSet ):
@@ -434,6 +433,8 @@ class GridFileSequence:
             for i in range( count ):
                 data = f.read( gridSize )
                 g.setFromBinary( data )
+##                print "minVal " + str(minVal)
+##                print "maxVal " + str(maxVal)
                 s = g.surface( colorMap, minVal, maxVal )
 ##                print "i : " + str(i)
                 pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
