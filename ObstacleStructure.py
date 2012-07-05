@@ -9,6 +9,9 @@ class ObstacleStructure:
     def findIntersectObject( self, lineSegment ):
         raise NotImplementedError( "Not Yet Implement" )
 
+    def __len__( self ):
+        raise NotImpelementedError( "Not Yet Implement" )
+
     def lineIntersectionTest( self, line1, line2 ):
         """ A function to perform lin intersection test in 2D
         @ param line1: a list of 2 points: starting and ending points (line1[0] is starting, line1[1] is ending)
