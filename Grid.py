@@ -559,50 +559,48 @@ class Grid( AbstractGrid ):
         w, h = kernel.data.shape
         w /= 2
         h /= 2
-
-        for agt in frame:
-            # Convolute box kernel centered at the agent position
-            pos = agt[:2,]
-            center = self.getCenter( Vector2(pos[0], pos[1] ) )
-            l = center[0] - w
-            r = center[0] + w + 1
-            b = center[1] - h
-            t = center[1] + h + 1
-            kl = 0
-            kb = 0
-            kr, kt = kernel.data.shape
-            if ( l < 0 ):
-                kl -= l
-                l = 0
-            if ( b < 0 ):
-                kb -= b
-                b = 0
-            if ( r >= self.resolution[0] ):
-                kr -= r - self.resolution[0]
-                r = self.resolution[0]
-            if ( t >= self.resolution[1] ):
-                kt -= t - self.resolution[1]
-                t = self.resolution[1]
-            try:
-                if ( l < r and b < t and kl < kr and kb < kt ):
-                    # Convolution self.cells store density valued calculated based on Voronoi region
-                    # if self.cells[i,j] is 0 then the multiplication will result in 0
-                    density = (self.cells[ l:r, b:t ] * kernel.data[ kl:kr, kb:kt ])
-##                    print self.cells[ l:r, b:t ]
-##                    print (density > 0)
-                    print "sum " + str (density.sum())
-                    print "Kernel size " + str(kernel.data.size)
-                    density = (density.sum())/(1.)
-                    print "density " + str(density)
-                    densityGrid.cells[ l:r, b:t ] += density
-            except ValueError, e:
-                print "Value error!"
-                print "\tAgent at", center
-                print "\tGrid resolution:", self.resolution
-                print "\tKernel size:", kernel.data.shape
-                print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
-                raise e
+        
+        densityGrid = Grid( self.minCorner, self.size, self.resolution, initVal=0.0 )      
+        kernelArea = math.sqrt( maxRad * maxRad )
+        for i in xrange( 0, self.cells.shape[0] ):  # Range from 0 to 120
+            for j in xrange( 0, self.cells.shape[1] ):
+                l = i - w
+                r = i + w + 1
+                b = j - h
+                t = j + h + 1
+                kl = 0
+                kb = 0
+                kr, kt = kernel.data.shape
+                if ( l < 0 ):
+                    kl -= l
+                    l = 0
+                if ( b < 0 ):
+                    kb -= b
+                    b = 0
+                if ( r >= self.resolution[0] ):
+                    kr -= r - self.resolution[0]
+                    r = self.resolution[0]
+                if ( t >= self.resolution[1] ):
+                    kt -= t - self.resolution[1]
+                    t = self.resolution[1]
+                try:
+                    if ( l < r and b < t and kl < kr and kb < kt ):
+                        # Convolution self.cells store density valued calculated based on Voronoi region
+                        # if self.cells[i,j] is 0 then the multiplication will result in 0
+                        density = (self.cells[ l:r, b:t ] * kernel.data[ kl:kr, kb:kt ])
+                        density = (density.sum())/(1.)
+                        densityGrid.cells[i, j] += density
+                except ValueError, e:
+                    print "Value error!"
+                    print "\tAgent at", center
+                    print "\tGrid resolution:", self.resolution
+                    print "\tKernel size:", kernel.data.shape
+                    print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
+                    raise e
         return densityGrid
+                
+            
+                
 
     def surface( self, map, minVal, maxVal ):
         """Creates a pygame surface"""
