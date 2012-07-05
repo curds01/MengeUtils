@@ -13,3 +13,6 @@ class ObstacleList( ObstacleStructure ):
             if len(intersectPts) > 0:
                 return intersectPts
         return []
+
+    def __len__( self ):
+        return len( self.data )
