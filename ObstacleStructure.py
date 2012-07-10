@@ -1,4 +1,5 @@
 import IncludeHeader
+import math
 from primitives import Vector2
 
 class ObstacleStructure:
@@ -9,8 +10,12 @@ class ObstacleStructure:
     def findIntersectObject( self, lineSegment ):
         raise NotImplementedError( "Not Yet Implement" )
 
+    def findClosestObject( self, point ):
+        raise NotImplementedError( "Not Yet Implement" )
+
     def __len__( self ):
         raise NotImpelementedError( "Not Yet Implement" )
+
 
     def lineIntersectionTest( self, line1, line2 ):
         """ A function to perform lin intersection test in 2D
@@ -44,6 +49,23 @@ class ObstacleStructure:
             intersectX = x1 + ua * ( x2 - x1 )
             intersectY = y1 + ua * ( y2 - y1 )
             intersectPt = Vector2( intersectX, intersectY )
-            print intersectPt
-            return [intersectPt]
-        return []
+            return intersectPt
+        return None
+
+    def shortestDistancePointLine( self, line, point ):
+        """ Find the shortest distance between given line and point
+        @param line: line segment described by two points
+        @param point: Vector of 2 of point in space
+        @return if return shortest distance between point and line
+            else return -1 if the line and point are coincident"""
+        disp = line.p2 - line.p1
+        distSqd = disp.lengthSquared()
+        if distSqd == 0:
+            return -1.0
+        numerator = ( point[0] - line.p1[0]) * ( line.p2[0] - line.p1[0] ) + ( point[1] - line.p1[1] ) * ( line.p2[1] - line.p1[1] )
+        u = numerator/distSqd
+        # compute closest point on the line from the given point
+        x = line.p1[0] + u * ( line.p2[0] - line.p1[0] )
+        y = line.p1[1] + u * ( line.p2[1] - line.p1[1] )
+        disp = ( point[0] - x ) * ( point[0] - x ) + ( point[1] - y ) * ( point[1] - y )
+        return math.sqrt(disp)

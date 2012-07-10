@@ -4,9 +4,11 @@ import numpy as np
 import math
 import random
 from Kernels import *
-from primitives import Vector2
+from primitives import Vector2, Segment
+from ObstacleHandler import *
 
 BUFFER_DIST = 0.46  # Based on Proxemics for Close Perosnal Distance
+MAX_DIST = 10000
 
 class AbstractGrid:
     '''A class to index into an abstract grid'''
@@ -18,7 +20,8 @@ class AbstractGrid:
         self.cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )  
 
     def getCenter( self, position ):
-        """Returns the closest cell center to this position"""
+        """Returns the closest cell center to this position
+        The result is in the discretized world grid"""
         # offset in euclidian space
         offset = position - self.minCorner
         # offset in cell sizes
@@ -27,6 +30,13 @@ class AbstractGrid:
         x = int( ofX )
         y = int( ofY )
         return x, y
+
+class DataGrid( AbstractGrid) :
+    """A Class to stroe information in grid based structure (i.e the one in Voronoi class ) """
+    def __init__( self, minCorner, size, resolution, initVal=0.0, arrayType=np.float32 ):
+        AbstractGrid.__init__( self, minCorner, size, resolution )
+        self.initVal = initVal
+        self.clear( arrayType )
 
     def getCenters( self ):
         '''Return NxNx2 array of the world positions of each cell center'''
@@ -75,26 +85,19 @@ class AbstractGrid:
         """Returns the maximum value of the grid"""
         return self.cells.min()
 
-    def clear( self ):
+    def clear( self, arrayType=np.float32 ):
         # Cells are a 2D array accessible with (x, y) values
         #   x = column, y = row
         if ( self.initVal == 0 ):
-            self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=np.float32 )
+            self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=arrayType )
         else:
-            self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=np.float32 ) + self.initVal
+            self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=arrayType ) + self.initVal
 
-class DataGrid( AbstractGrid) :
-    """A Class to stroe information in grid based structure (i.e the one in Voronoi class ) """
-    def __init__( self, minCorner, size, resolution, initVal=0.0 ):
-        AbstractGrid.__init__( self, minCorner, size, resolution )
-        self.initVal = initVal
-        self.clear()
-
-class Grid( AbstractGrid ):
+class Grid( DataGrid ):
     """Class to discretize scalar field computation"""
     def __init__( self, minCorner, size, resolution,
                   domainX=Vector2(0.,3.2), domainY=Vector2(-6.,6.),
-                  initVal=0.0  ):
+                  initVal=0.0 ):
         """Initializes the grid to span the space starting at minCorner,
         extending size amount in each direction with resolution cells
         domainX is a Vector2 storing range of value x from user.
@@ -102,28 +105,18 @@ class Grid( AbstractGrid ):
         domainY is a similar to domainX but in y-axis"""
         AbstractGrid.__init__( self, minCorner, size, resolution )
         self.initVal = initVal
-        self.clear()
+        self.clear( np.float32 )
         self.domainX = domainX
         self.domainY = domainY
-
-    def computeDistanceToWall( self, agent):
-        agentPos = agent[:2,]
-        # calculate the distance to wall
-        distMinY = math.fabs(agentPos[1] - self.domainY[0])
-        distMaxY = math.fabs(agentPos[1] - self.domainY[1])
-        distMinX = math.fabs(agentPos[0] - self.domainX[0])
-        distMaxX = math.fabs(agentPos[0] - self.domainX[1])
-        return np.min([distMinX,distMaxX])
 
     def computeClosestNeighbor( self, agent, frame ):
         '''compute distance from current agent to every other. Running in O(n^2) as
             we checking one against all others'''
         agentPos = agent[:2,]
         minDist = 1000.
-        distWall = self.computeDistanceToWall(agent)
         if (frame.shape[0] == 1):
             # Distance to the closet boundary
-            return distWall
+            return MAX_DIST
         for agt in frame:
             agtPos = agt[:2,]
             if (agentPos[0] == agtPos[0] and  agentPos[1] == agtPos[1]):
@@ -135,10 +128,9 @@ class Grid( AbstractGrid ):
             localMin = np.sum(diff * diff, axis=0)
             if (localMin < minDist):
                 minDist = localMin
-        minDist = math.sqrt(minDist)
-        return np.min([distWall, minDist])
+        return math.sqrt(minDist)
 
-    def rasterizePosition( self, frame, distFunc, maxRad ):
+    def rasterizePosition( self, frame, distFunc, maxRad, obstacles=None ):
         """Given a frame of agents, rasterizes the whole frame"""
         # splat the kernel centered at the grid which contain agents
         if ((distFunc != FUNCS_MAP['variable-gaussian'])):
@@ -152,7 +144,16 @@ class Grid( AbstractGrid ):
             pos = agt[:2,]
             if (distFunc == FUNCS_MAP['variable-gaussian']):
                 # Using variable Gaussian. Compute new radius for every agent
-                minRadius = self.computeClosestNeighbor(agt, frame)
+                if obstacles is not None:
+                    #distance to closest obstacle
+                    distObst = obstacles.findClosestObject( Vector2(pos[0], pos[1]) )
+                #distance to closest neighbor
+                distNei = self.computeClosestNeighbor(agt, frame)
+                # minRadius is the smallest distance to either obstacle or neighbor
+                if (distObst < distNei):
+                    minRadius = distObst
+                else:
+                    minRadius = distNei
                 if (minRadius < BUFFER_DIST):
                     minRadius = BUFFER_DIST
                 kernel = Kernel( minRadius, distFunc, self.cellSize )
@@ -557,12 +558,14 @@ class Grid( AbstractGrid ):
         kernel = Kernel( maxRad, distFunc, self.cellSize )
         # This assume the kernel dimensions are ODD-sized
         w, h = kernel.data.shape
+        area = w * h
         w /= 2
         h /= 2
         
         densityGrid = Grid( self.minCorner, self.size, self.resolution, initVal=0.0 )      
         kernelArea = math.sqrt( maxRad * maxRad )
-        for i in xrange( 0, self.cells.shape[0] ):  # Range from 0 to 120
+        # Independently convolute
+        for i in xrange( 0, self.cells.shape[0] ):  
             for j in xrange( 0, self.cells.shape[1] ):
                 l = i - w
                 r = i + w + 1
@@ -584,10 +587,11 @@ class Grid( AbstractGrid ):
                     kt -= t - self.resolution[1]
                     t = self.resolution[1]
                 try:
-                    if ( l < r and b < t and kl < kr and kb < kt ):
+##                    if ( l < r and b < t and kl < kr and kb < kt ):
+                    if ( l < r and b < t and kl < kr ):
                         # Convolution self.cells store density valued calculated based on Voronoi region
                         # if self.cells[i,j] is 0 then the multiplication will result in 0
-                        density = (self.cells[ l:r, b:t ] * kernel.data[ kl:kr, kb:kt ])
+                        density = (self.cells[ l:r, b:t ] * kernel.data[ kl:kr, 0:1 ])
                         density = (density.sum())/(1.)
                         densityGrid.cells[i, j] += density
                 except ValueError, e:
@@ -597,10 +601,44 @@ class Grid( AbstractGrid ):
                     print "\tKernel size:", kernel.data.shape
                     print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
                     raise e
-        return densityGrid
-                
-            
-                
+        # Independently convolute
+        for i in xrange( 0, self.cells.shape[0] ):  
+            for j in xrange( 0, self.cells.shape[1] ):
+                l = i - w
+                r = i + w + 1
+                b = j - h
+                t = j + h + 1
+                kl = 0
+                kb = 0
+                kr, kt = kernel.data.shape
+                if ( l < 0 ):
+                    kl -= l
+                    l = 0
+                if ( b < 0 ):
+                    kb -= b
+                    b = 0
+                if ( r >= self.resolution[0] ):
+                    kr -= r - self.resolution[0]
+                    r = self.resolution[0]
+                if ( t >= self.resolution[1] ):
+                    kt -= t - self.resolution[1]
+                    t = self.resolution[1]
+                try:
+##                    if ( l < r and b < t and kl < kr and kb < kt ):
+                    if ( l < r and b < t and kb < kt ):
+                        # Convolution self.cells store density valued calculated based on Voronoi region
+                        # if self.cells[i,j] is 0 then the multiplication will result in 0
+                        density = (self.cells[ l:r, b:t ] * kernel.data[ 0:1, kb:kt ])
+                        density = (density.sum())/(1.)
+                        densityGrid.cells[i, j] += density
+                except ValueError, e:
+                    print "Value error!"
+                    print "\tAgent at", center
+                    print "\tGrid resolution:", self.resolution
+                    print "\tKernel size:", kernel.data.shape
+                    print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
+                    raise e
+        return densityGrid    
 
     def surface( self, map, minVal, maxVal ):
         """Creates a pygame surface"""

@@ -54,12 +54,15 @@ class GridFileSequence:
     NORM_CONTRIB_SPEED = 4 # distribute speed with normalized gaussian and then divide by contribution matrix
     LAPLACE_SPEED = 5   # compute the magnitude of the laplacian of the velocity field
     
-    def __init__( self, outFileName, domainX, domainY ):
-        """ domainX is a Vector2 storing range of value x from user. domainX[0] stores min value and domainX[1] stores max value.
-            domainY is a similar to domainX but in y-axis"""
+    def __init__( self, outFileName, domainX, domainY, obstacles=None ):
+        """@param domainX is a Vector2 storing range of value x from user. domainX[0] stores min value and domainX[1] stores max value.
+           @param domainY is a similar to domainX but in y-axis
+           @param obstacle is a obstalceHandler object which provides interface to find intersection for the underlining
+                   with every objects in the scene"""
         self.outFileName = outFileName
         self.domainX = domainX
         self.domainY = domainY
+        self.obstacles = obstacles
 
     def renderTraces( self, minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase ):
         """Creates a sequence of images of the traces of the agents.
@@ -75,7 +78,7 @@ class GridFileSequence:
         '''Creates a binary file representing the density scalar fields of each frame'''
         global ACTIVE_RASTER_THREADS
 
-        THREAD_COUNT = 1
+        THREAD_COUNT = 7
         # file output
         outFile = open( self.outFileName + '.density', 'wb' )
         outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
@@ -99,13 +102,15 @@ class GridFileSequence:
                                                                                        frameLock, frameSet,
                                                                                        minCorner, size, resolution,
                                                                                        distFunc, maxRad,
-                                                                                       self.domainX, self.domainY) )  )
+                                                                                       self.domainX, self.domainY, self.obstacles
+                                                                                       ) )  )
             else:
                 rasterThreads.append( threading.Thread( target=threadVoronoiRasterize, args=( rasterLogs[-1], bufferLock, buffer,
                                                                                        frameLock, frameSet,
                                                                                        minCorner, size, resolution,
                                                                                        distFunc, maxRad,
-                                                                                       self.domainX, self.domainY) )  )
+                                                                                       self.domainX, self.domainY, self.obstacles
+                                                                                            ) )  )
         for i in range( THREAD_COUNT ):
             rasterThreads[i].start()
         for i in range( THREAD_COUNT ):
@@ -433,10 +438,7 @@ class GridFileSequence:
             for i in range( count ):
                 data = f.read( gridSize )
                 g.setFromBinary( data )
-##                print "minVal " + str(minVal)
-##                print "maxVal " + str(maxVal)
                 s = g.surface( colorMap, minVal, maxVal )
-##                print "i : " + str(i)
                 pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
             f.close()
 

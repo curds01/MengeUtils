@@ -2,3 +2,4 @@
 
 import sys, os
 sys.path.insert( 0, r'\Users\ksuvee\Documents\Density_project\objreader' )
+import numpy as np

@@ -1,5 +1,6 @@
 # The file contains data structure which is in form of the list of obstacles
 import IncludeHeader
+import numpy as np
 from ObstacleStructure import ObstacleStructure
 
 class ObstacleList( ObstacleStructure ):
@@ -10,9 +11,22 @@ class ObstacleList( ObstacleStructure ):
     def findIntersectObject( self, line2 ):
         for line in self.data:
             intersectPts = self.lineIntersectionTest( line, line2 )
-            if len(intersectPts) > 0:
+            if intersectPts is not None:
+##                print "line1 " + str(line)
+##                print "line2 " + str(line2)
+##                print intersectPts
+##                print " "
                 return intersectPts
-        return []
+        return None
 
+    def findClosestObject( self, point ):
+        minDist = 10000
+        for line in self.data:
+            dist = self.shortestDistancePointLine( line, point )
+            if (dist < minDist):
+                minDist = dist
+        return minDist
+                 
     def __len__( self ):
         return len( self.data )
+    

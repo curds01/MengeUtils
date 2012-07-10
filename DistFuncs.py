@@ -1,7 +1,7 @@
 import numpy as np
 
 AGENTRADIUS = 1.0
-LAMBDA = 0.5 # smoothing parameter in variable Gaussian
+LAMBDA = 1.0 # smoothing parameter in variable Gaussian
 LAMBDA_SQRD = LAMBDA * LAMBDA
 
 # Functions to estimate density used in Kernel class
