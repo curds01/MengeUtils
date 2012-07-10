@@ -33,22 +33,27 @@ class Voronoi:
         @returns an NxNx1 numpy array of the distances to testPoint.
         '''
        testPoint = startPt.reshape(1, 1, 2)
+       dist = np.ones( (r-l,t-b) ) * MAX_DIST
        if self.obstacles is not None:
            for x in xrange(l, r):
                for y in xrange(b, t):
                    endPt = points[x,y]
                    segment = Segment(Vector2(startPt[1], startPt[0]), Vector2(endPt[1], endPt[0]))
                    intersection = self.obstacles.findIntersectObject( segment )
-                   if intersection is not None:
-                       points[x,y] = MAX_DIST
+##                   if intersection is not None:
+##                       points[x,y] = MAX_DIST
+                   if intersection is None:
+                       disp = endPt - testPoint
+                       length = np.sqrt( np.sum( disp * disp, axis=2) )
+                       dist[x-l,y-b] = length
 ##                       print intersection
                    # Do line intersection with every object in the scene
                    # if there is intersection then the point is not part of the voronoi -> assign very large value
                    # else it is in the voronoi
                    
-       disp1 = points - testPoint
-       disp = points[l:r, b:t] - testPoint
-       dist = np.sqrt( np.sum( disp * disp, axis=2 ) )
+##       disp1 = points - testPoint
+##       disp = points[l:r, b:t] - testPoint
+##       dist = np.sqrt( np.sum( disp * disp, axis=2 ) )
        return dist
     
     def computeVoronoi( self, worldGrid, frame, agentRadius=1.0 ):
@@ -61,15 +66,13 @@ class Voronoi:
         # Size agent Radius in the grid space
         radiusW = agentRadius/worldGrid.cellSize[0]
         radiusH = agentRadius/worldGrid.cellSize[1]
-##        radiusW = agentRadius/self.cellSize[0]
-##        radiusH = agentRadius/self.cellSize[1]
         if (radiusW % 2 == 0):
             radiusW += 1
         if (radiusH % 2 == 0):
             radiusH += 1
         if (frame.shape[0] != 0):
             centers = worldGrid.getCenters()
-            # Calculate distance from agent[0] to every cell in the grid
+            # Calculate distance from agent[0] to every cell  in the grid
             pos = frame[0,:]
             # Find the index of the potential Voronoi Region
             posCenter = worldGrid.getCenter( Vector2(pos[0], pos[1]) )
@@ -89,7 +92,9 @@ class Voronoi:
             # Swapping the x,y to map the with the color
 ##            self.distGrid.cells = self.distField( centers, np.array((pos[1],pos[0])) )
             # we have to swap the x,y in the np.array becasue the getcenters return swaping coordinate due to meshgrid
+            print "center sum " + str(centers.sum())
             self.distGrid.cells[l:r,b:t] = self.distField( centers, np.array((pos[1],pos[0])), l, r, b, t )
+            print "center sum " + str(centers.sum())
             # if the distance is with in agent's radius then the cell belong to agent[0]
             region = self.distGrid.cells <= agentRadius
             # region = self.distGrid.cells[l:r,b:t] <= agentRadius
@@ -119,8 +124,15 @@ class Voronoi:
                 self.ownerGrid.cells[ region ] = i
                 workDist[l:r,b:t] = MAX_DIST
                 
-    def computeVoronoiDensity( self, worldGrid, frame, agentRadius=1 ):
-        ''' Compute Voronoi region for each agent and then calculate density in that region'''
+    def computeVoronoiDensity( self, worldGrid, frame, orgMinCorner, orgSize, orgResolution,
+                              orgDomainX, orgDomainY, paddingSize, agentRadius=1 ):
+        ''' Compute Voronoi region for each agent and then calculate density in that region
+        @param orgMinCorner is the bottom left corner before we add padding for Voronoi calculation
+        @param orgSize is the size before we add padding for Voronoi calculation
+        @param orgResolution is the resolution before we add padding for Voronoi calculation
+        @param orgDomainX is the domain in x before we add padding for Voronoi calculation
+        @param orgDomainY is the domain in y corner before we add padding for Voronoi calculation
+        @param paddingSize is the Vector2 of pad size added for Voronoi calculation'''
         # Compute Voronoi region for current frame
         # Store density in each cell of Voronoi region using 1/A
         densityGrid = Grid( self.minCorner, self.size, self.resolution, initVal=0 )
@@ -129,6 +141,17 @@ class Voronoi:
             areaMask = self.ownerGrid.cells == i
             area = areaMask.sum()
             densityGrid.cells[areaMask] = (1./area)
+        densityGrid.minCorner = orgMinCorner
+        densityGrid.size = orgSize
+        densityGrid.resolution = orgResolution
+        temp = densityGrid.cells
+##        print paddingSize
+        xStart = paddingSize[0]
+        xEnd = xStart + orgResolution[0]
+        yStart = paddingSize[1]
+        yEnd = yStart + orgResolution[1]
+        densityGrid.cells = np.resize(temp,(orgResolution[0],orgResolution[1]))
+        densityGrid.cells[0:orgResolution[0],0:orgResolution[1]] = temp[xStart:xEnd,yStart:yEnd]
         return densityGrid
 
 def main():
