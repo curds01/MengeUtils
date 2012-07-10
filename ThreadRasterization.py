@@ -70,15 +70,6 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
         vMinCorner = Vector2( vDomainX[0], vDomainY[0])
         vSize = Vector2( vDomainX[1], vDomainY[1]) - vMinCorner
         vRes = Vector2( int(vSize.x/vxCell), int(vSize.y/vyCell) )
-##        print "vMinCorner + minCorner"
-##        print vMinCorner
-##        print minCorner
-##        print "vSize + size"
-##        print vSize
-##        print size
-##        print "vRes + Res"
-##        print vRes
-##        print resolution
 ##        g = Grid( minCorner, size, resolution, domainX, domainY )
 ##        vRegion = Voronoi( minCorner, size, resolution, obstacles )
         g = Grid( vMinCorner, vSize, vRes, vDomainX, vDomainY )
@@ -89,18 +80,18 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
         # draw Voronoi diagram as image file
         filePath = r'\Users\ksuvee\Documents\Density_project\result'
         fileName = os.path.join( filePath, 'dense%s.png' % (index))
-        drawVoronoi.drawVoronoi( vRegion.ownerGrid.cells, fileName, obstacles, vRegion.ownerGrid)
+##        drawVoronoi.drawVoronoi( vRegion.ownerGrid.cells, fileName, obstacles, vRegion.ownerGrid)
         
-##        # Perform Function convolution
-##        densityGrid = densityRegion.rasterizeVoronoiDensity( frame, distFunc, maxRad )
+        # Perform Function convolution
+        densityGrid = densityRegion.rasterizeVoronoiDensity( frame, distFunc, maxRad )
                                  
-##        # update log
-##        log.setMax( densityGrid.maxVal() )  # TODO :: FIX THIS PROBLEM
-##        log.incCount()
-##        # put into buffer
-##        bufferLock.acquire()
-##        buffer.append( BufferGrid( index, densityGrid ) )
-##        bufferLock.release()
+        # update log
+        log.setMax( densityGrid.maxVal() )  # TODO :: FIX THIS PROBLEM
+        log.incCount()
+        # put into buffer
+        bufferLock.acquire()
+        buffer.append( BufferGrid( index, densityGrid ) )
+        bufferLock.release()
 ##        # acquire next frame
 ##        frameLock.acquire()
 ##        frame, index = frameSet.next()
