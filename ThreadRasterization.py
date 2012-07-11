@@ -78,10 +78,13 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
         densityRegion = vRegion.computeVoronoiDensity( g, frame, minCorner, size,
                                                        resolution, domainX, domainY, PADDING_SIZE ) # Default agent radius is 1
         # TESTING : draw Voronoi diagram as image file
-##        filePath = r'\Users\ksuvee\Documents\Density_project\result'
-##        fileName = os.path.join( filePath, 'dense%s.png' % (index))
+##        import os
+##        filePath = r'\Users\ksuvee\Documents\Density_project\VoronoiRegion'
+##        if ( not os.path.exists( filePath ) ):
+##            os.makedirs( filePath  )
+##        fileName = os.path.join( filePath, 'vRegion%s.png' % (index))
 ##        drawVoronoi.drawVoronoi( vRegion.ownerGrid.cells, fileName, obstacles, vRegion.ownerGrid)
-        
+
         # Perform Function convolution
         densityGrid = densityRegion.rasterizeVoronoiDensity( frame, distFunc, maxRad )
                                  
