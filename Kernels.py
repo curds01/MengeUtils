@@ -2,7 +2,7 @@
 # Uniform, Linear, Bi-weight, Gaussian (fixed and variable)
 
 import numpy as np
-from DistFuncs import FUNCS_MAP 
+from DistFuncs import *
 
 class Kernel:
     """Distance function kernel"""
