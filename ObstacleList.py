@@ -12,10 +12,6 @@ class ObstacleList( ObstacleStructure ):
         for line in self.data:
             intersectPts = self.lineIntersectionTest( line, line2 )
             if intersectPts is not None:
-##                print "line1 " + str(line)
-##                print "line2 " + str(line2)
-##                print intersectPts
-##                print " "
                 return intersectPts
         return None
 
