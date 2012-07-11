@@ -298,11 +298,11 @@ class RedBlueMap( ColorMap ):
         return pygame.surfarray.make_surface( color[:,::-1,:] )
 
 # a dictionary from available color map namess to color map classes
-COLOR_MAPS = { "Grey scale":GreyScaleMap,
-               "Black body":BlackBodyMap,
-               "Flame":FlameMap,
-               "Log Black body":LogBlackBodyMap,
-               "Red Blue":RedBlueMap
+COLOR_MAPS = { "Grey scale":GreyScaleMap(),
+               "Black body":BlackBodyMap(),
+               "Flame":FlameMap(),
+               "Log Black body":LogBlackBodyMap(),
+               "Red Blue":RedBlueMap()
                }
 
             
