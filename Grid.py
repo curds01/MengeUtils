@@ -3,7 +3,8 @@
 import numpy as np
 import math
 import random
-from Kernels import *
+from DistFuncs import FUNCS_MAP
+from Kernels import Kernel, Kernel2
 from primitives import Vector2, Segment
 from ObstacleHandler import *
 
