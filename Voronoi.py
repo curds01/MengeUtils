@@ -4,7 +4,7 @@ from primitives import Vector2, Segment
 from ObstacleStructure import *
 import pylab as plt
 import drawVoronoi
-##from ObjectHandler import *
+
 MAX_DIST = 1000.0
 
 class Voronoi:
@@ -33,24 +33,21 @@ class Voronoi:
         @returns an NxNx1 numpy array of the distances to testPoint.
         '''
        testPoint = startPt.reshape(1, 1, 2)
+       # Create a grid to store distance from cell (i,j) center to the agent position
+       # by default every cells are "infinitely" far away
        dist = np.ones( (r-l,t-b) ) * MAX_DIST
        if self.obstacles is not None:
            for x in xrange(l, r):
                for y in xrange(b, t):
                    endPt = points[x,y]
+                   # Swap the coordinate back to original one to do intersection test
                    segment = Segment(Vector2(startPt[1], startPt[0]), Vector2(endPt[1], endPt[0]))
                    intersection = self.obstacles.findIntersectObject( segment )
-##                   if intersection is not None:
-##                       points[x,y] = MAX_DIST
                    if intersection is None:
+                       # There is no intersect so the endPt belong to Voronoi Region
                        disp = endPt - testPoint
                        length = np.sqrt( np.sum( disp * disp, axis=2) )
-                       dist[x-l,y-b] = length
-##                       print intersection
-                   # Do line intersection with every object in the scene
-                   # if there is intersection then the point is not part of the voronoi -> assign very large value
-                   # else it is in the voronoi
-                   
+                       dist[ x-l,y-b ] = length
 ##       disp1 = points - testPoint
 ##       disp = points[l:r, b:t] - testPoint
 ##       dist = np.sqrt( np.sum( disp * disp, axis=2 ) )
@@ -74,7 +71,7 @@ class Voronoi:
             centers = worldGrid.getCenters()
             # Calculate distance from agent[0] to every cell  in the grid
             pos = frame[0,:]
-            # Find the index of the potential Voronoi Region
+            # Find the index of the potential Voronoi Region with in the agentRadius away from the agent position
             posCenter = worldGrid.getCenter( Vector2(pos[0], pos[1]) )
             l = int( posCenter[0] - radiusW )
             r = int( posCenter[0] + radiusW + 1 )
@@ -89,12 +86,9 @@ class Voronoi:
             if ( t >= self.resolution[1] ):
                 t = int( worldGrid.resolution[1] )
                 
-            # Swapping the x,y to map the with the color
+            # We have to swap the x,y in the np.array becasue the getcenters return swaping coordinate due to meshgrid function call
 ##            self.distGrid.cells = self.distField( centers, np.array((pos[1],pos[0])) )
-            # we have to swap the x,y in the np.array becasue the getcenters return swaping coordinate due to meshgrid
-            print "center sum " + str(centers.sum())
             self.distGrid.cells[l:r,b:t] = self.distField( centers, np.array((pos[1],pos[0])), l, r, b, t )
-            print "center sum " + str(centers.sum())
             # if the distance is with in agent's radius then the cell belong to agent[0]
             region = self.distGrid.cells <= agentRadius
             # region = self.distGrid.cells[l:r,b:t] <= agentRadius
@@ -119,7 +113,6 @@ class Voronoi:
 ##                workDist = self.distField( centers, np.array((pos[1],pos[0])) )
                 workDist[l:r,b:t] = self.distField( centers, np.array((pos[1],pos[0])), l, r, b, t )
                 region = (self.distGrid.cells > workDist) & (workDist <= agentRadius)
-##                region = (self.distGrid.cells > workDist) & (workDist <= agentRadius)
                 self.distGrid.cells[ region ] = workDist[region]
                 self.ownerGrid.cells[ region ] = i
                 workDist[l:r,b:t] = MAX_DIST
@@ -145,7 +138,6 @@ class Voronoi:
         densityGrid.size = orgSize
         densityGrid.resolution = orgResolution
         temp = densityGrid.cells
-##        print paddingSize
         xStart = paddingSize[0]
         xEnd = xStart + orgResolution[0]
         yStart = paddingSize[1]
@@ -179,9 +171,6 @@ def main():
     v = Voronoi( MIN_CORNER,SIZE, RES )
     v.computeVoronoiDensity( worldGrid, frame, agentRadius )
     drawVoronoi.drawVoronoi( v.ownerGrid.cells, "Voronoi_test.png", obst, v.ownerGrid ) 
-                             
-    plt.imshow(  v.ownerGrid.cells[::-1, :] )
-    plt.show()
 
 if __name__ == '__main__':
     main()
