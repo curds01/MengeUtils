@@ -35,7 +35,8 @@ def drawVoronoi( data, fileName, obstacles=None, grid=None ):
     surf = pg.surfarray.make_surface( color[:, ::-1, : ] )
     if (obstacles and grid):
         for seg in obstacles.structure.data:
-            # Due to the fact taht obstacles space and agent space are 
+            # Have to changet the coordinate between position of agent and obstacles
+            # obstacle increase as moving down y-axis position decrease as moving down y-axis
             sta = Vector2(seg.p1[0], -seg.p1[1])
             end = Vector2(seg.p2[0], -seg.p2[1])
             p0 = imgSpace( sta, grid )
