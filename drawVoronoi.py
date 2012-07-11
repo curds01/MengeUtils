@@ -42,13 +42,6 @@ def drawVoronoi( data, fileName, obstacles=None, grid=None ):
             p0 = imgSpace( sta, grid )
             p1 = imgSpace( end, grid )
             pg.draw.line( surf, OBST_COLOR, (p0[0],p0[1]), (p1[0], p1[1]), OBST_WIDTH )
-##            Original Implementation
-##    if ( obstacles and grid ):
-##        for obst in obstacles.polys:
-##            for seg in obst.segments:
-##                p0 = imgSpace( seg.p1, grid )
-##                p1 = imgSpace( seg.p2, grid )
-##                pg.draw.line( surf, OBST_COLOR, (p0[0], p0[1]), (p1[0], p1[1]), OBST_WIDTH )
     pg.image.save( surf, fileName )
 
 
