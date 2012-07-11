@@ -20,9 +20,6 @@ class ObjectHandler():
         segmentList = []
         for obstacle in obstacleSet.polys:
             for segment in obstacle.segments:
-                # Have to changet the coordinate between position of agent and obstacles
-                # obstacle increase as moving down y-axis position decrease as moving down y-axis
-##                segment = primitives.Segment( Vector2(s.p1[0],s.p1[1]*-1.0), Vector2(s.p2[0],s.p2[1] * -1.0) )
                 segmentList.append(segment)             
         if len(obstacleSet) > 15:
             print "Constructing KDTree"
