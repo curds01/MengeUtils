@@ -8,6 +8,7 @@ import time
 
 from Grid import *
 from primitives import Vector2
+from DistFuncs import FUNCS_MAP
 from ThreadRasterization import *
 
 
