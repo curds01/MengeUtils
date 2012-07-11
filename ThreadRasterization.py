@@ -35,7 +35,7 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet,
         g = Grid( minCorner, size, resolution, domainX, domainY )
         g.rasterizePosition( frame, distFunc, maxRad, obstacles )
         # update log
-        log.setMax( g.maxVal() )  # TODO :: FIX THIS PROBLEM
+        log.setMax( g.maxVal() )
         log.incCount()
         # put into buffer
         bufferLock.acquire()
@@ -52,7 +52,7 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
     while ( True ):
         vxCell = float(size.x)/resolution.x
         vyCell = float(size.y)/resolution.y
-        PADDING_RAD = 2.0
+        PADDING_RAD = 1.0
         PADDING_SIZE = Vector2( PADDING_RAD * 1./vxCell, PADDING_RAD * 1./vyCell )
         # create grid and rasterize
         # acquire frame
@@ -65,8 +65,8 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
             frameLock.release()
 
         # Calculate new size for Voronoi with padding
-        vDomainX = Vector2( domainX[0] - 2.0, domainX[1] + 2.0 )
-        vDomainY = Vector2( domainY[0] - 2.0, domainY[1] + 2.0 )
+        vDomainX = Vector2( domainX[0] - PADDING_RAD, domainX[1] + PADDING_RAD)
+        vDomainY = Vector2( domainY[0] - PADDING_RAD, domainY[1] + PADDING_RAD )
         vMinCorner = Vector2( vDomainX[0], vDomainY[0])
         vSize = Vector2( vDomainX[1], vDomainY[1]) - vMinCorner
         vRes = Vector2( int(vSize.x/vxCell), int(vSize.y/vyCell) )
@@ -78,15 +78,16 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
         densityRegion = vRegion.computeVoronoiDensity( g, frame, minCorner, size,
                                                        resolution, domainX, domainY, PADDING_SIZE ) # Default agent radius is 1
         # draw Voronoi diagram as image file
-        filePath = r'\Users\ksuvee\Documents\Density_project\result'
-        fileName = os.path.join( filePath, 'dense%s.png' % (index))
+##        filePath = r'\Users\ksuvee\Documents\Density_project\result'
+##        fileName = os.path.join( filePath, 'dense%s.png' % (index))
 ##        drawVoronoi.drawVoronoi( vRegion.ownerGrid.cells, fileName, obstacles, vRegion.ownerGrid)
         
         # Perform Function convolution
         densityGrid = densityRegion.rasterizeVoronoiDensity( frame, distFunc, maxRad )
                                  
         # update log
-        log.setMax( densityGrid.maxVal() )  # TODO :: FIX THIS PROBLEM
+        print densityGrid.maxVal()
+        log.setMax( densityGrid.maxVal() )
         log.incCount()
         # put into buffer
         bufferLock.acquire()
