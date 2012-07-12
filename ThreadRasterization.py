@@ -89,7 +89,7 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
         densityGrid = densityRegion.rasterizeVoronoiDensity( frame, distFunc, maxRad )
                                  
         # update log
-        print densityGrid.maxVal()
+##        print densityGrid.maxVal()
         log.setMax( densityGrid.maxVal() )
         log.incCount()
         # put into buffer
