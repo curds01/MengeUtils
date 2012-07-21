@@ -16,6 +16,8 @@ class Kernel:
         dFunc.  Each cell is given a logical size of cSize"""
         if (dFunc == FUNCS_MAP['gaussian'] or dFunc == FUNCS_MAP['variable-gaussian']):
             hCount = int( 6 * radius / cSize.x )
+        elif (dFunc == FUNCS_MAP['linear'] or dFunc == FUNCS_MAP['biweight'] ):
+            hCount = int( 2 * radius / cSize.x )
         else:
             hCount = int( radius / cSize.x )
         if ( hCount % 2 == 0 ):
