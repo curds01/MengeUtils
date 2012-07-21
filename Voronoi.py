@@ -35,25 +35,31 @@ class Voronoi:
        testPoint = startPt.reshape(1, 1, 2)
        # Create a grid to store distance from cell (i,j) center to the agent position
        # by default every cells are "infinitely" far away
-       dist = np.ones( (r-l,t-b) ) * MAX_DIST
+
        if self.obstacles is not None:
-           for x in xrange(l, r):
-               for y in xrange(b, t):
-                   endPt = points[x,y]
-                   # Swap the coordinate back to original one to do intersection test
-                   segment = Segment(Vector2(startPt[1], startPt[0]), Vector2(endPt[1], endPt[0]))
+           h = t-b
+           w = r-l
+           if h < 0:
+               h=0.0
+           if w < 0:
+               w=0.0
+           dist = np.ones( (w,h) ) * MAX_DIST
+           for x in xrange( l,r ):
+               for y in xrange( b,t ):
+                   endPt = points[ x,y ]
+                   segment = Segment(Vector2( startPt[1], startPt[0] ), Vector2( endPt[1], endPt[0] ) )
                    intersection = self.obstacles.findIntersectObject( segment )
                    if intersection is None:
-                       # There is no intersect so the endPt belong to Voronoi Region
                        disp = endPt - testPoint
                        length = np.sqrt( np.sum( disp * disp, axis=2) )
-                       dist[ x-l,y-b ] = length
-##       disp1 = points - testPoint
-##       disp = points[l:r, b:t] - testPoint
-##       dist = np.sqrt( np.sum( disp * disp, axis=2 ) )
+                       dist[ x-l, y-b ] = length
+       else:
+##           disp1 = points - testPoint
+           disp = points[l:r, b:t] - testPoint
+           dist = np.sqrt( np.sum( disp * disp, axis=2 ) )
        return dist
-    
-    def computeVoronoi( self, worldGrid, frame, agentRadius=1.0 ):
+
+    def computeVoronoi( self, worldGrid, frame, agentRadius ):
         ''' Compute Voronoi region for particular frame
         @param worldGrid: discrete world in grid form
         @param frame: a NX2 storing agents' position
@@ -118,7 +124,7 @@ class Voronoi:
                 workDist[l:r,b:t] = MAX_DIST
                 
     def computeVoronoiDensity( self, worldGrid, frame, orgMinCorner, orgSize, orgResolution,
-                              orgDomainX, orgDomainY, paddingSize, agentRadius=1 ):
+                              orgDomainX, orgDomainY, paddingSize, agentRadius ):
         ''' Compute Voronoi region for each agent and then calculate density in that region
         @param orgMinCorner is the bottom left corner before we add padding for Voronoi calculation
         @param orgSize is the size before we add padding for Voronoi calculation
@@ -129,7 +135,7 @@ class Voronoi:
         # Compute Voronoi region for current frame
         # Store density in each cell of Voronoi region using 1/A
         densityGrid = Grid( self.minCorner, self.size, self.resolution, initVal=0 )
-        self.computeVoronoi( worldGrid, frame, agentRadius)
+        self.computeVoronoi( worldGrid, frame, agentRadius )
         for i in xrange( 0, frame.shape[0] ):
             areaMask = self.ownerGrid.cells == i
             area = areaMask.sum()
