@@ -55,15 +55,17 @@ class GridFileSequence:
     NORM_CONTRIB_SPEED = 4 # distribute speed with normalized gaussian and then divide by contribution matrix
     LAPLACE_SPEED = 5   # compute the magnitude of the laplacian of the velocity field
     
-    def __init__( self, outFileName, domainX, domainY, obstacles=None ):
+    def __init__( self, outFileName, domainX, domainY, obstacles=None, obstaclesLayover=False ):
         """@param domainX is a Vector2 storing range of value x from user. domainX[0] stores min value and domainX[1] stores max value.
            @param domainY is a similar to domainX but in y-axis
            @param obstacle is a obstalceHandler object which provides interface to find intersection for the underlining
-                   with every objects in the scene"""
+                   with every objects in the scene
+           @param obstaclesLayover is a flag to determine whether to draw obstacles"""
         self.outFileName = outFileName
         self.domainX = domainX
         self.domainY = domainY
         self.obstacles = obstacles
+        self.obsLayover = obstaclesLayover
 
     def renderTraces( self, minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase ):
         """Creates a sequence of images of the traces of the agents.
@@ -427,6 +429,11 @@ class GridFileSequence:
 
     def densityImages( self, colorMap, fileBase ):
         """Outputs the density images"""
+        OBST_COLOR = np.array( (255,255,255), dtype=np.uint8 )
+        OBST_WIDTH = 1
+        def imgSpace( point, grid ):
+            '''Given a grid and a point in world space, returns the grid cell value.'''
+            return grid.getCenter( point )
         try:
             f = open( self.outFileName + ".density", "rb" )
         except:
@@ -435,11 +442,25 @@ class GridFileSequence:
             w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
             print "Density images in range:", minVal, maxVal
             gridSize = w * h * 4
+####            if self.obsLayover:
+####                minPt = Vector2( self.domainX[0], self.domainY[0] )
+####                size = Vector2( self.domainX[1], self.domainY[1] ) - minPt
+####                res = ( int( size.x/0.1 ), int( size.y/0.1 ) )
+####                g = Grid( minPt, size, res, self.domainX, self.domainY)
+##            else:
             g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h), self.domainX, self.domainY )
+                
             for i in range( count ):
                 data = f.read( gridSize )
                 g.setFromBinary( data )
                 s = g.surface( colorMap, minVal, maxVal )
+##                if (self.obstacles is not None) and self.obsLayover:
+##                    for seg in self.obstacles.structure.data:
+##                        sta = Vector2(seg.p1[0], -seg.p1[1])
+##                        end = Vector2(seg.p2[0], -seg.p2[1])
+##                        p0 = imgSpace( sta, g )
+##                        p1 = imgSpace( end, g )
+##                        pygame.draw.line( s, OBST_COLOR, (p0[0],p0[1]), (p1[0], p1[1]), OBST_WIDTH )
                 pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
             f.close()
 
