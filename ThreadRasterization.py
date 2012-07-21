@@ -76,7 +76,7 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
         vRegion = Voronoi( vMinCorner, vSize, vRes, obstacles)
         # Compute density based on Voronoi region
         densityRegion = vRegion.computeVoronoiDensity( g, frame, minCorner, size,
-                                                       resolution, domainX, domainY, PADDING_SIZE ) # Default agent radius is 1
+                                                       resolution, domainX, domainY, PADDING_SIZE, maxRad ) # Default agent radius is 1
         # TESTING : draw Voronoi diagram as image file
 ##        import os
 ##        filePath = r'\Users\ksuvee\Documents\Density_project\VoronoiRegion'
@@ -96,7 +96,7 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
         bufferLock.acquire()
         buffer.append( BufferGrid( index, densityGrid ) )
         bufferLock.release()
-##        # acquire next frame
+##        # acquire next frame ALWAYS GET COMMENT
 ##        frameLock.acquire()
 ##        frame, index = frameSet.next()
 ##        frameLock.release()
