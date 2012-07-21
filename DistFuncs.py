@@ -1,4 +1,5 @@
 import numpy as np
+import pylab as plt
 
 AGENTRADIUS = 1.0
 LAMBDA = 1.0 # smoothing parameter in variable Gaussian
@@ -16,13 +17,13 @@ def linearFunc( dispX, dispY, radius):
     """ Density Esitmation using linear function -> cone in 2D """
     distXY = np.sqrt( dispX * dispX + dispY * dispY )
     maskXY = distXY <= radius
-    valueXY = (1 - distXY) * maskXY
+    valueXY = (radius - distXY) * maskXY
     ## For testing by ploting gradient or value of the function
-    ## gradX, gradY = np.gradient(valueXY)
-    ## gradMag = np.sqrt( gradX * gradX + gradY * gradY )
-    ## plt.contour( valueXY )
-    ## plt.axis('equal')
-    ## plt.show()
+##    gradX, gradY = np.gradient(valueXY)
+##    gradMag = np.sqrt( gradX * gradX + gradY * gradY )
+##    plt.contour( valueXY )
+##    plt.axis('equal')
+##    plt.show()
     return valueXY
 
 def biweightFunc( dispX, dispY, radius):
@@ -31,16 +32,16 @@ def biweightFunc( dispX, dispY, radius):
     distXY = dispX * dispX + dispYSqd
     maskXY = np.sqrt(distXY) <= radius
     valueXY = -( distXY )/rSqd
-    valueXY += 1
+    valueXY += 1.0
     # Normalize the biweight function
     valueXY /= (4. * rSqd)/ 3.
     valueXY *= maskXY
-    ## For testing by ploting gradient or value of the function
-    ## gradX, gradY = np.gradient( valueXY )
-    ## gradMag = np.sqrt( gradX * gradX + gradY * gradY )
-    ## plt.contour( valueXY )
-    ## plt.axis( 'equal' )
-    ## plt.show()
+    ##For testing by ploting gradient or value of the function
+##    gradX, gradY = np.gradient( valueXY )
+##    gradMag = np.sqrt( gradX * gradX + gradY * gradY )
+##    plt.contour( valueXY )
+##    plt.axis( 'equal' )
+##    plt.show()
     return valueXY
         
 def gaussianFunc( dispX, dispY, radiusSqd ):
@@ -55,10 +56,10 @@ def variableGaussianFunc( dispX, dispY, radiusSqd ):
 
 UNIFORM = lambda X, Y, R: uniformFunc( X, Y, R ) 
 GAUSS   = lambda X, Y, R: gaussianFunc( X, Y, R * R )
-LINEAR  = lambda X, Y, R: linearFunc( X, Y, R )
+LINEAR  = lambda X, Y, R: linearFunc( X, Y, R * R)
 BIWEIGHT = lambda X, Y,R: biweightFunc( X, Y, R )
 VARGAUSS = lambda X, Y,R: variableGaussianFunc( X, Y, R * R)
-VSQUARE = lambda X, Y, R: uniformFunc( X, Y, R) * 2
+VSQUARE = lambda X, Y, R: uniformFunc( X, Y, R) * 2.0
 
 FUNCS_MAP = { "uniform": UNIFORM,
               "gaussian": GAUSS,
