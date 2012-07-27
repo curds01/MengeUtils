@@ -25,39 +25,46 @@ class Voronoi:
         self.obstacles = obstacles
     
     def distField( self, points, startPt, l, r, b, t ):
-       '''computes the distance to testPoint of all the positions defined in points.
+        '''computes the distance to testPoint of all the positions defined in points.
 
         @param points:  an NxNx2 numpy array such that [i,j,:] is the x & y positions of the
                     cell at (i, j)
         @param testPoint: an 2x1 numpy array of the test point.
         @returns an NxNx1 numpy array of the distances to testPoint.
         '''
-       testPoint = startPt.reshape(1, 1, 2)
-       # Create a grid to store distance from cell (i,j) center to the agent position
-       # by default every cells are "infinitely" far away
+        testPoint = startPt.reshape(1, 1, 2)
+        # Create a grid to store distance from cell (i,j) center to the agent position
+        # by default every cells are "infinitely" far away
+        if self.obstacles is not None:
+            h = t-b
+            w = r-l
+            if h < 0:
+                h=0.0
+            if w < 0:
+                w=0.0
+##            precomputeDist = np.empty( (w,h) )
+##            for x in xrange( l,r ):
+##                for y in xrange( b,t ):
+##                    point2 = points[x,y]
+##                    disp = point2 - startPt
+##                    precomputeDist[ x-l,y-b ] = np.sum( disp * disp )
 
-       if self.obstacles is not None:
-           h = t-b
-           w = r-l
-           if h < 0:
-               h=0.0
-           if w < 0:
-               w=0.0
-           dist = np.ones( (w,h) ) * MAX_DIST
-           for x in xrange( l,r ):
-               for y in xrange( b,t ):
-                   endPt = points[ x,y ]
-                   segment = Segment(Vector2( startPt[1], startPt[0] ), Vector2( endPt[1], endPt[0] ) )
-                   intersection = self.obstacles.findIntersectObject( segment )
-                   if intersection is None:
-                       disp = endPt - testPoint
-                       length = np.sqrt( np.sum( disp * disp, axis=2) )
-                       dist[ x-l, y-b ] = length
-       else:
-##           disp1 = points - testPoint
-           disp = points[l:r, b:t] - testPoint
-           dist = np.sqrt( np.sum( disp * disp, axis=2 ) )
-       return dist
+            dist = np.ones( (w,h) ) * MAX_DIST
+            for x in xrange( l,r ):
+                for y in xrange( b,t ):
+                    endPt = points[ x,y ]
+                    segment = Segment(Vector2( startPt[1], startPt[0] ), Vector2( endPt[1], endPt[0] ) )
+                    intersection = self.obstacles.findIntersectObject( segment )
+                    if intersection is None:
+                        disp = endPt - testPoint
+                        length = np.sum( disp * disp, axis=2)
+                        dist[ x-l, y-b ] = length
+##                        dist[ x-l, y-b ] = precomputeDist[ x-l, y-b ]
+        else:
+##            disp1 = points - testPoint
+            disp = points[l:r, b:t] - testPoint
+            dist = np.sqrt( np.sum( disp * disp, axis=2 ) )
+        return dist
 
     def computeVoronoi( self, worldGrid, frame, agentRadius ):
         ''' Compute Voronoi region for particular frame
@@ -69,6 +76,7 @@ class Voronoi:
         # Size agent Radius in the grid space
         radiusW = agentRadius/worldGrid.cellSize[0]
         radiusH = agentRadius/worldGrid.cellSize[1]
+        agentRadius *= agentRadius
         if (radiusW % 2 == 0):
             radiusW += 1
         if (radiusH % 2 == 0):

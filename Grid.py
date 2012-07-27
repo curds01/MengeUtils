@@ -22,7 +22,8 @@ class AbstractGrid:
 
     def getCenter( self, position ):
         """Returns the closest cell center to this position
-        The result is in the discretized world grid"""
+        The result is in the discretized world grid
+        @position: a Vector2 of position in the world"""
         # offset in euclidian space
         offset = position - self.minCorner
         # offset in cell sizes
@@ -109,6 +110,23 @@ class Grid( DataGrid ):
         self.clear( np.float32 )
         self.domainX = domainX
         self.domainY = domainY
+
+    def getValueInGrid( self, position ):
+        """ Get the value stored in grid cell at given position
+        @param position: a Vector2 of world position
+        @return if position is valid in grid space then return value at that position
+            otherwise return None """
+
+        # Convert position in world space to grid space
+        (x, y) = self.getCenter( position )
+        if ( x >= self.resolution[0] ) or ( y >= self.resolution[1] ):
+            return None
+        if ( x < 0 ) or ( y < 0 ):
+            return None
+##        print position
+##        print (x,y)
+##        print self.cells[x][y]
+        return self.cells[x][y]
 
     def computeClosestNeighbor( self, agent, frame ):
         '''compute distance from current agent to every other. Running in O(n^2) as
