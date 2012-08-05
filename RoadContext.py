@@ -8,6 +8,12 @@ from OpenGL.GL import *
 import scbData
 from primitives import Vector2
 import paths
+try:
+    import cairo
+    HAS_CAIRO = True
+except ImportError:
+    print "pycairo is not available.  You will not be able to output a pdf of the scene"
+    HAS_CAIRO = False
 
 # This is here instead of Context.py because this is pygame dependent and that is QT dependent.
 #   I need to unify those.
@@ -194,14 +200,20 @@ class SCBContext( PGContext ):
                (0.7, 0.0, 0.35),  # burgandy
                )
     COLOR_COUNT = len( COLORS )
-    def __init__( self, scbFileName, agentRadius=0.13 ):
+    def __init__( self, scbFileName, obstacles, agentRadius=0.13 ):
         PGContext.__init__( self )
+        if ( HAS_CAIRO ):
+            self.HELP_TEXT += '\n\tCtrl-p - output the current frame as a pdf file.'
+        self.obstacles = obstacles
+        print "***\nOBSTACLES"
+        print obstacles
         self.scbData = None
         self.currFrame = None
         self.loadSCBData( scbFileName )
         self.radius=agentRadius    # assumes uniform radius
         self.selected = -1
         self.visState = False   # causes the agents to be colored according to state instead of class
+        self.view = None
         # data for saving images
         self.saveDisplay = False
         self.lastSaved = -1
@@ -295,6 +307,7 @@ class SCBContext( PGContext ):
 
     def drawGL( self, view ):
         '''Draws the agent context into the view'''
+        self.view = view
         self.drawAgents( view )
         PGContext.drawGL( self, view )
         title = "Play SCB -- "
@@ -380,6 +393,7 @@ class SCBContext( PGContext ):
                 elif ( event.key == pygame.K_s and hasCtrl ):
                     if ( self.scbData ):
                         self.saveFrameXML()
+                    result.setHandled( True )
                 elif ( event.key == pygame.K_c and noMods ):
                     if ( self.hasStateData() ):
                         self.visState = not self.visState
@@ -391,6 +405,10 @@ class SCBContext( PGContext ):
                     if ( not self.saveDisplay ):
                         self.lastSaved = -1
                     result.set( True, True )
+                elif ( HAS_CAIRO and event.key == pygame.K_p and hasCtrl ):
+                    if ( self.scbData ):
+                        self.saveFramePDF()
+                    result.setHandled( True )
         return result
 
     def handleMouse( self, event, view ):
@@ -428,6 +446,68 @@ class SCBContext( PGContext ):
             f.write( '\t</AgentSet>' )
         f.write( '</Experiment>' )
         f.close()
+
+    def saveFramePDF( self ):
+        '''Save the current frame as a pdf file for visualization'''
+        # assumes this is only called if cairo has been successfully installed
+        assert( self.view != None )
+        fName = paths.getPath( 'scb%05d' % ( self.currFrameID ), False )
+        surface = cairo.SVGSurface( fName + '.svg', self.view.wWidth, self.view.wHeight )
+        cr = cairo.Context( surface )
+        # draw stuff here
+        # set up basic transform so image coords match sim coords
+        cr.scale( self.view.wWidth / self.view.vWidth, self.view.wHeight / self.view.vHeight )
+        cr.translate( 0, self.view.vHeight)
+        cr.scale( 1.0, -1.0 )
+        cr.translate( -self.view.vLeft, -self.view.vBottom )
+        cr.set_line_width(max(cr.device_to_user_distance(3,3)))
+        
+        # draw obstacles
+        for o in self.obstacles.polys:
+            if ( len( o.vertices ) <= 1 ): continue
+            v = o.vertices[0]
+            cr.move_to( v.x, v.y )
+            for v in o.vertices[1:]:
+                cr.line_to( v.x, v.y )
+            if ( o.closed ):
+                cr.close_path()
+            if ( o.closed ):
+                cr.set_source_rgb( 0.5, 0.5, 0.5 )
+                cr.fill_preserve()
+                cr.set_source_rgb( 0.0, 0.0, 0.0 )
+                cr.stroke()                
+            else:
+                cr.stroke()
+
+        cr.set_line_width(max(cr.device_to_user_distance(1.5, 1.5)))
+        # draw agents
+        keys = self.classes.keys()
+        keys.sort()
+        CLASS_COUNT = len( self.classes.keys() )
+        COLOR_STRIDE = self.COLOR_COUNT / CLASS_COUNT
+        MAX_COLOR = 1/0.7
+        for i, idClass in enumerate( keys ):
+            for idx in self.classes[ idClass ]:
+                x, y = self.currFrame[ idx, :2 ]
+                if ( x + self.radius < self.view.vLeft or
+                     x - self.radius > self.view.vLeft + self.view.vWidth or
+                     y + self.radius < self.view.vBottom or
+                     y - self.radius > self.view.vBottom + self.view.vHeight ):
+                    continue
+                cr.arc( x, y, self.radius, 0, 2 * np.pi )
+                if ( self.visState ):
+                    color = self.COLORS[ int( self.currFrame[ idx, 3 ] ) % self.COLOR_COUNT ]
+                else:
+                    color = self.COLORS[ ( i * COLOR_STRIDE ) % self.COLOR_COUNT ]
+                cr.set_source_rgb( color[0] * MAX_COLOR, color[1] * MAX_COLOR, color[2] * MAX_COLOR )
+                cr.fill_preserve()
+                cr.set_source_rgb( 0, 0, 0 )
+                cr.stroke()
+        
+        # finalize
+        surface.write_to_png( fName + '.png' )
+        cr.show_page()
+        surface.finish()
         
 class AgentContext( PGContext, MouseEnabled ):
     '''A context for adding agents-goal pairs and editing existing pairs'''
