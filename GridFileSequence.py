@@ -81,7 +81,7 @@ class GridFileSequence:
         '''Creates a binary file representing the density scalar fields of each frame'''
         global ACTIVE_RASTER_THREADS
 
-        THREAD_COUNT = 7
+        THREAD_COUNT = 1
         # file output
         outFile = open( self.outFileName + '.density', 'wb' )
         outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
