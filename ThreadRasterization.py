@@ -23,7 +23,7 @@ class BufferGrid:
 ACTIVE_RASTER_THREADS = 0
 def threadRasterize( log, bufferLock, buffer, frameLock, frameSet,
                      minCorner, size, resolution, distFunc, maxRad,
-                     domainX, domainY, obstacles=None  ):
+                     domainX, domainY, obstacles=None, reflection=False):
     while ( True ):
         # create grid and rasterize
         # acquire frame
@@ -35,13 +35,17 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet,
         finally:            
             frameLock.release()
         g = Grid( minCorner, size, resolution, domainX, domainY )
-        g.rasterizePosition( frame, distFunc, maxRad, obstacles )
-        # update log
+        if not reflection:
+            g.rasterizePosition( frame, distFunc, maxRad, obstacles )
+        else:
+##            print " reflection "
+            g.rasterizePositionWithReflection( frame, distFunc, maxRad, obstacles )
+                    # update log
         log.setMax( g.maxVal() )
         log.incCount()
         # put into buffer
         bufferLock.acquire()
-        buffer.append( BufferGrid(index, g ) )
+        buffer.append( BufferGrid(index-35, g ) )
         bufferLock.release()
 ##        # acquire next frame
 ##        frameLock.acquire()
@@ -50,7 +54,7 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet,
 
 def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
                             minCorner, size, resolution, distFunc, maxRad,
-                            domainX, domainY, obstacles=None ):
+                            domainX, domainY, obstacles=None, reflection=False ):
     while ( True ):
         vxCell = float(size.x)/resolution.x
         vyCell = float(size.y)/resolution.y
@@ -81,7 +85,8 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
                                                        resolution, domainX, domainY, PADDING_SIZE, V_RAD ) # Default agent radius is 1
         # TESTING : draw Voronoi diagram as image file
 ##        import os
-##        filePath = r'\Users\ksuvee\Documents\Density_project\VoronoiRegion'
+####        filePath = r'\Users\ksuvee\Documents\Density_project\VoronoiRegion'
+##        filePath = r'\Users\TofuYui\Google Drive\Density_project\VoronoiRegion'
 ##        if ( not os.path.exists( filePath ) ):
 ##            os.makedirs( filePath  )
 ##        fileName = os.path.join( filePath, 'vRegion%s.png' % (index))
@@ -99,8 +104,35 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
         buffer.append( BufferGrid( index, densityGrid ) )
         bufferLock.release()
 
-
         # acquire next frame ALWAYS GET COMMENT
 ##        frameLock.acquire()
 ##        frame, index = frameSet.next()
 ##        frameLock.release()
+        
+def threadRegionRasterize( log, bufferLock, buffer, frameLock, frameSet,
+                            minCorner, size, resolution, defineRegionX, defineRegionY,
+                            domainX, domainY ):
+    while ( True ):
+        # create grid and rasterize
+        # acquire frame
+        frameLock.acquire()
+        try:
+            frame, index = frameSet.next()
+        except StopIteration:
+            break
+        finally:            
+            frameLock.release()
+        g = Grid( minCorner, size, resolution, domainX, domainY )
+        g.rasterizeRegion( frame, defineRegionX, defineRegionY )
+        # update log
+        log.setMax( g.maxVal() )
+        log.incCount()
+        # put into buffer
+        bufferLock.acquire()
+        buffer.append( BufferGrid(index, g ) )
+        bufferLock.release()
+##        # acquire next frame
+##        frameLock.acquire()
+##        frame, index = frameSet.next()
+##        frameLock.release()
+

@@ -94,7 +94,7 @@ class GridFileSequence:
         saveThread.start()
 
         # prepare rasterization        
-        frameSet.setNext( 0 )
+        frameSet.setNext( 35 )
         frameLock = threading.Lock()
         rasterThreads = []
         rasterLogs = []
@@ -134,7 +134,116 @@ class GridFileSequence:
         outFile.write( struct.pack( 'i', gridCount ) )
         outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
         outFile.close()
+        
+    def computeDensityInRegion( self, minCorner, size, resolution, defineRegionX, defineRegionY, frameSet ):
+        '''Creates a binary file representing the density scalar fields of each frame
+        @param defineRegionX: a pair of minimum and maximum to define region in x axis
+        @param defineRegionY: a pair of center and width to define region in y axis'''
+        global ACTIVE_RASTER_THREADS
 
+        THREAD_COUNT = 1
+        # file output
+        outFile = open( self.outFileName + '.density', 'wb' )
+        outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
+        outFile.write( struct.pack( 'i', 0 ) )                              # grid count
+        outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
+        buffer = []
+        bufferLock = threading.Lock()
+        saveThread = threading.Thread( target=threadOutput, args=(outFile, buffer, bufferLock, time.clock() ) )
+        ACTIVE_RASTER_THREADS = THREAD_COUNT
+        saveThread.start()
+
+        # prepare rasterization        
+        frameSet.setNext( 0 )
+        frameLock = threading.Lock()
+        rasterThreads = []
+        rasterLogs = []
+
+        for i in range( THREAD_COUNT ):
+            rasterLogs.append( RasterReport() )
+            rasterThreads.append( threading.Thread( target=threadRegionRasterize, args=( rasterLogs[-1],bufferLock,
+                                                                                         buffer, frameLock, frameSet,
+                                                                                         minCorner, size, resolution,
+                                                                                         defineRegionX, defineRegionY,
+                                                                                         self.domainX, self.domainY ) ) )
+        for i in range( THREAD_COUNT ):
+            rasterThreads[i].start()
+        for i in range( THREAD_COUNT ):
+            rasterThreads[i].join()
+            ACTIVE_RASTER_THREADS -= 1
+        saveThread.join()
+
+        gridCount = 0
+        maxVal = 0.0
+        for log in rasterLogs:
+            gridCount += log.count
+            if ( log.maxVal > maxVal ):
+                maxVal = log.maxVal
+
+        # add the additional information about grid count and maximum values            
+        outFile.seek( 8 )
+        outFile.write( struct.pack( 'i', gridCount ) )
+        outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
+        outFile.close()
+
+    def computeDensityWithReflection( self, minCorner, size, resolution, distFunc, maxRad, frameSet ):
+        '''Creates a binary file representing the density scalar fields of each frame'''
+        print "In relction function"
+        global ACTIVE_RASTER_THREADS
+
+        THREAD_COUNT = 1
+        # file output
+        outFile = open( self.outFileName + '.density', 'wb' )
+        outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
+        outFile.write( struct.pack( 'i', 0 ) )                              # grid count
+        outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
+        buffer = []
+        bufferLock = threading.Lock()
+        saveThread = threading.Thread( target=threadOutput, args=(outFile, buffer, bufferLock, time.clock() ) )
+        ACTIVE_RASTER_THREADS = THREAD_COUNT
+        saveThread.start()
+
+        # prepare rasterization        
+        frameSet.setNext( 35 )
+        frameLock = threading.Lock()
+        rasterThreads = []
+        rasterLogs = []
+        for i in range( THREAD_COUNT ):
+            rasterLogs.append( RasterReport() )
+            if (distFunc != FUNCS_MAP['vsquare']):
+                rasterThreads.append( threading.Thread( target=threadRasterize, args=( rasterLogs[-1], bufferLock, buffer,
+                                                                                       frameLock, frameSet,
+                                                                                       minCorner, size, resolution,
+                                                                                       distFunc, maxRad,
+                                                                                       self.domainX, self.domainY, self.obstacles, True
+                                                                                       ) )  )
+##            else:
+##                rasterThreads.append( threading.Thread( target=threadVoronoiRasterize, args=( rasterLogs[-1], bufferLock, buffer,
+##                                                                                       frameLock, frameSet,
+##                                                                                       minCorner, size, resolution,
+##                                                                                       distFunc, maxRad,
+##                                                                                       self.domainX, self.domainY, self.obstacles
+##                                                                                            ) )  )
+        for i in range( THREAD_COUNT ):
+            rasterThreads[i].start()
+        for i in range( THREAD_COUNT ):
+            rasterThreads[i].join()
+            ACTIVE_RASTER_THREADS -= 1
+        saveThread.join()
+
+        gridCount = 0
+        maxVal = 0.0
+        for log in rasterLogs:
+            gridCount += log.count
+            if ( log.maxVal > maxVal ):
+                maxVal = log.maxVal
+
+        # add the additional information about grid count and maximum values            
+        outFile.seek( 8 )
+        outFile.write( struct.pack( 'i', gridCount ) )
+        outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
+        outFile.close()
+        
     def splatAgents( self, minCorner, size, resolution, radius, frameSet ):
         '''Simply splats the agents onto the grid'''
         print "Splatting agents:"
