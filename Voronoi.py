@@ -1,4 +1,6 @@
 import IncludeHeader
+
+import math
 from Grid import *
 from primitives import Vector2, Segment
 from ObstacleStructure import *
@@ -19,7 +21,7 @@ class Voronoi:
         self.size = size
         self.resolution = resolution
         # Store shortest distance initally every cells has infinitely far away from agents
-        self.distGrid = DataGrid( self.minCorner, self.size, self.resolution, 10000. )
+        self.distGrid = DataGrid( self.minCorner, self.size, self.resolution, MAX_DIST )
         # Store index indicating who own the grid initially all the cells don't have any owner
         self.ownerGrid = DataGrid( self.minCorner, self.size, self.resolution, -1, np.int32 )
         self.obstacles = obstacles
@@ -39,16 +41,9 @@ class Voronoi:
             h = t-b
             w = r-l
             if h < 0:
-                h=0.0
+                h = 0
             if w < 0:
-                w=0.0
-##            precomputeDist = np.empty( (w,h) )
-##            for x in xrange( l,r ):
-##                for y in xrange( b,t ):
-##                    point2 = points[x,y]
-##                    disp = point2 - startPt
-##                    precomputeDist[ x-l,y-b ] = np.sum( disp * disp )
-
+                w = 0
             dist = np.ones( (w,h) ) * MAX_DIST
             for x in xrange( l,r ):
                 for y in xrange( b,t ):
@@ -57,11 +52,10 @@ class Voronoi:
                     intersection = self.obstacles.findIntersectObject( segment )
                     if intersection is None:
                         disp = endPt - testPoint
-                        length = np.sum( disp * disp, axis=2)
-                        dist[ x-l, y-b ] = length
+##                        length = np.sum( disp * disp, axis=2)
+                        dist[ x-l, y-b ] = 1
 ##                        dist[ x-l, y-b ] = precomputeDist[ x-l, y-b ]
         else:
-##            disp1 = points - testPoint
             disp = points[l:r, b:t] - testPoint
             dist = np.sqrt( np.sum( disp * disp, axis=2 ) )
         return dist
@@ -74,65 +68,101 @@ class Voronoi:
         @obstacles: an obstacles Handler interface to interact with obstacles data structure
         '''
         # Size agent Radius in the grid space
-        radiusW = agentRadius/worldGrid.cellSize[0]
-        radiusH = agentRadius/worldGrid.cellSize[1]
+        hCount = int( 2 * agentRadius/worldGrid.cellSize[0] )
         agentRadius *= agentRadius
-        if (radiusW % 2 == 0):
-            radiusW += 1
-        if (radiusH % 2 == 0):
-            radiusH += 1
+        if (hCount % 2 == 0):
+            hCount += 1
+        # Precomptue distance grid
+        o = np.arange( -(hCount/2), hCount/2 + 1) * worldGrid.cellSize[0]
+        X, Y = np.meshgrid(o, o)
+        def dFunc ( dispX, dispY, radiusSqd ):
+            disp = dispX * dispX + dispY * dispY
+            mask = disp <= radiusSqd
+            result = disp * mask
+            result[~mask] = MAX_DIST
+            return result
+        self.data = dFunc(X, Y, agentRadius)
+        
+        w, h = self.data.shape
+        w /= 2
+        h /= 2
         if (frame.shape[0] != 0):
             centers = worldGrid.getCenters()
             # Calculate distance from agent[0] to every cell  in the grid
             pos = frame[0,:]
             # Find the index of the potential Voronoi Region with in the agentRadius away from the agent position
             posCenter = worldGrid.getCenter( Vector2(pos[0], pos[1]) )
-            l = int( posCenter[0] - radiusW )
-            r = int( posCenter[0] + radiusW + 1 )
-            b = int( posCenter[1] - radiusH )
-            t = int( posCenter[1] + radiusH + 1 )
+            l = posCenter[0] - w 
+            r = posCenter[0] + w + 1 
+            b = posCenter[1] - h 
+            t = posCenter[1] + h + 1 
+            rl = 0
+            rb = 0
+            rr, rt = self.data.shape
+            
             if ( l < 0 ):
+                rl -= l
                 l = 0
             if ( b < 0 ):
+                rb -= b
                 b = 0
             if ( r >= self.resolution[0] ):
+                rr -= r - self.resolution[0]
                 r = int( worldGrid.resolution[0] )
             if ( t >= self.resolution[1] ):
+                rt -= t - self.resolution[1]
                 t = int( worldGrid.resolution[1] )
-                
-            # We have to swap the x,y in the np.array becasue the getcenters return swaping coordinate due to meshgrid function call
-##            self.distGrid.cells = self.distField( centers, np.array((pos[1],pos[0])) )
-            self.distGrid.cells[l:r,b:t] = self.distField( centers, np.array((pos[1],pos[0])), l, r, b, t )
+    
+
+            if ( l < r and b < t and rl < rr and rb < rt ):
+                # We have to swap the x,y in the np.array becasue the getcenters return swaping coordinate due to meshgrid function call
+                self.distGrid.cells[l:r,b:t] = self.distField( centers, np.array((pos[1],pos[0])), l, r, b, t )
+                self.distGrid.cells[ l:r, b:t ] *= self.data[ rl:rr, rb:rt ]
+
+    
             # if the distance is with in agent's radius then the cell belong to agent[0]
             region = self.distGrid.cells <= agentRadius
             # region = self.distGrid.cells[l:r,b:t] <= agentRadius
             # Assign the cell's owner to be agent[0]
             self.ownerGrid.cells[ region ] = 0
             workDist = np.ones(self.distGrid.cells.shape) * MAX_DIST
-            for i in xrange( 1, frame.shape[0] ):
+            for i in range( 1, frame.shape[0] ):
                 pos = frame[i, :]
                 posCenter = worldGrid.getCenter( Vector2(pos[0], pos[1]) )
-                l = int( posCenter[0] - radiusW )
-                r = int( posCenter[0] + radiusW + 1 )
-                b = int( posCenter[1] - radiusH )
-                t = int( posCenter[1] + radiusH + 1 )
+                l = posCenter[0] - w 
+                r = posCenter[0] + w + 1 
+                b = posCenter[1] - h 
+                t = posCenter[1] + h + 1 
+
+                rl = 0
+                rb = 0
+                rr, rt = self.data.shape
                 if ( l < 0 ):
+                    rl -= l
                     l = 0
                 if ( b < 0 ):
+                    rb -= b
                     b = 0
                 if ( r >= self.resolution[0] ):
+                    rr -= r - self.resolution[0]
                     r = int( worldGrid.resolution[0] )
                 if ( t >= self.resolution[1] ):
+                    rt -= t - self.resolution[1]
                     t = int( worldGrid.resolution[1] )
-##                workDist = self.distField( centers, np.array((pos[1],pos[0])) )
-                workDist[l:r,b:t] = self.distField( centers, np.array((pos[1],pos[0])), l, r, b, t )
-                region = (self.distGrid.cells > workDist) & (workDist <= agentRadius)
+                if ( l < r and b < t and rl < rr and rb < rt ):
+                    workDist[l:r,b:t] = self.distField( centers, np.array((pos[1],pos[0])), l, r, b, t )
+                    workDist[l:r,b:t] *= self.data[ rl:rr, rb:rt ]
+                    
+                region2 = workDist <= agentRadius
+                region3 = self.distGrid.cells > workDist
+                region = (workDist <= agentRadius) & ( self.distGrid.cells > workDist )
                 self.distGrid.cells[ region ] = workDist[region]
                 self.ownerGrid.cells[ region ] = i
                 workDist[l:r,b:t] = MAX_DIST
                 
     def computeVoronoiDensity( self, worldGrid, frame, orgMinCorner, orgSize, orgResolution,
                               orgDomainX, orgDomainY, paddingSize, agentRadius ):
+        # Agent Radius may be different from uniform kernel size
         ''' Compute Voronoi region for each agent and then calculate density in that region
         @param orgMinCorner is the bottom left corner before we add padding for Voronoi calculation
         @param orgSize is the size before we add padding for Voronoi calculation
