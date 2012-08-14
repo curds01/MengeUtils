@@ -11,7 +11,7 @@ def uniformFunc( dispX, dispY, radius ):
     maskX = dispX <= radius
     maskY = dispY <= radius
     maskXY = maskX & maskY
-    return maskXY/2.
+    return maskXY/ float(radius *radius)
 
 def linearFunc( dispX, dispY, radius):
     """ Density Esitmation using linear function -> cone in 2D """
