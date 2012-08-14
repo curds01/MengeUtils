@@ -1,5 +1,7 @@
-# This file contains standard including file for the project
+# This file contains standard including file for the objreader
+import os
+import sys
+TOP_DIR = os.path.dirname( os.path.dirname(__file__) )
 
-import sys, os
-sys.path.insert( 0, r'\Users\ksuvee\Documents\Density_project\objreader' )
-import numpy as np
+sys.path.insert( 0, TOP_DIR + r'\objreader' )
+sys.path.insert( 1, TOP_DIR + r'\density' )
