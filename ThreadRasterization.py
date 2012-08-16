@@ -38,14 +38,13 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet,
         if not reflection:
             g.rasterizePosition( frame, distFunc, maxRad, obstacles )
         else:
-##            print " reflection "
             g.rasterizePositionWithReflection( frame, distFunc, maxRad, obstacles )
                     # update log
         log.setMax( g.maxVal() )
         log.incCount()
         # put into buffer
         bufferLock.acquire()
-        buffer.append( BufferGrid(index-35, g ) )
+        buffer.append( BufferGrid(index, g ) )
         bufferLock.release()
 ##        # acquire next frame
 ##        frameLock.acquire()
@@ -109,7 +108,7 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
 ##        frame, index = frameSet.next()
 ##        frameLock.release()
         
-def threadRegionRasterize( log, bufferLock, buffer, frameLock, frameSet,
+def threadStandardRasterize( log, bufferLock, buffer, frameLock, frameSet,
                             minCorner, size, resolution, defineRegionX, defineRegionY,
                             domainX, domainY ):
     while ( True ):
@@ -123,7 +122,7 @@ def threadRegionRasterize( log, bufferLock, buffer, frameLock, frameSet,
         finally:            
             frameLock.release()
         g = Grid( minCorner, size, resolution, domainX, domainY )
-        g.rasterizeRegion( frame, defineRegionX, defineRegionY )
+        g.rasterizeStandard( frame, defineRegionX, defineRegionY )
         # update log
         log.setMax( g.maxVal() )
         log.incCount()

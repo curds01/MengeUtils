@@ -121,6 +121,7 @@ class Grid( DataGrid ):
 
         # Convert position in world space to grid space
         (x, y) = self.getCenter( position )
+##        print "location in grid" + str ((x,y))
         if ( x >= self.resolution[0] ) or ( y >= self.resolution[1] ):
             return None
         if ( x < 0 ) or ( y < 0 ):
@@ -177,7 +178,7 @@ class Grid( DataGrid ):
                     minRadius = distNei
                 if (minRadius < BUFFER_DIST):
                     minRadius = BUFFER_DIST
-                k, ernel = Kernel( minRadius, distFunc, self.cellSize )
+                kernel = Kernel( minRadius, distFunc, self.cellSize )
                 w, h = kernel.data.shape
                 w /= 2
                 h /= 2
@@ -185,6 +186,8 @@ class Grid( DataGrid ):
             
             # get position of the agent the world grid
             center = self.getCenter( Vector2(pos[0], pos[1]) )
+##            print pos
+##            print center
             l = center[0] - w
             r = center[0] + w + 1
             b = center[1] - h
@@ -208,6 +211,9 @@ class Grid( DataGrid ):
                 if ( l < r and b < t and kl < kr and kb < kt ):
                     # Convolution
                     self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]
+##                    if (center[0] >= 0 ) and (center[0] < self.resolution[0] ) and \
+##                       (center[1] >= 0 ) and (center[1] < self.resolution[1] ):
+##                        print self.cells[ center[0], center[1] ]
             except ValueError, e:
                 print "Value error!"
                 print "\tAgent at", center
@@ -242,7 +248,7 @@ class Grid( DataGrid ):
                     minRadius = distNei
                 if (minRadius < BUFFER_DIST):
                     minRadius = BUFFER_DIST
-                k, ernel = Kernel( minRadius, distFunc, self.cellSize )
+                kernel = Kernel( minRadius, distFunc, self.cellSize )
                 w, h = kernel.data.shape
                 w /= 2
                 h /= 2
@@ -262,7 +268,6 @@ class Grid( DataGrid ):
             flipT = False
             flipB = False
             reflect = None
-##            print "l %f" % l
             if ( l < 0 ):
                 flipL = True
                 kl -= l
@@ -402,7 +407,7 @@ class Grid( DataGrid ):
                         
                     if flipR and flipT:
                         reflect = kernel.data[-1:kr-1:-1, -1:kt:-1]
-                        print "flipR and T"
+##                        print "flipR and T"
                         if ( reflect.shape[0] > self.resolution[0] ) and \
                            ( not reflect.shape[1] > self.resolution[1] ):
                             start = 0
@@ -459,20 +464,20 @@ class Grid( DataGrid ):
                 t = self.resolution[1]
             self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]
 
-    def rasterizeRegion( self, frame, defineRegionX, defineRegionY ):
-        """
+    def rasterizeStandard( self, frame, defineRegionX, defineRegionY ):
+        """ Compute density by countaing number of people in the region then divided by area of region
         @param defineRegionX: a pair of minimum and maximum to define region in x axis
         @param defineRegionY: a pair of center and width to define region in y axis"""
         agentInRegion = 0
-        print "in region"
         frame.shape = (1, frame.shape[0], frame.shape[1])
         density = julichData.rhoOccupantEstimation( frame, defineRegionX, defineRegionY[1], center=defineRegionY[0] )
         regionBottom = self.getCenter( Vector2( defineRegionX[0][0], defineRegionY[0] - defineRegionY[1]* 0.5 ) )
         regionTop = self.getCenter( Vector2( defineRegionX[0][1], defineRegionY[0] + defineRegionY[1]* 0.5 ) )
-        print density
-        print self.cells[ regionBottom[0]:regionTop[0], regionBottom[1]: regionTop[1] ].shape
+##        print density
+##        print self.cells[ regionBottom[0]:regionTop[0], regionBottom[1]: regionTop[1] ].shape
         self.cells[ regionBottom[0]:regionTop[0], regionBottom[1]: regionTop[1] ] = density
-        print self.cells[ regionBottom[0]:regionTop[0], regionBottom[1]: regionTop[1] ].shape
+##        print self.cells[ regionBottom[0]:regionTop[0], regionBottom[1]: regionTop[1] ].shape
+
     def rasterizeValue( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
         kernel = Kernel( maxRad, distFunc, self.cellSize )

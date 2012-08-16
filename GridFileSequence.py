@@ -94,7 +94,7 @@ class GridFileSequence:
         saveThread.start()
 
         # prepare rasterization        
-        frameSet.setNext( 35 )
+        frameSet.setNext( 0 )
         frameLock = threading.Lock()
         rasterThreads = []
         rasterLogs = []
@@ -135,7 +135,7 @@ class GridFileSequence:
         outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
         outFile.close()
         
-    def computeDensityInRegion( self, minCorner, size, resolution, defineRegionX, defineRegionY, frameSet ):
+    def computeDensityStandard( self, minCorner, size, resolution, defineRegionX, defineRegionY, frameSet ):
         '''Creates a binary file representing the density scalar fields of each frame
         @param defineRegionX: a pair of minimum and maximum to define region in x axis
         @param defineRegionY: a pair of center and width to define region in y axis'''
@@ -161,7 +161,7 @@ class GridFileSequence:
 
         for i in range( THREAD_COUNT ):
             rasterLogs.append( RasterReport() )
-            rasterThreads.append( threading.Thread( target=threadRegionRasterize, args=( rasterLogs[-1],bufferLock,
+            rasterThreads.append( threading.Thread( target=threadStandardRasterize, args=( rasterLogs[-1],bufferLock,
                                                                                          buffer, frameLock, frameSet,
                                                                                          minCorner, size, resolution,
                                                                                          defineRegionX, defineRegionY,
@@ -204,7 +204,7 @@ class GridFileSequence:
         saveThread.start()
 
         # prepare rasterization        
-        frameSet.setNext( 35 )
+        frameSet.setNext( 0 )
         frameLock = threading.Lock()
         rasterThreads = []
         rasterLogs = []
