@@ -470,14 +470,102 @@ class Grid( DataGrid ):
         @param defineRegionY: a pair of center and width to define region in y axis"""
         agentInRegion = 0
         frame.shape = (1, frame.shape[0], frame.shape[1])
-        density = julichData.rhoOccupantEstimation( frame, defineRegionX, defineRegionY[1], center=defineRegionY[0] )
-        regionBottom = self.getCenter( Vector2( defineRegionX[0][0], defineRegionY[0] - defineRegionY[1]* 0.5 ) )
-        regionTop = self.getCenter( Vector2( defineRegionX[0][1], defineRegionY[0] + defineRegionY[1]* 0.5 ) )
+        density = julichData.rhoOccupantEstimation( frame, [ defineRegionX ], defineRegionY[1], center=defineRegionY[0] )
+        regionBottom = self.getCenter( Vector2( defineRegionX[0], defineRegionY[0] - defineRegionY[1]* 0.5 ) )
+        regionTop = self.getCenter( Vector2( defineRegionX[1], defineRegionY[0] + defineRegionY[1]* 0.5 ) )
 ##        print density
 ##        print self.cells[ regionBottom[0]:regionTop[0], regionBottom[1]: regionTop[1] ].shape
         self.cells[ regionBottom[0]:regionTop[0], regionBottom[1]: regionTop[1] ] = density
 ##        print self.cells[ regionBottom[0]:regionTop[0], regionBottom[1]: regionTop[1] ].shape
-
+        
+    def rasterizeVoronoiDensity( self, frame, distFunc, maxRad, densityGrid ):
+        """ Compute density based on Voronoi density region and convolute with unifrom kernel """
+        #densityGrid = Grid( self.minCorner, self.size, self.resolution, initVal=0.0 )
+        kernelArea = math.sqrt( maxRad * maxRad )
+        """ Function to convolute kernel over the density computed using Voronoi"""
+        kernel = Kernel( maxRad, distFunc, self.cellSize )
+        # This assume the kernel dimensions are ODD-sized
+        w, h = kernel.data.shape
+        area = w * h
+        w /= 2
+        h /= 2
+        
+        # Independently convolute
+        for i in xrange( 0, self.cells.shape[0] ):  
+            for j in xrange( 0, self.cells.shape[1] ):
+                l = i - w
+                r = i + w + 1
+                b = j - h
+                t = j + h + 1
+                kl = 0
+                kb = 0
+                kr, kt = kernel.data.shape
+                if ( l < 0 ):
+                    kl -= l
+                    l = 0
+                if ( b < 0 ):
+                    kb -= b
+                    b = 0
+                if ( r >= self.resolution[0] ):
+                    kr -= r - self.resolution[0]
+                    r = self.resolution[0]
+                if ( t >= self.resolution[1] ):
+                    kt -= t - self.resolution[1]
+                    t = self.resolution[1]
+                try:
+##                    if ( l < r and b < t and kl < kr and kb < kt ):
+                    if ( l < r and b < t and kl < kr ):
+                        # Convolution self.cells store density valued calculated based on Voronoi region
+                        # if self.cells[i,j] is 0 then the multiplication will result in 0
+                        density = (self.cells[ l:r, b:t ] * kernel.data[ kl:kr, 0:1 ])
+                        density = (density.sum())/(1.)
+                        densityGrid.cells[i, j] += density
+                except ValueError, e:
+                    print "Value error!"
+                    print "\tAgent at", center
+                    print "\tGrid resolution:", self.resolution
+                    print "\tKernel size:", kernel.data.shape
+                    print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
+                    raise e
+        # Independently convolute
+        for i in xrange( 0, self.cells.shape[0] ):  
+            for j in xrange( 0, self.cells.shape[1] ):
+                l = i - w
+                r = i + w + 1
+                b = j - h
+                t = j + h + 1
+                kl = 0
+                kb = 0
+                kr, kt = kernel.data.shape
+                if ( l < 0 ):
+                    kl -= l
+                    l = 0
+                if ( b < 0 ):
+                    kb -= b
+                    b = 0
+                if ( r >= self.resolution[0] ):
+                    kr -= r - self.resolution[0]
+                    r = self.resolution[0]
+                if ( t >= self.resolution[1] ):
+                    kt -= t - self.resolution[1]
+                    t = self.resolution[1]
+                try:
+##                    if ( l < r and b < t and kl < kr and kb < kt ):
+                    if ( l < r and b < t and kb < kt ):
+                        # Convolution self.cells store density valued calculated based on Voronoi region
+                        # if self.cells[i,j] is 0 then the multiplication will result in 0
+                        density = (self.cells[ l:r, b:t ] * kernel.data[ 0:1, kb:kt ])
+                        density = (density.sum())/(1.)
+                        densityGrid.cells[i, j] += density
+                except ValueError, e:
+                    print "Value error!"
+                    print "\tAgent at", center
+                    print "\tGrid resolution:", self.resolution
+                    print "\tKernel size:", kernel.data.shape
+                    print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
+                    raise e
+        #return densityGrid
+    
     def rasterizeValue( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
         kernel = Kernel( maxRad, distFunc, self.cellSize )
@@ -549,7 +637,6 @@ class Grid( DataGrid ):
         print "Accum max:", self.cells.max(), 
         self.cells /= countCells
         print "Max speed:", maxSpd, "max cell", self.cells.max()
-
 
     def rasterizeProgress( self, f2, initFrame, prevProgress, excludeStates=(), callBack=None ):
         '''Given the current frame and the initial frame, computes the fraction of the circle that
@@ -685,7 +772,6 @@ class Grid( DataGrid ):
             if ( callBack ):
                 callBack( angle )
 
-
     def rasterizeDenseSpeed( self, denseFile, kernel, f2, f1, distFunc, maxRad, timeStep ):
         '''GIven two frames of agents, computes per-agent speed and rasterizes the whole frame.agents
         Divides the rasterized speeds by density from the denseFile'''
@@ -802,94 +888,6 @@ class Grid( DataGrid ):
             Y[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * disp.y
         self.cells = X + Y
         #self.cells = np.sqrt( X * X + Y * Y )
-
-    def rasterizeVoronoiDensity( self, frame, distFunc, maxRad ):
-        densityGrid = Grid( self.minCorner, self.size, self.resolution, initVal=0.0 )
-        """ Function to convolute kernel over the density computed using Voronoi"""
-        kernel = Kernel( maxRad, distFunc, self.cellSize )
-        # This assume the kernel dimensions are ODD-sized
-        w, h = kernel.data.shape
-        area = w * h
-        w /= 2
-        h /= 2
-        
-        densityGrid = Grid( self.minCorner, self.size, self.resolution, initVal=0.0 )      
-        kernelArea = math.sqrt( maxRad * maxRad )
-        # Independently convolute
-        for i in xrange( 0, self.cells.shape[0] ):  
-            for j in xrange( 0, self.cells.shape[1] ):
-                l = i - w
-                r = i + w + 1
-                b = j - h
-                t = j + h + 1
-                kl = 0
-                kb = 0
-                kr, kt = kernel.data.shape
-                if ( l < 0 ):
-                    kl -= l
-                    l = 0
-                if ( b < 0 ):
-                    kb -= b
-                    b = 0
-                if ( r >= self.resolution[0] ):
-                    kr -= r - self.resolution[0]
-                    r = self.resolution[0]
-                if ( t >= self.resolution[1] ):
-                    kt -= t - self.resolution[1]
-                    t = self.resolution[1]
-                try:
-##                    if ( l < r and b < t and kl < kr and kb < kt ):
-                    if ( l < r and b < t and kl < kr ):
-                        # Convolution self.cells store density valued calculated based on Voronoi region
-                        # if self.cells[i,j] is 0 then the multiplication will result in 0
-                        density = (self.cells[ l:r, b:t ] * kernel.data[ kl:kr, 0:1 ])
-                        density = (density.sum())/(1.)
-                        densityGrid.cells[i, j] += density
-                except ValueError, e:
-                    print "Value error!"
-                    print "\tAgent at", center
-                    print "\tGrid resolution:", self.resolution
-                    print "\tKernel size:", kernel.data.shape
-                    print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
-                    raise e
-        # Independently convolute
-        for i in xrange( 0, self.cells.shape[0] ):  
-            for j in xrange( 0, self.cells.shape[1] ):
-                l = i - w
-                r = i + w + 1
-                b = j - h
-                t = j + h + 1
-                kl = 0
-                kb = 0
-                kr, kt = kernel.data.shape
-                if ( l < 0 ):
-                    kl -= l
-                    l = 0
-                if ( b < 0 ):
-                    kb -= b
-                    b = 0
-                if ( r >= self.resolution[0] ):
-                    kr -= r - self.resolution[0]
-                    r = self.resolution[0]
-                if ( t >= self.resolution[1] ):
-                    kt -= t - self.resolution[1]
-                    t = self.resolution[1]
-                try:
-##                    if ( l < r and b < t and kl < kr and kb < kt ):
-                    if ( l < r and b < t and kb < kt ):
-                        # Convolution self.cells store density valued calculated based on Voronoi region
-                        # if self.cells[i,j] is 0 then the multiplication will result in 0
-                        density = (self.cells[ l:r, b:t ] * kernel.data[ 0:1, kb:kt ])
-                        density = (density.sum())/(1.)
-                        densityGrid.cells[i, j] += density
-                except ValueError, e:
-                    print "Value error!"
-                    print "\tAgent at", center
-                    print "\tGrid resolution:", self.resolution
-                    print "\tKernel size:", kernel.data.shape
-                    print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
-                    raise e
-        return densityGrid    
 
     def surface( self, map, minVal, maxVal ):
         """Creates a pygame surface"""

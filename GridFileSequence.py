@@ -135,7 +135,8 @@ class GridFileSequence:
         outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
         outFile.close()
         
-    def computeDensityStandard( self, minCorner, size, resolution, defineRegionX, defineRegionY, frameSet ):
+    def computeDensityStandard( self, minCorner, size, resolution, defineRegionX,
+                                defineRegionY, frameSet, isVoronoi ):
         '''Creates a binary file representing the density scalar fields of each frame
         @param defineRegionX: a pair of minimum and maximum to define region in x axis
         @param defineRegionY: a pair of center and width to define region in y axis'''
@@ -161,11 +162,42 @@ class GridFileSequence:
 
         for i in range( THREAD_COUNT ):
             rasterLogs.append( RasterReport() )
-            rasterThreads.append( threading.Thread( target=threadStandardRasterize, args=( rasterLogs[-1],bufferLock,
-                                                                                         buffer, frameLock, frameSet,
-                                                                                         minCorner, size, resolution,
-                                                                                         defineRegionX, defineRegionY,
-                                                                                         self.domainX, self.domainY ) ) )
+            if( isVoronoi ):
+                print "Voronoi Computation"
+                print defineRegionX
+                # Compute boundary in y-axis
+                left = defineRegionY[0] - defineRegionY[1] * 0.5
+                right = defineRegionY[0] + defineRegionY[1] * 0.5
+                area = (right-left) * ( defineRegionX[1] - defineRegionX[0] )
+                cellSize = Vector2( size.x/float( resolution[0] ),
+                                    size.y/float( resolution[1] ) )
+                print "\n defineRegionX %f %f" % ( defineRegionX[0], defineRegionX[1] )
+                print "\n defineRegionY %f %f" % ( left, right )
+                # Convert to grid space
+                offset0 = Vector2( defineRegionX[0], left ) - minCorner
+                offset1 = Vector2( defineRegionX[1], right ) - minCorner
+                ofX0 = offset0.x/cellSize.x
+                ofX1 = offset1.x/cellSize.x
+                ofY0 = offset0.y/cellSize.y
+                ofY1 = offset1.y/cellSize.y
+                # Grid space index
+                boundIndexX = ( ofX0, ofX1 )
+                boundIndexY = ( ofY0, ofY1 )
+                rasterThreads.append( threading.Thread( target=threadStandardVoronoiRasterize,
+                                                       args=( rasterLogs[-1], bufferLock,
+                                                              buffer, frameLock, frameSet,
+                                                              minCorner, size, resolution,
+                                                              boundIndexX, boundIndexY, area,
+                                                              self.domainX, self.domainY, self.obstacles ) ) )
+            else:
+                print "Standard computation"
+                rasterThreads.append( threading.Thread( target=threadStandardRasterize,
+                                                        args=( rasterLogs[-1],bufferLock,
+                                                               buffer, frameLock, frameSet,
+                                                               minCorner, size, resolution,
+                                                               defineRegionX, defineRegionY,
+                                                               self.domainX, self.domainY ) ) )
+            
         for i in range( THREAD_COUNT ):
             rasterThreads[i].start()
         for i in range( THREAD_COUNT ):

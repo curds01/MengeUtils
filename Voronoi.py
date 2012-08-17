@@ -169,7 +169,8 @@ class Voronoi:
         @param orgResolution is the resolution before we add padding for Voronoi calculation
         @param orgDomainX is the domain in x before we add padding for Voronoi calculation
         @param orgDomainY is the domain in y corner before we add padding for Voronoi calculation
-        @param paddingSize is the Vector2 of pad size added for Voronoi calculation'''
+        @param paddingSize is the Vector2 of pad size added for Voronoi calculation
+        @return densityGrid contains density values computed from Voronoi'''
         # Compute Voronoi region for current frame
         # Store density in each cell of Voronoi region using 1/A
         densityGrid = Grid( self.minCorner, self.size, self.resolution, initVal=0 )
