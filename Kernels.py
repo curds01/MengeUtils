@@ -6,7 +6,7 @@ from DistFuncs import *
 
 class Kernel:
     """Distance function kernel"""
-    def __init__( self, radius, dFunc, cSize ):
+    def __init__( self, radius, smoothParam, dFunc, cSize):
         """Creates a kernel to add into the grid.normalize
         The kernel is a 2d grid (with odd # of cells in both directions.)
         The cell count is determined by the radius and cell size.x
@@ -24,7 +24,13 @@ class Kernel:
             hCount += 1
         o = np.arange( -(hCount/2), hCount/2 + 1) * cSize.x
         X, Y = np.meshgrid( o, o )
-        self.data = dFunc( X, Y, radius )
+        if( dFunc == FUNCS_MAP['variable-gaussian'] ):
+            if( smoothParam == None ):
+                print '\n Please specify smoothing parameter '
+                exit(1)
+            self.data = dFunc( X, Y, radius, smoothParam )
+        else:
+            self.data = dFunc( X, Y, radius )
 
 
     def max( self ):

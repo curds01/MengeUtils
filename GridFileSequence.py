@@ -77,8 +77,9 @@ class GridFileSequence:
         """
         renderTraces( minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase )
 
-    def computeDensity( self, minCorner, size, resolution, distFunc, maxRad, frameSet ):
-        '''Creates a binary file representing the density scalar fields of each frame'''
+    def computeDensity( self, minCorner, size, resolution, distFunc, maxRad, smoothParam, frameSet ):
+        '''Creates a binary file representing the density scalar fields of each frame
+        @param smoothParam: a smoothing value for variable gaussian'''
         global ACTIVE_RASTER_THREADS
 
         THREAD_COUNT = 1
@@ -104,7 +105,7 @@ class GridFileSequence:
                 rasterThreads.append( threading.Thread( target=threadRasterize, args=( rasterLogs[-1], bufferLock, buffer,
                                                                                        frameLock, frameSet,
                                                                                        minCorner, size, resolution,
-                                                                                       distFunc, maxRad,
+                                                                                       distFunc, maxRad, smoothParam,
                                                                                        self.domainX, self.domainY, self.obstacles
                                                                                        ) )  )
             else:

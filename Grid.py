@@ -152,11 +152,11 @@ class Grid( DataGrid ):
                 minDist = localMin
         return math.sqrt(minDist)
 
-    def rasterizePosition( self, frame, distFunc, maxRad, obstacles=None ):
+    def rasterizePosition( self, frame, distFunc, maxRad, smoothParam, obstacles=None ):
         """Given a frame of agents, rasterizes the whole frame"""
         # splat the kernel centered at the grid which contain agents
         if ((distFunc != FUNCS_MAP['variable-gaussian'])):
-            kernel = Kernel( maxRad, distFunc, self.cellSize )
+            kernel = Kernel( maxRad, smoothParam, distFunc, self.cellSize )
             # This assumes the kernel dimensions are ODD-sized
             w, h = kernel.data.shape
             w /= 2
@@ -178,7 +178,7 @@ class Grid( DataGrid ):
                     minRadius = distNei
                 if (minRadius < BUFFER_DIST):
                     minRadius = BUFFER_DIST
-                kernel = Kernel( minRadius, distFunc, self.cellSize )
+                kernel = Kernel( minRadius, smoothParam, distFunc, self.cellSize )
                 w, h = kernel.data.shape
                 w /= 2
                 h /= 2
