@@ -293,11 +293,10 @@ class GridFileSequence:
 
         # all of this together should make a function which draws filled-in circles
         #   at APPROXIMATELY the center of the agents.
-        maxRad = radius / 3.0   # this makes it work with the kernel generation
         def inCircle( dispX, dispY, rSqd ):
             dispSqd = ( dispX * dispX + dispY * dispY )
             return ( dispSqd <= rSqd ) * 1.0
-        dFunc = lambda x, y: inCircle( x, y, radius * radius )
+        dFunc = lambda x, y, junk: inCircle( x, y, radius * radius )
 
         gridCount = 0        
         while ( True ):
@@ -306,8 +305,9 @@ class GridFileSequence:
             except StopIteration:
                 break
             grid = Grid( minCorner, size, resolution, self.domainX, self.domainY ,0.0)
-            
-            grid.rasterizePosition( frame, dFunc, maxRad )
+
+            JUNK_SMOOTH_PARAM = 0            
+            grid.rasterizePosition( frame, dFunc, radius * 2, JUNK_SMOOTH_PARAM )
             outFile.write( grid.binaryString() )
             gridCount += 1
             
