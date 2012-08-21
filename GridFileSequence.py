@@ -219,7 +219,7 @@ class GridFileSequence:
         outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
         outFile.close()
 
-    def computeDensityWithReflection( self, minCorner, size, resolution, distFunc, maxRad, frameSet ):
+    def computeDensityWithReflection( self, minCorner, size, resolution, distFunc, maxRad, smoothParam, frameSet ):
         '''Creates a binary file representing the density scalar fields of each frame'''
         print "In relction function"
         global ACTIVE_RASTER_THREADS
@@ -247,16 +247,9 @@ class GridFileSequence:
                 rasterThreads.append( threading.Thread( target=threadRasterize, args=( rasterLogs[-1], bufferLock, buffer,
                                                                                        frameLock, frameSet,
                                                                                        minCorner, size, resolution,
-                                                                                       distFunc, maxRad,
+                                                                                       distFunc, maxRad, smoothParam,
                                                                                        self.domainX, self.domainY, self.obstacles, True
                                                                                        ) )  )
-##            else:
-##                rasterThreads.append( threading.Thread( target=threadVoronoiRasterize, args=( rasterLogs[-1], bufferLock, buffer,
-##                                                                                       frameLock, frameSet,
-##                                                                                       minCorner, size, resolution,
-##                                                                                       distFunc, maxRad,
-##                                                                                       self.domainX, self.domainY, self.obstacles
-##                                                                                            ) )  )
         for i in range( THREAD_COUNT ):
             rasterThreads[i].start()
         for i in range( THREAD_COUNT ):

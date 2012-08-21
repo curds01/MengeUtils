@@ -38,8 +38,8 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet,
         if not reflection:
             g.rasterizePosition( frame, distFunc, maxRad, smoothParam, obstacles )
         else:
-            g.rasterizePositionWithReflection( frame, distFunc, maxRad, obstacles )
-                    # update log
+            g.rasterizePositionWithReflection( frame, distFunc, maxRad, smoothParam, obstacles )
+        # update log
         log.setMax( g.maxVal() )
         log.incCount()
         # put into buffer
@@ -94,7 +94,7 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
 
         # Perform Function convolution
         densityGrid = Grid( densityRegion.minCorner, densityRegion.size, densityRegion.resolution, initVal=0.0 )
-        densityRegion.rasterizeVoronoiDensity( frame, distFunc, maxRad, densityGrid )
+        densityRegion.rasterizeVoronoiDensityWithReflect( frame, distFunc, maxRad, densityGrid )
         
         # update log
         # print densityGrid.maxVal()

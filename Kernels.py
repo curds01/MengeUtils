@@ -22,6 +22,7 @@ class Kernel:
             hCount = int( radius / cSize.x )
         if ( hCount % 2 == 0 ):
             hCount += 1
+
         o = np.arange( -(hCount/2), hCount/2 + 1) * cSize.x
         X, Y = np.meshgrid( o, o )
         if( dFunc == FUNCS_MAP['variable-gaussian'] ):
