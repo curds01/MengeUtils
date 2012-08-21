@@ -85,6 +85,11 @@ class Vector2:
         '''Reports if the vector is zero'''
         return self.x == 0.0 and self.y == 0.0
 
+    def negate( self ):
+        '''Negates the vector'''
+        self.x = -self.x
+        self.y = -self.y
+
 class Vector3:
     def __init__( self, x, y, z ):
         self.x = float(x)
