@@ -97,6 +97,11 @@ class DataGrid( AbstractGrid) :
         else:
             self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=arrayType ) + self.initVal
 
+    def surface( self, map, minVal, maxVal ):
+        """Creates a pygame surface"""
+        return map.colorOnSurface( (minVal, maxVal ), self.cells )
+
+    
 class Grid( DataGrid ):
     """Class to discretize scalar field computation"""
     def __init__( self, minCorner, size, resolution,
@@ -888,10 +893,6 @@ class Grid( DataGrid ):
             Y[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * disp.y
         self.cells = X + Y
         #self.cells = np.sqrt( X * X + Y * Y )
-
-    def surface( self, map, minVal, maxVal ):
-        """Creates a pygame surface"""
-        return map.colorOnSurface( (minVal, maxVal ), self.cells )
 
     def swapValues( self, oldVal, newVal ):
         """Replaces all cells with the value oldVal with newVal"""
