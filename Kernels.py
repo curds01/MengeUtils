@@ -3,6 +3,8 @@
 
 import numpy as np
 from DistFuncs import *
+from Signals import *
+from primitives import Vector2
 
 class KernelError( Exception ):
     pass
@@ -10,11 +12,23 @@ class KernelError( Exception ):
 class KernelSignalError( KernelError ):
     pass
 
+class KernelImplementationError( KernelError ):
+    '''Error for indicating access to an unimplemented function'''
+    pass
+
+class KernelDomainError( KernelError ):
+    '''Error indicating that the kernel has alignment problems in the domain'''
+    pass
+
 IDENTITY_FUNCTION = lambda x, sigma: x
 IDENTITY_FUNCTION_2D = lambda x, y, sigma: (x + y) * sigma
+UNIFORM_FUNCTION = lambda x, sigma: np.zeros_like( x ) + (1.0 / sigma)
+UNIFORM_FUNCTION_2D = lambda x, y, sigma: np.zeros_like( x ) + ( 1.0 / ( sigma * sigma ) )
+GAUSSIAN_FUNCTION = lambda x, sigma: np.exp( -( x * x ) / ( 2 * sigma * sigma ) ) / ( np.sqrt( 2.0 * np.pi ) * sigma )
+GAUSSIAN_FUNCTION_2D = lambda x, y, sigma: np.exp( -( x * x + y * y) / ( 2 * sigma * sigma ) ) / ( 2.0 * np.pi * sigma * sigma )
 
 class KernelBase( object ):
-    '''The base class of a discrete convolution kernel'''
+    '''The base class of a discrete convolution kernel.  It assumes uniform, square discretization of the domain'''
     def __init__( self, smoothParam, cellSize, reflect=True, func=IDENTITY_FUNCTION ):
         '''Initializes the kernel with the smoothing parameter and boundary behavior.
 
@@ -30,11 +44,11 @@ class KernelBase( object ):
         self.reflectBoundaries = reflect
 
     def __str__( self ):
-        return 'Kernel: smooth: %f, cellSize: %f' % ( self._sigma, self._w )
+        return '%s: smooth: %f, cellSize: %f' % ( self.__class__.__name__, self._smoothParam, self._cellSize )
     
     def sampleKernel( self, smoothParam, cellSize ):
-        self._sigma = smoothParam
-        self._w = cellSize
+        self._smoothParam = smoothParam
+        self._cellSize = cellSize
         self.computeSamples()
 
     def computeSamples( self ):
@@ -48,22 +62,22 @@ class KernelBase( object ):
     @property
     def smoothParam( self ):
         '''Getter for the smoothing parameter'''
-        return self._sigma
+        return self._smoothParam
 
     @smoothParam.setter
     def smoothParam( self, value ):
         '''Setter for the smoothing parmaeter'''
-        self.sampleKernel( value, self._w )
+        self.sampleKernel( value, self._cellSize )
 
     @property
     def cellSize( self ):
         '''Getter for the smoothing parameter'''
-        return self._w
+        return self._cellSize
 
     @cellSize.setter
     def cellSize( self, value ):
         '''Setter for the smoothing parmaeter'''
-        self.sampleKernel( self._sigma, value )
+        self.sampleKernel( self._smoothParam, value )
 
     def convolve( self, signal, grid ):
         '''Convolves this kernel with the signal and places the result on the grid.normalize
@@ -74,11 +88,64 @@ class KernelBase( object ):
                             changed as a result of this operation.
         '''
         if ( isinstance( signal, DiracSignal ) ):
-            convolveDirac( signal, grid )
+            self.convolveDirac( signal, grid )
         elif ( isinstance( signal, FieldSignal ) ):
-            convolveField( signal, grid )
+            self.convolveField( signal, grid )
         else:
             raise KernelSignalError, "Unrecognized signal type %s" % ( str( type( signal ) ) )
+
+    def truncateKernel( self, grid, pos ):
+        '''Given the position of the center of the kernel,
+        defines extant of kernel and grid to use in computation.
+
+        @param      grid    An instance of DataGrid.  
+        @param      pos     A 2-tuple-like object of two floats.
+                            The x- and y-position of the kernel (in grid coords.)
+        @returns    Two 4-tuples (l, r, t, b), (kl, kr, kt, kb) of the grid and
+                    kernel extents ( left, right, top, bottom) respectively.
+        @raises     KernelDomainError if the kernel does not overlap with the grid.
+        '''
+        halfW = self.data.shape[0] / 2
+        halfH = self.data.shape[1] / 2
+        l = pos[0] - halfW
+        r = pos[0] + halfW + 1
+        b = pos[1] - halfH
+        t = pos[1] + halfH + 1
+        gW = int( grid.resolution[0] )
+        gH = int( grid.resolution[1] )
+
+        if ( l > gW or r < 0 or b > gH or t < 0 ):
+            raise KernelDomainError
+                  
+        kl = 0
+        kb = 0
+        kr, kt = self.data.shape
+        if ( l < 0 ):
+            kl -= l
+            l = 0
+        if ( b < 0 ):
+            kb -= b
+            b = 0
+        if ( r >= gW ):
+            kr -= r - gW
+            r = gW
+        if ( t >= gH ):
+            kt -= t - gH
+            t = gH
+        return (l, r, t, b), (kl, kr, kt, kb)
+            
+    def convolveField( self, signal, grid ):
+        '''The convolution of the 2D kernel with the grid (slow, slow, slow)'''
+        # TODO: This seems to mistakenly pick up signal on the boundaries.  FIND WHY!
+        fieldData = signal.getFieldData()
+        for y in xrange( grid.cells.shape[1] ):
+            for x in xrange( grid.cells.shape[0] ):
+                gridExtent, kernelExtent = self.truncateKernel( grid, ( x, y ) )
+                l, r, t, b = gridExtent
+                kl, kr, kt, kb = kernelExtent
+                value = np.sum( fieldData[ l:r, b:t ] * self.data[ kl:kr, kb:kt ] )
+                grid.cells[ x, y ] = value
+                
 
     def convolveDirac( self, signal, grid ):
         '''Convolve the kernel against a dirac signal'''
@@ -103,72 +170,79 @@ class KernelBase( object ):
         r = center[0] + halfW + 1
         b = center[1] - halfH
         t = center[1] + halfH + 1
+        gW = int( grid.resolution[0] )
+        gH = int( grid.resolution[1] )
+
+        if ( l > gW or r < 0 or b > gH or t < 0 ):
+            return
+                  
         kl = 0
         kb = 0
-        kr, kt = kernel.data.shape
+        kr, kt = kernelData.shape
         if ( l < 0 ):
             kl -= l
             l = 0
         if ( b < 0 ):
             kb -= b
             b = 0
-        if ( r >= grid.resolution[0] ):
-            kr -= r - grid.resolution[0]
-            r = grid.resolution[0]
-        if ( t >= grid.resolution[1] ):
-            kt -= t - grid.resolution[1]
-            t = grid.resolution[1]
-        try:
-            if ( l < r and b < t and kl < kr and kb < kt ):
-                # Convolution
-                self.cells[ l:r, b:t ] += kernelData[ kl:kr, kb:kt ]
+        if ( r >= gW ):
+            kr -= r - gW
+            r = gW
+        if ( t >= gH ):
+            kt -= t - gH
+            t = gH
+        
+        if ( l < r and b < t and kl < kr and kb < kt ):
+            # Convolution
+            grid.cells[ l:r, b:t ] += kernelData[ kl:kr, kb:kt ]
         if ( self.reflectBoundaries ):
-            if ( kl > 0 ):  # reflect around left boundary
+            reflectTop = kt < kernelData.shape[1] and center[1] < gH
+            reflectBtm = kb > 0 and center[1] > 0
+            if ( kl > 0 and center[0] > 0 ):  # reflect around left boundary
                 # reflect center piece
-                reflKernel = kernelData[ :kl, kb:kt ][::-1, : ]
+                reflKernel = kernelData[ :kl, : ][::-1, : ]
                 tempR = min( r, reflKernel.shape[0] )
-                self.cells[ l:tempR, b:t ] += reflKernel[ :tempR, kb:kt ]
+                grid.cells[ l:tempR, b:t ] += reflKernel[ :tempR, kb:kt ]
                 
-                if ( kb > 0 ):  # also reflect around bottom
+                if ( reflectBtm ):  # also reflect around bottom
                     reflKernel = kernelData[ :kl, :kb ][::-1, ::-1]
                     tempT = min( t, reflKernel.shape[1] )
-                    self.cells[ l:tempR, b:tempT ] += reflKernel[ :tempR, :tempT ]
+                    grid.cells[ l:tempR, b:tempT ] += reflKernel[ :tempR, :tempT ]
 
-                if ( kt < kernelData.shape[1] ):  # also reflect around top
+                if ( reflectTop ):  # also reflect around top
                     reflKernel = kernelData[ :kl, kt: ][::-1, ::-1]
                     tempB = max( b, t - reflKernel.shape[1] )
-                    tempKB = max( kb, kt - reflKernel.shape[1] )
-                    self.cells[ l:tempR, tempB:t ] += reflKernel[ :tempR, tempKB:]
+                    tempKB = max( 0, reflKernel.shape[1] - gH )
+                    grid.cells[ l:tempR, tempB:t ] += reflKernel[ :tempR, tempKB:]
 
-            if ( kr < kernelData.shape[0] ):  # reflect around right boundary
+            if ( kr < kernelData.shape[0] and center[0] < gW ):  # reflect around right boundary
                 # reflect center piece
-                reflKernel = kernelData[ kr:, kb:kt ][::-1, : ]
-                tempKL = max( 0, kernelData.shape[0] - reflKernel.shape[0] )
+                reflKernel = kernelData[ kr:, : ][::-1, : ]
+                tempKL = max( 0, reflKernel.shape[0] - gW )
                 tempL = max( l, r - reflKernel.shape[0] )
-                self.cells[ tempL:r, b:t ] += reflKernel[ tempKL:, kb:kt ]
+                grid.cells[ tempL:r, b:t ] += reflKernel[ tempKL:, kb:kt ]
                 
-                if ( kb > 0 ):  # also reflect around bottom
+                if ( reflectBtm ):  # also reflect around bottom
                     reflKernel = kernelData[ kr:, :kb ][::-1, ::-1]
                     tempT = min( t, reflKernel.shape[1] )
-                    self.cells[ tempL:r, b:tempT ] += reflKernel[ tempKL:, :tempT ]
+                    grid.cells[ tempL:r, b:tempT ] += reflKernel[ tempKL:, :tempT ]
 
-                if ( kt < kernelData.shape[1] ):  # also reflect around top
+                if ( reflectTop ):  # also reflect around top
                     reflKernel = kernelData[ kr:, kt: ][::-1, ::-1]
                     tempB = max( b, t - reflKernel.shape[1] )
-                    tempKB = max( kb, kt - reflKernel.shape[1] )
-                    self.cells[ tempL:r, tempB:t ] += reflKernel[ tempKL:, tempKB:]
+                    tempKB = max( 0, reflKernel.shape[1] - gH )
+                    grid.cells[ tempL:r, tempB:t ] += reflKernel[ tempKL:, tempKB:]
 
-            # todo if kb > 0 and kt < kernelData.shape[1]
-            if ( kb > 0 ):      # reflect around the bottom
-                reflKernel = kernelData[ :kb, kl:kr ][:, ::-1]
+            if ( reflectBtm ):      # reflect around the bottom
+                reflKernel = kernelData[ :, :kb ][:, ::-1]
                 tempT = min( t, reflKernel.shape[1] )
-                self.cells[ l:r, b:tempT ] += reflKernel[ kl:kr, :tempT ]
+                grid.cells[ l:r, b:tempT ] += reflKernel[ kl:kr, :tempT ]
 
-            if ( kt < kerenlData.shape[1] ):        # reflect around the top
-                reflKernel = kernelData[ kt:, kl:kr ][:, ::-1 ]
+            if ( reflectTop ):        # reflect around the top
+                reflKernel = kernelData[ :, kt: ][:, ::-1 ]
                 tempB = max( b, t - reflKernel.shape[1] )
-                tempKB = max( kb, kt - relfKernel.shape[1] )
-                self.cells[ l:r, tempB:t ] += reflKernel[ kl:kr, tempKB: ]
+                tempKB = max( 0, reflKernel.shape[1] - gH )
+                grid.cells[ l:r, tempB:t ] += reflKernel[ kl:kr, tempKB: ]
             
 class SeparableKernel( KernelBase ):
     '''The base class of a separable convolution kernel'''
@@ -187,24 +261,82 @@ class SeparableKernel( KernelBase ):
         #TODO: Validate that the func has the correct interface
         KernelBase.__init__( self, smoothParam, cellSize, reflect, func )
 
-    def __str__( self ):
-        return 'SeparableKernel: smooth: %f, cellSize: %f' % ( self._sigma, self._w )
-    
-    def convolveField( self, signal, grid ):
-        pass
+    def convolveField2( self, signal, grid ):
+        # TODO: THIS CAUSES BANDING!!!!  Don't let it.
+        assert( signal.shape == grid.cells.shape )
+        fieldW = signal.shape[0]
+        fieldH = signal.shape[1]
+        if ( self.reflectBoundaries ):
+            expansion = self.data1D.size / 2
+            fieldData = signal.getFieldData( expansion )
+            temp = np.empty( (fieldW, fieldH ), dtype=np.float32 )
+            # horizontal convolution
+            for r in xrange( temp.shape[0] ):
+                result = np.convolve( self.data1D, fieldData[r,:], 'valid' )
+                try:
+                    temp[ r, : ] = result
+                except:
+                    print "Signal shape:", signal.shape
+                    print "Convolution result shape:", result.shape
+                    print "Kernel shape:", self.data1D.shape
+                    print "Reflected Signal shape:", fieldData[r,:].shape
+                    raise
+            fieldData[ expansion:-expansion, expansion:-expansion ] = temp
+            # vertical convolution
+            for c in xrange( temp.shape[1] ):
+                result = np.convolve( self.data1D, fieldData[:,c], 'valid' )
+                try:
+                    grid.cells[ :, c]  = result
+                except:
+                    print "Signal shape:", signal.shape
+                    print "Convolution result shape:", result.shape
+                    print "Kernel shape:", self.data1D.shape
+                    print "Reflected Signal shape:", fieldData[r,:].shape
+                    raise
+        else:
+            fieldData = signal.getFieldData()
+            temp = np.empty_like( fieldData )
+            # horizontal convolution
+            for r in xrange( temp.shape[0] ):
+                result = np.convolve( self.data1D, fieldData[r,:], 'same' )
+                if ( fieldW < self.data1D.size ):
+                    delta = ( self.data1D.size - fieldW ) / 2
+                    temp[ r, : ] = result[ delta:delta + fieldW ]
+                else:
+                    temp[ r,:] = result
+            # vertical convolution
+            for c in xrange( temp.shape[1] ):
+                result = np.convolve( self.data1D, temp[:,c], 'same' )
+                if ( fieldH < self.data1D.size ):
+                    delta = ( self.data1D.size - fieldH ) / 2
+                    grid.cells[ :, c ] = result[ delta:delta + fieldH ]
+                else:
+                    grid.cells[ :, c ] = result
+        
+        
 
     def computeSamples( self ):
         '''Based on the nature of the kernel, pre-compute the discrete kernel for given parameters.'''
         # do work
         width = self.getSupport() 
-        hCount = int( width / self._w )
+        hCount = int( np.ceil( width / self._cellSize ) )
         if ( hCount % 2 == 0 ):  # make sure cell has an odd-number of samples
             hCount += 1
-        x = np.arange( -(hCount/2), hCount/2 + 1) * self._w
+        x = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
         
-        self.data1D = self.dFunc( x, self._sigma )
+        self.data1D = self.dFunc( x, self._smoothParam ) * self._cellSize
+        # fix boundaries
+        self.fix1DBoundaries()
         temp = np.reshape( self.data1D, (-1, 1 ) )
         self.data = temp * temp.T
+
+    def fix1DBoundaries( self ):
+        '''Examines the boundaries of the discretized kernel, and if it extends past the compact
+            support of the continuous kernel, properly integrates the correct value.
+
+        @raises     KernelImplementationError   The SeparableKernel should not be instantiated.
+            '''
+        raise KernelImplementationError
 
 class InseparableKernel( KernelBase ):
     '''The base class of an inseparable convolution kernel'''
@@ -222,23 +354,23 @@ class InseparableKernel( KernelBase ):
         #TODO: Validate that the func has the correct interface
         KernelBase.__init__( self, smoothParam, cellSize, reflect, func )
 
-    def __str__( self ):
-        return 'InseparableKernel: smooth: %f, cellSize: %f' % ( self._sigma, self._w )
-    
     def convolveField( self, signal, grid ):
-        pass
+        raise KernelImplementationError, "This hasn't been implemented yet"
 
     def computeSamples( self ):
         '''Based on the nature of the kernel, pre-compute the discrete kernel for given parameters.'''
-        # do work
+        # TODO: If the cells do not align perfectly with the support domain of the kernel, there will be
+        #       error at the edges.
+        #       The "correct" thing is to integrate the function over each cell.  Which means, at the domain,
+        #       the 
         width = self.getSupport() 
-        hCount = int( width / self._w )
+        hCount = int( width / self._cellSize )
         if ( hCount % 2 == 0 ):  # make sure cell has an odd-number of samples
             hCount += 1
-        o = np.arange( -(hCount/2), hCount/2 + 1) * self._w
+        o = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
         X, Y = np.meshgrid( o, o )
 
-        self.data = self.dFunc( X, Y, self._sigma )
+        self.data = self.dFunc( X, Y, self._smoothParam )
 
 ##class ConstKernel:
 ##    pass
@@ -249,49 +381,151 @@ class InseparableKernel( KernelBase ):
 ##        return self.data
 ##    
 
-class SeparableConstKernel( SeparableKernel, ConstKernel ):
-    pass
+##class SeparableConstKernel( SeparableKernel ):
+##    pass
+##
+##class ConstGaussianKernel( SeparableKernel ):
+##    pass
 
-class ConstGaussianKernel( SeparableKernel, ConstKernel ):
-    pass
+
+    
+class UniformKernel( SeparableKernel ):
+    '''A simple uniform kernel'''
+    def __init__( self, smoothParam, cellSize, reflect=True ):
+        SeparableKernel.__init__( self, smoothParam, cellSize, reflect, UNIFORM_FUNCTION )
+
+    def getSupport( self ):
+        '''The uniform kernel's support is equal to the smooth parameter'''
+        return self._smoothParam
+
+    def fix1DBoundaries( self ):
+        '''Examines the boundaries of the discretized kernel, and if it extends past the compact
+            support of the continuous kernel, properly integrates the correct value.'''
+        support = self.getSupport()
+        cellCount = self.data1D.size
+        k = cellCount / 2       # cellCount = 2k + 1
+        if ( cellCount * self._cellSize > support ):
+            # handle boundaries
+            # right edge of compact support
+            rightSupport = support / 2.0
+            # left boundary of right most cell
+            cellBoundary = self._cellSize * ( k - 0.5 )
+            # width of supported region in final cell
+            assert( rightSupport > cellBoundary )
+            w = rightSupport - cellBoundary
+            # exploit the knowlege of the constant function
+            self.data1D[ 0 ] = self.data1D[ -1 ] = w * self.dFunc( cellBoundary, self._smoothParam )
+
+class GaussianKernel( SeparableKernel ):
+    '''A simple gaussian kernel - it implies a compact support of 6*sigma'''
+    def __init__( self, smoothParam, cellSize, reflect=True ):
+        SeparableKernel.__init__( self, smoothParam, cellSize, reflect, GAUSSIAN_FUNCTION )
+
+    def getSupport( self ):
+        '''The uniform kernel's support is equal to the smooth parameter'''
+        return 6 * self._smoothParam
+
+    def fix1DBoundaries( self ):
+        '''Examines the boundaries of the discretized kernel, and if it extends past the compact
+            support of the continuous kernel, properly integrates the correct value.'''
+        pass
 
 class Plaue11Kernel( KernelBase ):
+    '''This is the adaptive kernel mechamism proposed by Plaue et al. (2011).conjugate
+    It changes the smoothing parameter based on nearest neighbor information per agent.'''
+    # A coarse approximation of infinity
+    INFTY = 10000.0
+
+    # lower bound on the sigma value
+    DIST_BOUND = 0.1
+    
     def __init__( self, smoothParam, cellSize, reflect, obstacles=None  ):
         # TODO: Needs obstacles, needs the full set of data
         self.obstacles = obstacles
-        dFunc = lambda x, y, z: x + y + z   #todo, use the real function
-        KernelBase.__init__( self, smoothParam, cellSize, reflect, dFunc )
+        
+        KernelBase.__init__( self, smoothParam, cellSize, reflect, GAUSSIAN_FUNCTION )
+        
+    def getSupport( self ):
+        '''The uniform kernel's support is equal to the smooth parameter'''
+        return self._cellSize
+
+    def convolveField( self, signal, grid ):
+        '''Plaue11Kernel cannot be used with a Field signal'''
+        raise KernelImplementationError, "Plaue11Kernel cannot convolve with a field"
 
     def convolveDirac( self, signal, grid ):
         '''Convolve the kernel against a dirac signal'''
-        for pos in signal.impulses:
-            k = self.getImpulseKernel( pos )
+
+        for i, pos in enumerate( signal.impulses ):
+            k = self.getImpulseKernel( i, signal, grid )
             w, h = k.shape
             w /= 2
             h /= 2
-            self.splatKernel( pos, w, h, k, grid )               
+            self.splatKernel( pos, w, h, k, grid )
+
+    def computeSamples( self, minDist=1.0 ):
+        '''Based on the nature of the kernel, pre-compute the discrete kernel for given parameters.'''
+        # do work
+        # In the variable kernel the standard deviation of the underlying gaussian is the
+        #   product of the minimum distance and a smoothing parameter (\lambda in the paper)
+        gaussSigma = self._smoothParam * minDist 
+        width = 6 * gaussSigma
+        hCount = int( np.ceil( width / self._cellSize ) )
+        if ( hCount % 2 == 0 ):  # make sure cell has an odd-number of samples
+            hCount += 1
+        x = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
         
-    def getImpulseKernel( self, impulse ):
+        data1D = self.dFunc( x, gaussSigma ) * self._cellSize
+        temp = np.reshape( data1D, (-1, 1 ) )
+        self.data = temp * temp.T
+        
+    def getImpulseKernel( self, idx, signal, grid ):
         '''Returns the kernel appropriate for this impulse.
 
-        @param      A numpy array of shape (2,).  The 2D impulse position.
+        @param      idx     An int.  The index of the impulse in the signal for which
+                            we are computing the kernel.
+        @param      A DiracSignal instance.  The full set of impulses.
+        @param      An instance of DataGrid.  The grid spans the computation domain.
         @returns    A kxk numpy array representing the discrete kernel.
                         k is odd.
         '''
-        # find nearest neighbor
-        # use self.signal to find nearest neighbors
-        pass
+        impulse = signal[ idx ]
+        minDist = self.INFTY
+        if ( self.obstacles ):
+            distObst = self.obstacles.findClosestObject( Vector2(impulse[0], impulse[1]) )
+            if ( distObst < minDist ):
+                minDist = distObst
+        #distance to closest neighbor
+        distNei = self.distanceToNearestNeighbor( idx, impulse, signal )
+        # minRadius is the smallest distance to either obstacle or neighbor
+        if ( distNei < minDist ):
+            minDist = distNei
+        if ( minDist < self.DIST_BOUND ):
+            minDist = self.DIST_BOUND
+        self.computeSamples( minDist )
+        return self.data
+    
+    def distanceToNearestNeighbor( self, idx, impulse, signal ):
+        '''Find the minimum distance between the impulse with the given index/value and its
+        neighboring impulses.
 
-    def convolveDirac( self, signal, grid ):
-        '''Convolve the kernel against a dirac signal'''
-        w, h = self.data.shape
-        w /= 2
-        h /= 2
-        for dirac in signal.impulses:
-            
-            
-
-        
+        @param  idx         The index of the source impules.
+        @param  impules     The value of the idx impulse.
+        @param  signal      An instance of a DiracSignal (including the source impulse idx)
+        '''
+        minDist = self.INFTY
+        if ( len( signal ) == 1 ):
+            # Distance to the closet boundary
+            return minDist
+        for j, nbr in enumerate( signal.impulses ):
+            if ( idx == j ):
+                continue
+            # get position of the agent the world grid
+            diff = nbr - impulse
+            localMin = np.sum( diff * diff, axis=0 )
+            if ( localMin < minDist ):
+                minDist = localMin
+        return np.sqrt( minDist )
     
 class Kernel:
     """Distance function kernel"""
@@ -363,11 +597,13 @@ class Kernel2:
 
 if __name__ == '__main__':
     def test():
-        k = SeparableKernel( 1.0, 0.2 )
+
+        sigma = 1.0
+        cellSize = 0.11
+        k = UniformKernel( sigma, cellSize )
         print k
-        k.cellSize = 0.4
-        print k
-        print k.data
+        print k.data1D, k.data1D.sum()
+        print k.data, k.data.sum()
 
 
     test()
