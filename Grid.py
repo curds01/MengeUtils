@@ -35,6 +35,19 @@ class AbstractGrid:
         y = int( ofY )
         return x, y
 
+    def distanceToNearestBoundary( self, position ):
+        '''Returns the distance from the position to the nearest boundary.
+
+        @param  position        A 2-tuple-like object of floats.  The x- and y-values
+                                of the test point.
+        @returns        A float.  The minimum distance to the nearest boundary.
+        '''
+        dx1 = abs( position[0] - self.minCorner[0] )
+        dy1 = abs( position[1] - self.minCorner[1] )
+        dx2 = abs( self.size[0] - dx1 )
+        dy2 = abs( self.size[1] - dy1 )
+        return min( dx1, dy1, dx2, dy2 )
+
 class DataGrid( AbstractGrid) :
     """A Class to stroe information in grid based structure (i.e the one in Voronoi class ) """
     def __init__( self, minCorner, size, resolution, initVal=0.0, arrayType=np.float32 ):
