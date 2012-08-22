@@ -195,6 +195,7 @@ class KernelBase( object ):
         if ( l < r and b < t and kl < kr and kb < kt ):
             # Convolution
             grid.cells[ l:r, b:t ] += kernelData[ kl:kr, kb:kt ]
+
         if ( self.reflectBoundaries ):
             reflectTop = kt < kernelData.shape[1] and center[1] < gH
             reflectBtm = kb > 0 and center[1] > 0
@@ -242,8 +243,8 @@ class KernelBase( object ):
                 reflKernel = kernelData[ :, kt: ][:, ::-1 ]
                 tempB = max( b, t - reflKernel.shape[1] )
                 tempKB = max( 0, reflKernel.shape[1] - gH )
-                grid.cells[ l:r, tempB:t ] += reflKernel[ kl:kr, tempKB: ]
-            
+                grid.cells[ l:r, tempB:t ] += reflKernel[ kl:kr, tempKB: ]    
+
 class SeparableKernel( KernelBase ):
     '''The base class of a separable convolution kernel'''
     
@@ -381,6 +382,7 @@ class InseparableKernel( KernelBase ):
 ##        return self.data
 ##    
 
+
 ##class SeparableConstKernel( SeparableKernel ):
 ##    pass
 ##
@@ -429,6 +431,7 @@ class GaussianKernel( SeparableKernel ):
         '''Examines the boundaries of the discretized kernel, and if it extends past the compact
             support of the continuous kernel, properly integrates the correct value.'''
         pass
+
 
 class Plaue11Kernel( KernelBase ):
     '''This is the adaptive kernel mechamism proposed by Plaue et al. (2011).conjugate
@@ -526,10 +529,11 @@ class Plaue11Kernel( KernelBase ):
             if ( localMin < minDist ):
                 minDist = localMin
         return np.sqrt( minDist )
-    
+
 class Kernel:
     """Distance function kernel"""
-    def __init__( self, radius, smoothParam, dFunc, cSize):
+    # TODO : CHANGE THE DFUNC AND MULTIPLY WITH AREA FACTOR
+    def __init__( self, smoothParam, dFunc, cSize):
         """Creates a kernel to add into the grid.normalize
         The kernel is a 2d grid (with odd # of cells in both directions.)
         The cell count is determined by the radius and cell size.x
@@ -538,22 +542,18 @@ class Kernel:
         by the distance of each cell from the center cell computed with
         dFunc.  Each cell is given a logical size of cSize"""
         if (dFunc == FUNCS_MAP['gaussian'] or dFunc == FUNCS_MAP['variable-gaussian']):
-            hCount = int( 6 * radius / cSize.x )
+            hCount = int( 6 * smoothParam / cSize.x )
         elif (dFunc == FUNCS_MAP['linear'] or dFunc == FUNCS_MAP['biweight'] ):
-            hCount = int( 2 * radius / cSize.x )
+            hCount = int( 2 * smoothParam / cSize.x )
         else:
-            hCount = int( radius / cSize.x )
+            hCount = int( smoothParam / cSize.x )
         if ( hCount % 2 == 0 ):
             hCount += 1
+
         o = np.arange( -(hCount/2), hCount/2 + 1) * cSize.x
         X, Y = np.meshgrid( o, o )
-        if( dFunc == FUNCS_MAP['variable-gaussian'] ):
-            if( smoothParam == None ):
-                print '\n Please specify smoothing parameter '
-                exit(1)
-            self.data = dFunc( X, Y, radius, smoothParam )
-        else:
-            self.data = dFunc( X, Y, radius )
+        self.data = dFunc( X, Y, smoothParam )
+
 
     def max( self ):
         return self.data.max()
@@ -565,6 +565,35 @@ class Kernel:
         return self.data.sum()
     
     def __str__( self ):
+        return str( self.data )
+
+class Kernel2:
+    """Computes the contribution of an agent to it's surrounding neighborhood"""
+    # THE BIG DIFFERENCE between Kernel2 and Kernel:
+    #   Kernel assumes that every agent is centered on a cell, so the contribution
+    #   is a fixed contribution to the neighborhood
+    #   This kernel has fixed size, but the values change because it's computed based
+    #   on the actual world position of the agent w.r.t. the world position of the kernel center
+    #   So, this creates a generic kernel of the appropriate size, but then given a particular
+    #   center value and a particular position, computes the unique kernel (instance method)
+    def __init__( self, radius, cSize ):
+        # compute size: assume cSize is square
+        self.k = int( 6 * radius / cSize.x )
+        if ( self.k % 2 == 0 ):
+            self.k += 1
+        self.data = np.zeros( (self.k, self.k), dtype=np.float32 )
+        # world offsets from the center of the kernel
+        o = np.arange( -(self.k/2), self.k/2 + 1) * cSize.x
+        self.localX, self.localY = np.meshgrid( o, o )
+        
+    def instance( self, dfunc, center, position ):
+        '''Creates an instance of the sized kernel for this center and position'''
+        localPos = position - center
+        deltaX = ( self.localX - localPos.x ) ** 2
+        deltaY = ( self.localY - localPos.y ) ** 2
+        distSqd = deltaX + deltaY
+        # the distance function must take an array as an argument.
+        self.data = dfunc( distSqd )
         return str( self.data )
 
 class Kernel2:

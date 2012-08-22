@@ -22,7 +22,7 @@ class BufferGrid:
 # The   that does the rasterization work
 ACTIVE_RASTER_THREADS = 0
 def threadRasterize( log, bufferLock, buffer, frameLock, frameSet,
-                     minCorner, size, resolution, distFunc, maxRad, smoothParam,
+                     minCorner, size, resolution, distFunc, smoothParam,
                      domainX, domainY, obstacles=None, reflection=False):
     while ( True ):
         # create grid and rasterize
@@ -36,10 +36,10 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet,
             frameLock.release()
         g = Grid( minCorner, size, resolution, domainX, domainY )
         if not reflection:
-            g.rasterizePosition( frame, distFunc, maxRad, smoothParam, obstacles )
+            g.rasterizePosition( frame, distFunc, smoothParam, obstacles )
         else:
-            g.rasterizePositionWithReflection( frame, distFunc, maxRad, obstacles )
-                    # update log
+            g.rasterizePositionWithReflection( frame, distFunc, smoothParam, obstacles )
+        # update log
         log.setMax( g.maxVal() )
         log.incCount()
         # put into buffer
@@ -52,7 +52,7 @@ def threadRasterize( log, bufferLock, buffer, frameLock, frameSet,
 ##        frameLock.release()
 
 def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
-                            minCorner, size, resolution, distFunc, maxRad,
+                            minCorner, size, resolution, distFunc, smoothParam,
                             domainX, domainY, obstacles=None, reflection=False ):
     while ( True ):
         vxCell = float(size.x)/resolution.x
@@ -94,7 +94,7 @@ def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
 
         # Perform Function convolution
         densityGrid = Grid( densityRegion.minCorner, densityRegion.size, densityRegion.resolution, initVal=0.0 )
-        densityRegion.rasterizeVoronoiDensity( frame, distFunc, maxRad, densityGrid )
+        densityRegion.rasterizeVoronoiDensity( frame, distFunc, smoothParam, densityGrid )
         
         # update log
         # print densityGrid.maxVal()

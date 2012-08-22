@@ -11,7 +11,6 @@ from primitives import Vector2
 from DistFuncs import FUNCS_MAP
 from ThreadRasterization import *
 
-
 # the thread that does the file output
 def threadOutput( outFile, buffer, bufferLock, startTime ):
     """Reads grids from the buffer and writes them to the output file"""
@@ -55,17 +54,15 @@ class GridFileSequence:
     NORM_CONTRIB_SPEED = 4 # distribute speed with normalized gaussian and then divide by contribution matrix
     LAPLACE_SPEED = 5   # compute the magnitude of the laplacian of the velocity field
     
-    def __init__( self, outFileName, domainX, domainY, obstacles=None, obstaclesLayover=False ):
+    def __init__( self, outFileName, domainX, domainY, obstacles=None ):
         """@param domainX is a Vector2 storing range of value x from user. domainX[0] stores min value and domainX[1] stores max value.
            @param domainY is a similar to domainX but in y-axis
            @param obstacle is a obstalceHandler object which provides interface to find intersection for the underlining
-                   with every objects in the scene
-           @param obstaclesLayover is a flag to determine whether to draw obstacles"""
+                   with every objects in the scene """
         self.outFileName = outFileName
         self.domainX = domainX
         self.domainY = domainY
         self.obstacles = obstacles
-        self.obsLayover = obstaclesLayover
 
     def renderTraces( self, minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase ):
         """Creates a sequence of images of the traces of the agents.
@@ -77,7 +74,7 @@ class GridFileSequence:
         """
         renderTraces( minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase )
 
-    def computeDensity( self, minCorner, size, resolution, distFunc, maxRad, smoothParam, frameSet ):
+    def computeDensity( self, minCorner, size, resolution, distFunc, smoothParam, frameSet ):
         '''Creates a binary file representing the density scalar fields of each frame
         @param smoothParam: a smoothing value for variable gaussian'''
         global ACTIVE_RASTER_THREADS
@@ -101,19 +98,19 @@ class GridFileSequence:
         rasterLogs = []
         for i in range( THREAD_COUNT ):
             rasterLogs.append( RasterReport() )
-            if (distFunc != FUNCS_MAP['vsquare']):
+            if (distFunc != FUNCS_MAP['voronoi-uniform']):
                 rasterThreads.append( threading.Thread( target=threadRasterize, args=( rasterLogs[-1], bufferLock, buffer,
                                                                                        frameLock, frameSet,
                                                                                        minCorner, size, resolution,
-                                                                                       distFunc, maxRad, smoothParam,
+                                                                                       distFunc, smoothParam,
                                                                                        self.domainX, self.domainY, self.obstacles
                                                                                        ) )  )
             else:
                 rasterThreads.append( threading.Thread( target=threadVoronoiRasterize, args=( rasterLogs[-1], bufferLock, buffer,
-                                                                                       frameLock, frameSet,
-                                                                                       minCorner, size, resolution,
-                                                                                       distFunc, maxRad,
-                                                                                       self.domainX, self.domainY, self.obstacles
+                                                                                              frameLock, frameSet,
+                                                                                              minCorner, size, resolution,
+                                                                                              distFunc, smoothParam,
+                                                                                              self.domainX, self.domainY, self.obstacles
                                                                                             ) )  )
         for i in range( THREAD_COUNT ):
             rasterThreads[i].start()
@@ -219,7 +216,7 @@ class GridFileSequence:
         outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
         outFile.close()
 
-    def computeDensityWithReflection( self, minCorner, size, resolution, distFunc, maxRad, frameSet ):
+    def computeDensityWithReflection( self, minCorner, size, resolution, distFunc, smoothParam, frameSet ):
         '''Creates a binary file representing the density scalar fields of each frame'''
         print "In relction function"
         global ACTIVE_RASTER_THREADS
@@ -243,20 +240,19 @@ class GridFileSequence:
         rasterLogs = []
         for i in range( THREAD_COUNT ):
             rasterLogs.append( RasterReport() )
-            if (distFunc != FUNCS_MAP['vsquare']):
+            if (distFunc != FUNCS_MAP['voronoi-uniform']):
                 rasterThreads.append( threading.Thread( target=threadRasterize, args=( rasterLogs[-1], bufferLock, buffer,
                                                                                        frameLock, frameSet,
                                                                                        minCorner, size, resolution,
-                                                                                       distFunc, maxRad,
+                                                                                       distFunc, smoothParam,
                                                                                        self.domainX, self.domainY, self.obstacles, True
                                                                                        ) )  )
-##            else:
-##                rasterThreads.append( threading.Thread( target=threadVoronoiRasterize, args=( rasterLogs[-1], bufferLock, buffer,
-##                                                                                       frameLock, frameSet,
-##                                                                                       minCorner, size, resolution,
-##                                                                                       distFunc, maxRad,
-##                                                                                       self.domainX, self.domainY, self.obstacles
-##                                                                                            ) )  )
+            else:
+                rasterThreads.append( threading.Thread( target=threadVoronoiRasterize, args=( rasterLogs[-1], bufferLock, buffer,
+                                                                                              frameLock, frameSet, minCorner,
+                                                                                              size, resolution, distFunc, smoothParam,
+                                                                                              self.domainX, self.domainY, self.obstacles, True
+                                                                                             ) )  )
         for i in range( THREAD_COUNT ):
             rasterThreads[i].start()
         for i in range( THREAD_COUNT ):
@@ -293,10 +289,11 @@ class GridFileSequence:
 
         # all of this together should make a function which draws filled-in circles
         #   at APPROXIMATELY the center of the agents.
+        maxRad = radius / 3.0   # this makes it work with the kernel generation
         def inCircle( dispX, dispY, rSqd ):
             dispSqd = ( dispX * dispX + dispY * dispY )
             return ( dispSqd <= rSqd ) * 1.0
-        dFunc = lambda x, y, junk: inCircle( x, y, radius * radius )
+        dFunc = lambda x, y: inCircle( x, y, radius * radius )
 
         gridCount = 0        
         while ( True ):
@@ -305,9 +302,8 @@ class GridFileSequence:
             except StopIteration:
                 break
             grid = Grid( minCorner, size, resolution, self.domainX, self.domainY ,0.0)
-
-            JUNK_SMOOTH_PARAM = 0            
-            grid.rasterizePosition( frame, dFunc, radius * 2, JUNK_SMOOTH_PARAM )
+            
+            grid.rasterizePosition( frame, dFunc, maxRad )
             outFile.write( grid.binaryString() )
             gridCount += 1
             

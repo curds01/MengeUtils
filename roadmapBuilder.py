@@ -400,7 +400,7 @@ def main():
     if ( field ):
         context.addContext( FieldEditContext( field ), pygame.K_f )
     if ( scbName != '' ):
-        context.addContext( SCBContext( scbName, agents.defRadius ), pygame.K_s )
+        context.addContext( SCBContext( scbName, obstacles, agents.defRadius ), pygame.K_s )
     context.newGLContext()
 
     redraw = True

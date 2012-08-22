@@ -162,19 +162,17 @@ class Grid( DataGrid ):
             if (agentPos[0] == agtPos[0] and  agentPos[1] == agtPos[1]):
                 # Agent and agt is the same
                 continue
-            # get position of the agent the world grid
-            agtCenter = self.getCenter( Vector2(agtPos[0], agtPos[1]) )
             diff = agtPos - agentPos
             localMin = np.sum(diff * diff, axis=0)
             if (localMin < minDist):
                 minDist = localMin
         return math.sqrt(minDist)
 
-    def rasterizePosition( self, frame, distFunc, maxRad, smoothParam, obstacles=None ):
+    def rasterizePosition( self, frame, distFunc, smoothParam, obstacles=None ):
         """Given a frame of agents, rasterizes the whole frame"""
         # splat the kernel centered at the grid which contain agents
         if ((distFunc != FUNCS_MAP['variable-gaussian'])):
-            kernel = Kernel( maxRad, smoothParam, distFunc, self.cellSize )
+            kernel = Kernel( smoothParam, distFunc, self.cellSize )
             # This assumes the kernel dimensions are ODD-sized
             w, h = kernel.data.shape
             w /= 2
@@ -204,8 +202,6 @@ class Grid( DataGrid ):
             
             # get position of the agent the world grid
             center = self.getCenter( Vector2(pos[0], pos[1]) )
-##            print pos
-##            print center
             l = center[0] - w
             r = center[0] + w + 1
             b = center[1] - h
@@ -229,9 +225,6 @@ class Grid( DataGrid ):
                 if ( l < r and b < t and kl < kr and kb < kt ):
                     # Convolution
                     self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]
-##                    if (center[0] >= 0 ) and (center[0] < self.resolution[0] ) and \
-##                       (center[1] >= 0 ) and (center[1] < self.resolution[1] ):
-##                        print self.cells[ center[0], center[1] ]
             except ValueError, e:
                 print "Value error!"
                 print "\tAgent at", center
@@ -239,12 +232,127 @@ class Grid( DataGrid ):
                 print "\tKernel size:", kernel.data.shape
                 print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
                 raise e
+    def reflectOverBoundary( self, flipL, flipR, flipT, flipB, kernel,
+                             (kl, kr, kb, kt),( l,r,b,t)):
+        if flipL:
+            reflect = kernel.data[0:kl, kb:kt][::-1,::]
+            if reflect.shape[0] > self.resolution[0]:
+                start = 0
+                end = self.resolution[0]
+                self.cells[ start:end, b:t ] += reflect[ start:end, :: ]
+            else:
+                self.cells[ 0:reflect.shape[0], b:t ] += reflect
+                        
+        if flipR:
+            reflect = kernel.data[-1:kr-1:-1,kb:kt]
+            if reflect.shape[0] > self.resolution[0]:
+                start = 0
+                end = self.resolution[0]
+                self.cells[ start:end, b:t ] += reflect[ (reflect.shape[0] - end):,:: ]
+            else:
+                self.cells[(r-reflect.shape[0]):r, b:t] += reflect
+                        
+        if flipB:
+            reflect = kernel.data[kl:kr, 0:kb][::,::-1]
+            if reflect.shape[1] > self.resolution[1]:
+                start = 0
+                end = self.resolution[1]
+                self.cells[ l:r, start:end ] += reflect[ kl:kr, (reflect.shape[1] - end): ]
+            else:
+                self.cells[ l:r, 0:reflect.shape[1]] += reflect
+                        
+        if flipT:
+            reflect = kernel.data[ kl:kr, -1:kt-1:-1 ]
+            if reflect.shape[1] > self.resolution[1]:
+                start = 0
+                end = self.resolution[1]
+                self.cells[ l:r, start:end ] += reflect[ ::, start:end ]
+            else:
+                self.cells[ l:r, (t - reflect.shape[1]):t ] += reflect
+    
+        if flipL and flipT:
+            reflect = kernel.data[0:kl,-1:kt-1:-1][::-1,::]
+            if ( reflect.shape[0] > self.resolution[0] ) and \
+                ( not reflect.shape[1] > self.resolution[1] ):
+                start = 0
+                end = self.resolution[0]
+                self.cells[ start:end, (t - reflect.shape[1]):t ] += reflect[start:end, ::]
+            elif ( reflect.shape[1] > self.resolution[1] ) and\
+                ( not reflect.shape[0] > self.resolution[0] ):
+                start = 0
+                end = self.resolution[1]
+                self.cells[ l:r, start:end ] += reflect[ ::, start:end ]
+            elif ( reflect.shape[1] > self.resolution[1] ) and\
+                ( reflect.shape[0] > self.resolution.shape[0] ):
+                self.cells[ 0:self.resolution[0], 0:self.resolution[1] ] += \
+                        reflect[ 0:self.resolution[0], 0:self.resolution[1] ]
+            else:
+                self.cells[ l:(l + reflect.shape[0]),
+                            (t - reflect.shape[1]):t ] += reflect
+                        
+        if flipL and flipB:
+            reflect = kernel.data[0:kl, 0:kb][::-1,::-1]
+            if ( reflect.shape[0] > self.resolution[0] ) and \
+                ( not reflect.shape[1] > self.resolution[1] ):
+                start = 0
+                end = self.resolution[0]
+                self.cells[ start:end, 0:reflect.shape[1] ] += reflect[start:end, ::]
+            elif ( reflect.shape[1] > self.resolution[1] ) and\
+                 ( not reflect.shape[0] > self.resolution[0] ):
+                start = 0
+                end = self.resolution[1] 
+                self.cells[ l:r, start:end ] += reflect[ kl:kr, (reflect.shape[1] - end): ]
+            elif ( reflect.shape[1] > self.resolution[1] ) and\
+                 ( reflect.shape[0] > self.resolution.shape[0] ):
+                self.cells[ 0:self.resolution[0], 0:self.resolution[1] ] += \
+                        reflect[ 0:self.resolution[0], (reflect.shape[1] - end): ]
+            else:
+                self.cells[ 0:reflect.shape[0],
+                            0:reflect.shape[1] ] += reflect
+                        
+        if flipR and flipB:
+            reflect = kernel.data[-1:kr-1:-1, 0:kb][::,::-1]
+            if ( reflect.shape[0] > self.resolution[0] ) and \
+                ( not reflect.shape[1] > self.resolution[1] ):
+                start = 0
+                end = self.resolution[0]
+                self.cells[ start:end, 0:reflect.shape[1] ] += reflect[(reflect.shape[0]-end):,::]
+            elif ( reflect.shape[1] > self.resolution[1] ) and\
+                ( not reflect.shape[0] > self.resolution[0] ):
+                start = 0
+                end = self.resolution[1]
+                self.cells[ l:r, start:end ] += reflect[ kl:kr, (reflect.shape[1] - end): ]
+            elif ( reflect.shape[1] > self.resolution[1] ) and\
+                ( reflect.shape[0] > self.resolution.shape[0] ):
+                self.cells[ 0:self.resolution[0], 0:self.resolution[1] ] += \
+                            reflect[ (reflect.shape[0]-end):, (reflect.shape[1] - end): ]
+            else:
+                self.cells[ (r-reflect.shape[0]):r, 0:reflect.shape[1] ] += reflect
+                        
+        if flipR and flipT:
+            reflect = kernel.data[-1:kr-1:-1, -1:kt-1:-1]
+            if ( reflect.shape[0] > self.resolution[0] ) and \
+                ( not reflect.shape[1] > self.resolution[1] ):
+                start = 0
+                end = self.resolution[0]
+                self.cells[ start:end, (t - reflect.shape[1]):t ] += reflect[(reflect.shape[0]-end):,::]
+            elif ( reflect.shape[1] > self.resolution[1] ) and\
+                 ( not reflect.shape[0] > self.resolution[0] ):
+                start = 0
+                end = self.resolution[1]
+                self.cells[ l:r, star:end ] += reflect[ ::, start:end ]
+            elif ( reflect.shape[1] > self.resolution[1] ) and\
+                ( reflect.shape[0] > self.resolution.shape[0] ):
+                self.cells[ 0:self.resolution[0], 0:self.resolution[1] ] += \
+                reflect[ (reflect.shape[0]-end):, 0:self.resolution[1] ]
+            else:
+                self.cells[ (r-reflect.shape[0]):r, (t - reflect.shape[1]):t  ] += reflect       
 
-    def rasterizePositionWithReflection( self, frame, distFunc, maxRad, obstacles=None ):
+    def rasterizePositionWithReflection( self, frame, distFunc, smoothParam, obstacles=None ):
         """Given a frame of agents, rasterizes the whole frame"""
         # splat the kernel centered at the grid which contain agents
         if ((distFunc != FUNCS_MAP['variable-gaussian'])):
-            kernel = Kernel( maxRad, distFunc, self.cellSize )
+            kernel = Kernel( smoothParam, distFunc, self.cellSize )
             # This assumes the kernel dimensions are ODD-sized
             w, h = kernel.data.shape
             w /= 2
@@ -266,13 +374,13 @@ class Grid( DataGrid ):
                     minRadius = distNei
                 if (minRadius < BUFFER_DIST):
                     minRadius = BUFFER_DIST
-                kernel = Kernel( minRadius, distFunc, self.cellSize )
+                kernel = Kernel( minRadius, smoothParam, distFunc, self.cellSize )
                 w, h = kernel.data.shape
                 w /= 2
                 h /= 2
             # END IF
             
-            # get position of the agent the world grid
+            # Get position of the agent the world grid
             center = self.getCenter( Vector2(pos[0], pos[1]) )
             l = center[0] - w
             r = center[0] + w + 1
@@ -306,142 +414,9 @@ class Grid( DataGrid ):
             try:
                if ( l < r and b < t and kl < kr and kb < kt ):
                     # Convolution
+                    self.reflectOverBoundary( flipL, flipR, flipT, flipB, kernel,
+                                              (kl, kr, kb, kt),( l,r,b,t) )
                     self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ]
-##                    print "flipL" + str(flipL)
-##                    print "flipR" + str(flipR)
-##                    print "flipT" + str(flipT)
-##                    print "flipB" + str(flipB)
-                    
-                    if flipL:
-                        reflect = kernel.data[0:kl+1, kb:kt][::-1,::]
-##                        print "in flipL" +  str( reflect.shape )
-##                        print b
-##                        print t
-                        if reflect.shape[0] > self.resolution[0]:
-                            start = 0
-                            end = self.resolution[0]
-                            self.cells[ start:end, b:t ] += reflect[ start:end, :: ]
-                            print self.cells.shape
-                        else:
-                            self.cells[ 0:reflect.shape[0], b:t ] += reflect
-                        
-                    if flipR:
-                        reflect = kernel.data[-1:kr-1:-1,kb:kt]
-##                        print "flipR"
-                        if reflect.shape[0] > self.resolution[0]:
-                            start = 0
-                            end = self.resolution[0]
-                            print reflect.shape
-                            print self.resolution[0]
-                            print reflect[ (reflect.shape[0] - end):, :: ].shape
-                            self.cells[ start:end, b:t ] += reflect[ (reflect.shape[0] - end):,:: ]
-                        else:
-                            self.cells[(r-reflect.shape[0]):r, b:t] += reflect
-                        
-                    if flipB:
-                        reflect = kernel.data[kl:kr, 0:kb+1][::,::-1]
-##                        print "flipB"
-                        if reflect.shape[1] > self.resolution[1]:
-                            start = 0
-                            end = self.resolution[1]
-                            self.cells[ l:r, start:end ] += reflect[ kl:kr, (reflect.shape[1] - end): ]
-                        else:
-                            self.cells[ l:r, 0:reflect.shape[1]] += reflect
-                        
-                    if flipT:
-                        reflect = kernel.data[ kl:kr, -1:kt-1:-1 ]
-                        if reflect.shape[1] > self.resolution[1]:
-                            start = 0
-                            end = self.resolution[1]
-                            self.cells[ l:r, star:end ] += reflect[ ::, start:end ]
-                        else:
-                            self.cells[ l:r, (t - reflect.shape[1]):t ] += reflect
-    
-                    if flipL and flipT:
-                        reflect = kernel.data[0:kl+1,-1:kt:-1][::-1,::]
-##                        print "flipL and T"
-                        if ( reflect.shape[0] > self.resolution[0] ) and \
-                           ( not reflect.shape[1] > self.resolution[1] ):
-                            start = 0
-                            end = self.resolution[0]
-                            self.cells[ start:end, (t - reflect.shape[1]):t ] += reflect[start:end, ::]
-                        elif ( reflect.shape[1] > self.resolution[1] ) and\
-                             ( not reflect.shape[0] > self.resolution[0] ):
-                            start = 0
-                            end = self.resolution[1]
-                            self.cells[ l:r, star:end ] += reflect[ ::, start:end ]
-                        elif ( reflect.shape[1] > self.resolution[1] ) and\
-                             ( reflect.shape[0] > self.resolution.shape[0] ):
-                            self.cells[ 0:self.resolution[0], 0:self.resolution[1] ] += \
-                                        reflect[ 0:self.resolution[0], 0:self.resolution[1] ]
-                        else:
-                            self.cells[ l:(l + reflect.shape[0]),
-                                        (t - reflect.shape[1]):t ] += reflect
-                        
-                    if flipL and flipB:
-                        reflect = kernel.data[0:kl+1:1, 0:kb+1][::-1,::-1]
-##                        print "flipL and B"
-                        if ( reflect.shape[0] > self.resolution[0] ) and \
-                           ( not reflect.shape[1] > self.resolution[1] ):
-                            start = 0
-                            end = self.resolution[0]
-##                            print "flipL and B 1"
-                            self.cells[ start:end, 0:reflect.shape[1] ] += reflect[start:end, ::]
-                        elif ( reflect.shape[1] > self.resolution[1] ) and\
-                             ( not reflect.shape[0] > self.resolution[0] ):
-                            start = 0
-                            end = self.resolution[1]
-##                            print "flipL and B 2" 
-                            self.cells[ l:r, start:end ] += reflect[ kl:kr, (reflect.shape[1] - end): ]
-                        elif ( reflect.shape[1] > self.resolution[1] ) and\
-                             ( reflect.shape[0] > self.resolution.shape[0] ):
-##                            print "flipL and B 3"
-                            self.cells[ 0:self.resolution[0], 0:self.resolution[1] ] += \
-                                        reflect[ 0:self.resolution[0], (reflect.shape[1] - end): ]
-                        else:
-##                            print "flipL and B 4"
-                            self.cells[ 0:reflect.shape[0],
-                                        0:reflect.shape[1] ] += reflect
-                        
-                    if flipR and flipB:
-                        reflect = kernel.data[-1:kr-1:-1, 0:kb+1][::,::-1]
-##                        print "flipR and B"
-                        if ( reflect.shape[0] > self.resolution[0] ) and \
-                           ( not reflect.shape[1] > self.resolution[1] ):
-                            start = 0
-                            end = self.resolution[0]
-                            self.cells[ start:end, 0:reflect.shape[1] ] += reflect[(reflect.shape[0]-end):,::]
-                        elif ( reflect.shape[1] > self.resolution[1] ) and\
-                             ( not reflect.shape[0] > self.resolution[0] ):
-                            start = 0
-                            end = self.resolution[1]
-                            self.cells[ l:r, start:end ] += reflect[ kl:kr, (reflect.shape[1] - end): ]
-                        elif ( reflect.shape[1] > self.resolution[1] ) and\
-                             ( reflect.shape[0] > self.resolution.shape[0] ):
-                            self.cells[ 0:self.resolution[0], 0:self.resolution[1] ] += \
-                                        reflect[ (reflect.shape[0]-end):, (reflect.shape[1] - end): ]
-                        else:
-                            self.cells[ (r-reflect.shape[0]):r, 0:reflect.shape[1] ] += reflect
-                        
-                    if flipR and flipT:
-                        reflect = kernel.data[-1:kr-1:-1, -1:kt:-1]
-##                        print "flipR and T"
-                        if ( reflect.shape[0] > self.resolution[0] ) and \
-                           ( not reflect.shape[1] > self.resolution[1] ):
-                            start = 0
-                            end = self.resolution[0]
-                            self.cells[ start:end, (t - reflect.shape[1]):t ] += reflect[(reflect.shape[0]-end):,::]
-                        elif ( reflect.shape[1] > self.resolution[1] ) and\
-                             ( not reflect.shape[0] > self.resolution[0] ):
-                            start = 0
-                            end = self.resolution[1]
-                            self.cells[ l:r, star:end ] += reflect[ ::, start:end ]
-                        elif ( reflect.shape[1] > self.resolution[1] ) and\
-                             ( reflect.shape[0] > self.resolution.shape[0] ):
-                            self.cells[ 0:self.resolution[0], 0:self.resolution[1] ] += \
-                                        reflect[ (reflect.shape[0]-end):, 0:self.resolution[1] ]
-                        else:
-                            self.cells[ (r-reflect.shape[0]):r, (t - reflect.shape[1]):t  ] += reflect
             except ValueError, e:
                 print "Value error!"
                 print "\tAgent at", center
@@ -491,22 +466,21 @@ class Grid( DataGrid ):
         density = julichData.rhoOccupantEstimation( frame, [ defineRegionX ], defineRegionY[1], center=defineRegionY[0] )
         regionBottom = self.getCenter( Vector2( defineRegionX[0], defineRegionY[0] - defineRegionY[1]* 0.5 ) )
         regionTop = self.getCenter( Vector2( defineRegionX[1], defineRegionY[0] + defineRegionY[1]* 0.5 ) )
-##        print density
-##        print self.cells[ regionBottom[0]:regionTop[0], regionBottom[1]: regionTop[1] ].shape
         self.cells[ regionBottom[0]:regionTop[0], regionBottom[1]: regionTop[1] ] = density
-##        print self.cells[ regionBottom[0]:regionTop[0], regionBottom[1]: regionTop[1] ].shape
-        
-    def rasterizeVoronoiDensity( self, frame, distFunc, maxRad, densityGrid ):
+
+                
+    def rasterizeVoronoiDensity( self, frame, distFunc, smoothParam, densityGrid ):
         """ Compute density based on Voronoi density region and convolute with unifrom kernel """
         #densityGrid = Grid( self.minCorner, self.size, self.resolution, initVal=0.0 )
-        kernelArea = math.sqrt( maxRad * maxRad )
+        kernelArea = math.sqrt( smoothParam * smoothParam )
         """ Function to convolute kernel over the density computed using Voronoi"""
-        kernel = Kernel( maxRad, distFunc, self.cellSize )
+        kernel = Kernel( smoothParam, None, distFunc, self.cellSize )
         # This assume the kernel dimensions are ODD-sized
         w, h = kernel.data.shape
         area = w * h
         w /= 2
         h /= 2
+
         
         # Independently convolute
         for i in xrange( 0, self.cells.shape[0] ):  
@@ -531,7 +505,6 @@ class Grid( DataGrid ):
                     kt -= t - self.resolution[1]
                     t = self.resolution[1]
                 try:
-##                    if ( l < r and b < t and kl < kr and kb < kt ):
                     if ( l < r and b < t and kl < kr ):
                         # Convolution self.cells store density valued calculated based on Voronoi region
                         # if self.cells[i,j] is 0 then the multiplication will result in 0
@@ -568,7 +541,6 @@ class Grid( DataGrid ):
                     kt -= t - self.resolution[1]
                     t = self.resolution[1]
                 try:
-##                    if ( l < r and b < t and kl < kr and kb < kt ):
                     if ( l < r and b < t and kb < kt ):
                         # Convolution self.cells store density valued calculated based on Voronoi region
                         # if self.cells[i,j] is 0 then the multiplication will result in 0
@@ -582,7 +554,6 @@ class Grid( DataGrid ):
                     print "\tKernel size:", kernel.data.shape
                     print "\tTrying rasterize [ %d:%d, %d:%d ] to [ %d:%d, %d:%d ]" % ( kl, kr, kb, kt, l, r, b, t)
                     raise e
-        #return densityGrid
     
     def rasterizeValue( self, frame, distFunc, maxRad ):
         """Given a frame of agents, rasterizes the whole frame"""
