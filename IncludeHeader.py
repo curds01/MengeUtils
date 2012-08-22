@@ -12,7 +12,12 @@ if ( getpass.getuser() == 'ksuvee' or getpass.getuser() == 'TofuYui' ):
     sys.path.insert( 2, TOP_DIR + r'\density' )
 
 elif ( getpass.getuser() == 'seanc' or getpass.getuser() == 'Sean'):
-    sys.path.insert( 0, r'\projects\crowd\fund_diag\paper\pre_density\experiment' )
-    sys.path.insert( 0, r'\projects\objreader' )
-    sys.path.insert( 0, r'\projects\seyfried\density' )
+    PATHS = ( r'\projects\crowd\fund_diag\paper\pre_density\experiment',
+              r'\projects\objreader',
+              r'\projects\seyfried\density',
+              r'\projects\seyfried\data'
+        )
+    for path in PATHS:
+        if ( not path in sys.path ):
+            sys.path.insert( 0, path )
 
