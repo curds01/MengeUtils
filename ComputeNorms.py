@@ -29,7 +29,6 @@ def computeLPNorm( densityFileName0, densityFileName1, outPath, outputName, LPNo
     @param outputName         A string of output name
     @param LPNormTypeL        A string to determine which type of LP-norm to calculate
                               [lone, ltwo, linf)] """
-    
     try:
         f0 = open( densityFileName0, "rb" )
     except:
