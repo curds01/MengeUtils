@@ -14,7 +14,26 @@ import copy
 BUFFER_DIST = 0.46  # Based on Proxemics for Close Perosnal Distance
 MAX_DIST = 10000
 
-class AbstractGrid:
+class RectDomain:
+    '''A simple class to represent a rectangular domain'''
+    def __init__( self, minCorner, size ):
+        '''RectDomain constructor.
+        @param  minCorner       A 2-tuple-like instace of floats.  The position, in world space,
+                                of the "bottom-left" corner of the domain.  (Minimum x- and y-
+                                values.
+        @param  size            A 2-tuple-like instace of floats.  The span of the domain (in world
+                                space.)  The maximum values of the domain are minCorner[0] + size[0]
+                                and minCorner[1] + size[1], respectively.
+        '''
+        self.minCorner = minCorner
+        self.size = size
+
+    def copyDomain( self, domain ):
+        '''Copies the domain settings from the given domain to this domain'''
+        self.minCorner = copy.deepcopy( domain.minCorner )
+        self.size = copy.deepcopy( domain.size )
+        
+class AbstractGrid( RectDomain ):
     '''A class to index into an abstract grid'''
     def __init__( self, minCorner=Vector2(0.0, 0.0), size=Vector2(1.0, 1.0), resolution=(1, 1) ):
         '''Grid constructor.
@@ -28,8 +47,7 @@ class AbstractGrid:
         @param  resolution      A 2-tuple like instance of ints.  The number of cells in the domain in
                                 both the x- and y-directions.  This will imply a cell size.
         '''
-        self.minCorner = minCorner          # tuple (x, y)  - float
-        self.size = size                    # tuple (x, y)  - float
+        RectDomain.__init__( self, minCorner, size )
         self.resolution = resolution        # tuple (x, y)  - int
         # size of each cell in the world grid
         self.cellSize = Vector2( size[0] / float( resolution[0] ), size[1] / float( resolution[1] ) )
@@ -40,8 +58,7 @@ class AbstractGrid:
         @param  grid            An instance of an AbstractGrid.  If provided, the previous parameters
                                 are ignored and the values are copied from the provided grid.
         '''
-        self.minCorner = copy.deepcopy( grid.minCorner )
-        self.size = copy.deepcopy( grid.size )
+        RectDomain.copyDomain( self, grid )
         self.resolution = copy.deepcopy( grid.resolution )
         self.cellSize = copy.deepcopy( grid.cellSize )
 
