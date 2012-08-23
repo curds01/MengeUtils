@@ -20,6 +20,8 @@ class KernelDomainError( KernelError ):
     '''Error indicating that the kernel has alignment problems in the domain'''
     pass
 
+KERNEL_EPS = 0.00001
+
 IDENTITY_FUNCTION = lambda x, sigma: x
 IDENTITY_FUNCTION_2D = lambda x, y, sigma: (x + y) * sigma
 UNIFORM_FUNCTION = lambda x, sigma: np.zeros_like( x ) + (1.0 / sigma)
@@ -316,13 +318,15 @@ class SeparableKernel( KernelBase ):
                 else:
                     grid.cells[ :, c ] = result
         
-        
-
     def computeSamples( self ):
         '''Based on the nature of the kernel, pre-compute the discrete kernel for given parameters.'''
         # do work
-        width = self.getSupport() 
-        hCount = int( np.ceil( width / self._cellSize ) )
+        width = self.getSupport()
+        ratio = width / self._cellSize
+        hCount = int( ratio )
+        if ( ratio - hCount > KERNEL_EPS ):
+            hCount += 1
+        
         if ( hCount % 2 == 0 ):  # make sure cell has an odd-number of samples
             hCount += 1
         x = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
@@ -364,10 +368,14 @@ class InseparableKernel( KernelBase ):
         '''Based on the nature of the kernel, pre-compute the discrete kernel for given parameters.'''
         # TODO: If the cells do not align perfectly with the support domain of the kernel, there will be
         #       error at the edges.
-        #       The "correct" thing is to integrate the function over each cell.  Which means, at the domain,
-        #       the 
-        width = self.getSupport() 
-        hCount = int( width / self._cellSize )
+        #       The "correct" thing to do is examine the edges and integrate the function and place that
+        #       value in the cell.  
+        width = self.getSupport()
+        ratio = width / self._cellSize
+        hCount = int( ratio )
+        if ( ratio - hCount > KERNEL_EPS ):
+            hCount += 1
+            
         if ( hCount % 2 == 0 ):  # make sure cell has an odd-number of samples
             hCount += 1
         o = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
@@ -475,7 +483,10 @@ class Plaue11Kernel( KernelBase ):
         #   product of the minimum distance and a smoothing parameter (\lambda in the paper)
         gaussSigma = self._smoothParam * minDist 
         width = 6 * gaussSigma
-        hCount = int( np.ceil( width / self._cellSize ) )
+        ratio = width / self._cellSize
+        hCount = int( ratio )
+        if ( ratio - hCount > KERNEL_EPS ):
+            hCount += 1
         if ( hCount % 2 == 0 ):  # make sure cell has an odd-number of samples
             hCount += 1
         x = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
