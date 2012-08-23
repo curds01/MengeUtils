@@ -433,7 +433,7 @@ class InseparableKernel( KernelBase ):
         o = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
         X, Y = np.meshgrid( o, o )
 
-        self.data = self.dFunc( X, Y, self._smoothParam )
+        self.data = self.dFunc( X, Y, self._smoothParam ) * ( self._cellSize * self._cellSize )
 
 ##class ConstKernel:
 ##    pass
