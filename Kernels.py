@@ -71,7 +71,18 @@ def BIWEIGHT_FUNC_INT( x0, x1, sigma ):
         s4 = s2 * s2
         return ((15.0/16.0) / sigma ) * ( x - (2.0/3.0) * x3 / s2 + x5 / ( 5.0 * s4 ) )
     return intFunc( x1, sigma ) - intFunc( x0, sigma )
-        
+
+TRIANGLE_FUNC = lambda x, sigma: ( 1 - np.abs( x ) / sigma ) / sigma
+
+def TRIANGLE_FUNC_INT( x0, x1, sigma ):
+    '''Defines the integral of the triangle function over the interval [x0, x1].
+    For simplificaiton, it assumes x0, x1 >= 0 and x0 < x1.'''
+    def intFunc( x, sigma ):
+        '''The indefinite integral of the triangular function evaluatd at x'''
+        x2 = x * x
+        invSigma = 1 / sigma
+        return invSigma * ( x - 0.5 * x2 * invSigma )
+    return intFunc( x1, sigma ) - intFunc( x0, sigma )
 
 def BIWEIGHT_FUNC_2D( x, y, sigma ):
     '''Defines the classic biweight function f(x,y): 225/226s^2 * ( 1-x^2/s^2) * (1-y^2/s^2)
@@ -474,8 +485,8 @@ class UniformKernel( SeparableKernel ):
             self.data1D[ 0 ] = self.data1D[ -1 ] = w * self.dFunc( cellBoundary, self._smoothParam )
 
 class BiweightKernel( SeparableKernel ):
-    '''A 2D biweight kernel with circular support.  The smoothing parameter is the RADIUS of
-    the circle of support.'''
+    '''A 2D biweight kernel with square support.  The smoothing parameter is the HALF width of
+    the square of support.'''
     def __init__( self, smoothParam, cellSize, reflect=True ):
         SeparableKernel.__init__( self, smoothParam, cellSize, reflect, BIWEIGHT_FUNC )
         
@@ -502,7 +513,37 @@ class BiweightKernel( SeparableKernel ):
             # integrate the biweight function from cellBoundary to rightSupport
             value = BIWEIGHT_FUNC_INT( cellBoundary, rightSupport, self._smoothParam )
             self.data1D[ 0 ] = self.data1D[ -1 ] = value
-    
+
+class TriangleKernel( SeparableKernel ):
+    '''A 2D triangle kernel with square support.  The smoothing parameter is the HALF width of
+    the square of support.'''
+    def __init__( self, smoothParam, cellSize, reflect=True ):
+        SeparableKernel.__init__( self, smoothParam, cellSize, reflect, TRIANGLE_FUNC )
+        
+    def getSupport( self ):
+        '''The circle kernel's support is twice the smoothing parameter'''
+        return 2 * self._smoothParam
+
+    def fix1DBoundaries( self ):
+        '''Examines the boundaries of the discretized kernel, and if it extends past the compact
+            support of the continuous kernel, properly integrates the correct value.
+            Default functionality is to do nothing.
+            '''
+        support = self.getSupport()
+        cellCount = self.data1D.size
+        k = cellCount / 2       # cellCount = 2k + 1
+        if ( cellCount * self._cellSize > support ):
+            # handle boundaries
+            # right edge of compact support
+            rightSupport = support / 2.0
+            # left boundary of right most cell
+            cellBoundary = self._cellSize * ( k - 0.5 )
+            # width of supported region in final cell
+            assert( rightSupport > cellBoundary )
+            # integrate the biweight function from cellBoundary to rightSupport
+            value = TRIANGLE_FUNC_INT( cellBoundary, rightSupport, self._smoothParam )
+            self.data1D[ 0 ] = self.data1D[ -1 ] = value
+            
 class GaussianKernel( SeparableKernel ):
     '''A simple gaussian kernel - it implies a compact support of 6*sigma'''
     def __init__( self, smoothParam, cellSize, reflect=True ):

@@ -195,12 +195,13 @@ def debugFieldConvolve():
         grid = Grid.DataGrid( minCorner, domainSize, resolution )
     else:
         # voronoi signal
-        CELL_SIZE = 0.033
+        CELL_SIZE = 0.025
         K_SIZE = 0.5
         R = True
 ##        kernel = Kernels.UniformKernel( K_SIZE, CELL_SIZE, R )
-        kernel = Kernels.BiweightKernel( K_SIZE / 1.2, CELL_SIZE, R )
+##        kernel = Kernels.BiweightKernel( K_SIZE / 1.2, CELL_SIZE, R )
 ##        kernel = Kernels.GaussianKernel( K_SIZE / 3.0, CELL_SIZE, R )
+        kernel = Kernels.TriangleKernel( K_SIZE / 1.1, CELL_SIZE, R )
         minCorner = Vector2( 0.0, -4.0 )
         width = 2.4
         height = 8.0
