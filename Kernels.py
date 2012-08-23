@@ -392,10 +392,9 @@ class SeparableKernel( KernelBase ):
     def fix1DBoundaries( self ):
         '''Examines the boundaries of the discretized kernel, and if it extends past the compact
             support of the continuous kernel, properly integrates the correct value.
-
-        @raises     KernelImplementationError   The SeparableKernel should not be instantiated.
+            Default functionality is to do nothing.
             '''
-        raise KernelImplementationError
+        pass
 
 class InseparableKernel( KernelBase ):
     '''The base class of an inseparable convolution kernel'''
@@ -518,12 +517,6 @@ class GaussianKernel( SeparableKernel ):
     def getSupport( self ):
         '''The uniform kernel's support is equal to the smooth parameter'''
         return 6 * self._smoothParam
-
-    def fix1DBoundaries( self ):
-        '''Examines the boundaries of the discretized kernel, and if it extends past the compact
-            support of the continuous kernel, properly integrates the correct value.'''
-        pass
-
 
 class Plaue11Kernel( KernelBase ):
     '''This is the adaptive kernel mechamism proposed by Plaue et al. (2011).conjugate
