@@ -297,20 +297,22 @@ class SeparableKernel( KernelBase ):
         else:
             fieldData = signal.getFieldData()
             temp = np.empty_like( fieldData )
-            # horizontal convolution
+            # vertictal convolution
             for r in xrange( temp.shape[0] ):
+                                                # select a VERTICAL column with a fixed x value.
                 result = np.convolve( self.data1D, fieldData[r,:], 'same' )
-                if ( fieldW < self.data1D.size ):
-                    delta = ( self.data1D.size - fieldW ) / 2
-                    temp[ r, : ] = result[ delta:delta + fieldW ]
-                else:
-                    temp[ r,:] = result
-            # vertical convolution
-            for c in xrange( temp.shape[1] ):
-                result = np.convolve( self.data1D, temp[:,c], 'same' )
                 if ( fieldH < self.data1D.size ):
                     delta = ( self.data1D.size - fieldH ) / 2
-                    grid.cells[ :, c ] = result[ delta:delta + fieldH ]
+                    temp[ r, : ] = result[ delta:delta + fieldH ]
+                else:
+                    temp[ r,:] = result
+            # horizontal convolution
+            for c in xrange( temp.shape[1] ):
+                                            # select a HORIZONTAL column with a fixed x value.
+                result = np.convolve( self.data1D, temp[:,c], 'same' )
+                if ( fieldW < self.data1D.size ):
+                    delta = ( self.data1D.size - fieldW ) / 2
+                    grid.cells[ :, c ] = result[ delta:delta + fieldW ]
                 else:
                     grid.cells[ :, c ] = result
         
