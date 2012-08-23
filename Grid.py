@@ -32,7 +32,7 @@ class AbstractGrid:
         self.size = size                    # tuple (x, y)  - float
         self.resolution = resolution        # tuple (x, y)  - int
         # size of each cell in the world grid
-        self.cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )  
+        self.cellSize = Vector2( size[0] / float( resolution[0] ), size[1] / float( resolution[1] ) )
 
     def copyDomain( self, grid ):
         '''Copies the grid domain parameters from the provided grid.minCorner
@@ -52,8 +52,8 @@ class AbstractGrid:
         # offset in euclidian space
         offset = position - self.minCorner
         # offset in cell sizes
-        ofX = offset.x / self.cellSize.x
-        ofY = offset.y / self.cellSize.y
+        ofX = offset[0] / self.cellSize[0]
+        ofY = offset[1] / self.cellSize[1]
         x = int( ofX )
         y = int( ofY )
         return x, y
@@ -87,18 +87,19 @@ class DataGrid( AbstractGrid) :
         AbstractGrid.copyDomain( self, grid )
         self.initVal = grid.initVal
         self.clear( grid.cells.dtype )
+
     def getCenters( self ):
         '''Return NxNx2 array of the world positions of each cell center'''
         firstCenter = self.minCorner + self.cellSize * 0.5
-        resolution = self.resolution.y
-        if (self.resolution.x > self.resolution.y):
-            resolution = self.resolution.x
-        x = np.arange( resolution ) * self.cellSize.x + firstCenter.x
-        y = np.arange( resolution ) * self.cellSize.y + firstCenter.y
+        resolution = self.resolution[1]
+        if (self.resolution[0] > self.resolution[1]):
+            resolution = self.resolution[0]
+        x = np.arange( resolution ) * self.cellSize[0] + firstCenter[0]
+        y = np.arange( resolution ) * self.cellSize[1] + firstCenter[1]
         X, Y = np.meshgrid( y,x ) 
         stack = np.dstack( (X,Y) )
         # Truncate the stack down
-        stack = stack[0:self.resolution.x:1,0:self.resolution.y:1,:]
+        stack = stack[0:self.resolution[0]:1,0:self.resolution[1]:1,:]
         return stack
     
     def __str__( self ):
@@ -465,8 +466,8 @@ class Grid( DataGrid ):
         h /= 2
         for agt in frame.agents:
             center = self.getCenter( agt.pos )
-            centerWorld = Vector2( center[0] * self.cellSize.x + self.minCorner.x,
-                                   center[1] * self.cellSize.y + self.minCorner.y )
+            centerWorld = Vector2( center[0] * self.cellSize[0] + self.minCorner[0],
+                                   center[1] * self.cellSize[1] + self.minCorner[1] )
             kernel.instance( distFunc, centerWorld, agt.pos )
             l = center[0] - w
             r = center[0] + w + 1
@@ -688,8 +689,8 @@ class Grid( DataGrid ):
                     progress = 0.0
                 else:
                     prevProgress[ i, 2 ] = progress
-                    prevProgress[ i, 0 ] = dir2.x
-                    prevProgress[ i, 1 ] = dir2.y
+                    prevProgress[ i, 0 ] = dir2[0]
+                    prevProgress[ i, 1 ] = dir2[1]
 
             center = self.getCenter( ag2.pos )
             INFLATE = True # causes the agents to inflate more than a single cell
@@ -905,8 +906,8 @@ class Grid( DataGrid ):
             if ( t >= self.resolution[1] ):
                 kt -= t - self.resolution[1]
                 t = self.resolution[1]
-            X[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * disp.x
-            Y[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * disp.y
+            X[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * disp[0]
+            Y[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * disp[1]
         self.cells = X + Y
         #self.cells = np.sqrt( X * X + Y * Y )
 
