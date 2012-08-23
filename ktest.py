@@ -21,14 +21,16 @@ if ( not os.path.exists( PATH ) ):
 
 cMap = BlackBodyMap()
 CELL_SIZE = 0.05
-smoothParam = 1.0
+smoothParam = 1.5
 
 REFLECT = True
 obst, bb = obstacles.readObstacles( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/c240_obstacles.xml')
 obstSet = ObstacleHandler.ObjectHandler( obst )
-kernel = Kernels.Plaue11Kernel( smoothParam, CELL_SIZE, REFLECT, obstSet )
-##kernel = Kernels.GaussianKernel( smoothParam, CELL_SIZE, REFLECT )
 ##kernel = Kernels.UniformKernel( smoothParam, CELL_SIZE, REFLECT )
+kernel = Kernels.TriangleKernel( smoothParam / 1.1, CELL_SIZE, REFLECT )
+##kernel = Kernels.BiweightKernel( smoothParam / 1.2, CELL_SIZE, REFLECT )
+##kernel = Kernels.GaussianKernel( smoothParam / 3.0, CELL_SIZE, REFLECT )
+##kernel = Kernels.Plaue11Kernel( smoothParam, CELL_SIZE, REFLECT, obstSet )
       
 def syntheticPedestrians( SIZE ):
     '''Produce a set of fake pedestrian trajectories.
@@ -100,9 +102,10 @@ def testPedestrian():
 ##    data.readFile( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/dummy.txt' )
     data.setNext( 0 )
     grids = []
+    pedDomain = Grid.RectDomain( minCorner, domainSize )   
     while ( True ):
         try:
-            sig = Signals.PedestrianSignal( data )
+            sig = Signals.PedestrianSignal( data, pedDomain )
         except StopIteration:
             break
         grid = Grid.DataGrid( minCorner, domainSize, resolution )
@@ -129,9 +132,11 @@ def testSynthetic():
     print "Maximum kernel value:", kernel.data.max()
     print "Kernel sum:          ", kernel.data.sum()
     grids = []
+
+    pedDomain = Grid.RectDomain( minCorner, domainSize )    
     
     for i in xrange( STEP_COUNT ):
-        sig = Signals.DiracSignal( traj[:, :, i] )
+        sig = Signals.DiracSignal( traj[:, :, i], pedDomain )
         grid = Grid.DataGrid( minCorner, domainSize, resolution )
         kernel.convolve( sig, grid )
         grid.cells /= ( CELL_SIZE * CELL_SIZE )
@@ -240,5 +245,5 @@ if __name__ == '__main__':
 ##    testSynthetic()
 ##    testPedestrian()
 ##    testSyntheticField()
-    debugFieldConvolve()
+##    debugFieldConvolve()
     

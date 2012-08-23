@@ -10,19 +10,40 @@ class SignalDataError( SignalError ):
     '''Exception indicating a problem with the signal data'''
     pass
 
+class SignalImplementationError( SignalError ):
+    '''Exception indicating that a function has not been implemented'''
+    pass
+
+
 class Signal:
     '''Base signal class'''
-    pass
+    def getDomain( self ):
+        '''Reports the domain of the signal.
+
+        @returns    Two 2-tuple-like values reporting the minimum value and the size of the domain.
+                        (minX, minY) and (width, height).
+        '''
+        raise SignalImplementationError
 
 class DiracSignal( Signal ):
     '''A signal consisting of a sum of translated dirac functions'''
-    def __init__( self, data ):
+    def __init__( self, data, domain ):
         '''Constructor for the signal.
 
         @param  data        An Nx2 numpy array of flaots. The signal data.
+        @param  domain      An instance of Grids.RectDomain.  Defines the domain of the signal.
         '''
         self._data = data
+        self.domain = domain
 
+    def getDomain( self ):
+        '''Reports the domain of the signal.
+
+        @returns    Two 2-tuple-like values reporting the minimum value and the size of the domain.
+                        (minX, minY) and (width, height).
+        '''
+        return self.domain.minCorner, self.domain.size
+    
     class ImpulseIterator:
         '''An iterator for the dirac impulses'''
         def __init__( self, diracSignal ):
@@ -75,7 +96,15 @@ class FieldSignal( Signal ):
                                 grid is used as given -- it is not copied.
         '''
         self.data = fieldData
-        
+
+    def getDomain( self ):
+        '''Reports the domain of the signal.
+
+        @returns    Two 2-tuple-like values reporting the minimum value and the size of the domain.
+                        (minX, minY) and (width, height).
+        '''
+        return self.data.minCorner, self.data.size
+    
     @property
     def shape( self ):
         return self.data.cells.shape
@@ -131,7 +160,7 @@ class FieldSignal( Signal ):
 
 class PedestrianSignal( DiracSignal ):
     '''A dirac signal, where the pedestrian positions are the impulses'''
-    def __init__( self, frameSet ):
+    def __init__( self, frameSet, domain ):
         '''Constructor.
 
         @param      frameSet    A pedestrian data frame set (such as
@@ -139,7 +168,7 @@ class PedestrianSignal( DiracSignal ):
         @raises     StopIteration if the frameSet is out of frames.
         '''
         frameData, frameID = frameSet.next()
-        DiracSignal.__init__( self, frameData[:, :2] )
+        DiracSignal.__init__( self, frameData[:, :2], domain )
 
 ##class VoronoiSignal( FieldSignal ):
 ##    '''A field signal comprising of a pre-computed voronoi diagram.'''
