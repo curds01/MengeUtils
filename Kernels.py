@@ -28,6 +28,58 @@ UNIFORM_FUNCTION = lambda x, sigma: np.zeros_like( x ) + (1.0 / sigma)
 UNIFORM_FUNCTION_2D = lambda x, y, sigma: np.zeros_like( x ) + ( 1.0 / ( sigma * sigma ) )
 GAUSSIAN_FUNCTION = lambda x, sigma: np.exp( -( x * x ) / ( 2 * sigma * sigma ) ) / ( np.sqrt( 2.0 * np.pi ) * sigma )
 GAUSSIAN_FUNCTION_2D = lambda x, y, sigma: np.exp( -( x * x + y * y) / ( 2 * sigma * sigma ) ) / ( 2.0 * np.pi * sigma * sigma )
+def POLAR_BIWEIGHT_FUNC_2D( x, y, sigma ):
+    '''Defines a 2D biweight function f(x,y): 225/226s^2 * ( 1-x^2/s^2) * (1-y^2/s^2)
+    in polar coordinates with CIRCULAR compact support with radius = sigma.'''
+    d2 = x * x + y * y
+    s2 = sigma * sigma
+    value = ( 1 - d2 / s2 )
+    value *= value
+    # This normalization factor is not correct!  It's close, but not quite right.
+    #   I've done the math several times and still can't get a different, better answer.
+    norm = 15.0 / (16.0 * s2 )
+    return norm * value * ( d2 <= s2 )  # zero out the regions outside the circle
+
+def BIWEIGHT_FUNC( x, sigma ):
+    '''Defines the classic 1D biweight function f(x): 15/16s * ( 1-x^2/s^2).
+    It is only defined on the interval [-sigma, sigma] but relies on the computation
+    mechanism to know that.
+    '''
+    s2 = sigma * sigma
+    x2 = x * x / s2
+    t1 = ( 1 - x2 )
+    t1 *= t1
+    return ( 15.0 / ( sigma * 16.0 ) ) * t1
+
+def BIWEIGHT_FUNC_INT( x0, x1, sigma ):
+    '''Defines the integral of the biweight function over the interval [x0, x1].
+    (It assumes that x0, x1 lies within the range [-sigma, sigma], otherwise the
+    integral value will not have any resonable interpretation.'''
+    def intFunc( x, sigma ):
+        '''The indefinite integral of the biweight evaluated at x0.
+        @param  x      A numpy array or float.  The point at which to evaluate the integral.
+        @param  sig2    The smoothing parameter of the biweight.
+        '''
+        x2 = x * x
+        x3 = x * x2
+        x5 = x2 * x3
+        s2 = sigma * sigma
+        s4 = s2 * s2
+        return ((15.0/16.0) / sigma ) * ( x - (2.0/3.0) * x3 / s2 + x5 / ( 5.0 * s4 ) )
+    return intFunc( x1, sigma ) - intFunc( x0, sigma )
+        
+
+def BIWEIGHT_FUNC_2D( x, y, sigma ):
+    '''Defines the classic biweight function f(x,y): 225/226s^2 * ( 1-x^2/s^2) * (1-y^2/s^2)
+    in polar coordinates.'''
+    s2 = sigma * sigma
+    x2 = x * x / s2
+    y2 = y * y / s2
+    t1 = ( 1 - x2 )
+    t1 *= t1
+    t2 = ( 1 - y2 )
+    t2 *= t2
+    return ( 225.0 / ( s2 * 256.0 ) ) * t1 * t2 * ( x2 + y2 <= s2 )
 
 class KernelBase( object ):
     '''The base class of a discrete convolution kernel.  It assumes uniform, square discretization of the domain'''
@@ -428,6 +480,36 @@ class UniformKernel( SeparableKernel ):
             # exploit the knowlege of the constant function
             self.data1D[ 0 ] = self.data1D[ -1 ] = w * self.dFunc( cellBoundary, self._smoothParam )
 
+class BiweightKernel( SeparableKernel ):
+    '''A 2D biweight kernel with circular support.  The smoothing parameter is the RADIUS of
+    the circle of support.'''
+    def __init__( self, smoothParam, cellSize, reflect=True ):
+        SeparableKernel.__init__( self, smoothParam, cellSize, reflect, BIWEIGHT_FUNC )
+        
+    def getSupport( self ):
+        '''The circle kernel's support is twice the smoothing parameter'''
+        return 2 * self._smoothParam
+
+    def fix1DBoundaries( self ):
+        '''Examines the boundaries of the discretized kernel, and if it extends past the compact
+            support of the continuous kernel, properly integrates the correct value.
+            Default functionality is to do nothing.
+            '''
+        support = self.getSupport()
+        cellCount = self.data1D.size
+        k = cellCount / 2       # cellCount = 2k + 1
+        if ( cellCount * self._cellSize > support ):
+            # handle boundaries
+            # right edge of compact support
+            rightSupport = support / 2.0
+            # left boundary of right most cell
+            cellBoundary = self._cellSize * ( k - 0.5 )
+            # width of supported region in final cell
+            assert( rightSupport > cellBoundary )
+            # integrate the biweight function from cellBoundary to rightSupport
+            value = BIWEIGHT_FUNC_INT( cellBoundary, rightSupport, self._smoothParam )
+            self.data1D[ 0 ] = self.data1D[ -1 ] = value
+    
 class GaussianKernel( SeparableKernel ):
     '''A simple gaussian kernel - it implies a compact support of 6*sigma'''
     def __init__( self, smoothParam, cellSize, reflect=True ):
