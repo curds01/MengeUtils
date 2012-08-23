@@ -15,6 +15,10 @@ import ObstacleHandler
 from Voronoi import Voronoi
 # GLOBALS
 
+PATH = 'ktest'
+if ( not os.path.exists( PATH ) ):
+    os.makedirs( PATH )
+
 cMap = BlackBodyMap()
 CELL_SIZE = 0.05
 smoothParam = 1.0
@@ -66,9 +70,6 @@ def visGrids( grids, frames=None ):
             maxVal = M
     print "Vis grids"
     print "\t(min, max):", minVal, maxVal
-    PATH = 'ktest'
-    if ( not os.path.exists( PATH ) ):
-        os.makedirs( PATH )
 
     RADIUS = int( np.ceil( 0.19 / CELL_SIZE ) )
     for i, grid in enumerate( grids ):
@@ -140,9 +141,6 @@ def testSynthetic():
     
 def testSyntheticField():
     '''Test field convolution with a simple'''
-    PATH = 'ktest'
-    if ( not os.path.exists( PATH ) ):
-        os.makedirs( PATH )
         
     SIZE = 10.0
     # define the domain
@@ -170,48 +168,99 @@ def testSyntheticField():
     s = grid.surface( cMap, grid.cells.min(), grid.cells.max() )
     pygame.image.save( s, os.path.join( PATH, 'fieldAfter.png' ) )
 
-def testVoronoiField():
-    PATH = 'ktest'
-    if ( not os.path.exists( PATH ) ):
-        os.makedirs( PATH )
-        
-    SIZE = 10.0
-    # define the domain
-    minCorner = Vector2( -SIZE / 2.0, -SIZE / 2.0 )
-    domainSize = Vector2( SIZE, SIZE )
-    RES = int( SIZE / CELL_SIZE )
-    resolution = Vector2( RES, RES )
-    grid = Grid.DataGrid( minCorner, domainSize, resolution )
-    voronoi = Voronoi( minCorner, domainSize, resolution, obstSet)
-    data = SeyfriedTrajReader( 1 / 16.0 )
-    data.readFile( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/dummy.txt' )
-    data.setNext( 0 )
-    frame, frameId = data.next()
-    voronoi.computeVoronoi( grid, frame, 3.0 )
-    signal = Signals.FieldSignal( voronoi.ownerGrid.cells )
+def debugFieldConvolve():
+    '''Test field convolution with a simple'''
+    global CELL_SIZE
+    if ( False ):
+        SCALE = 10#30
+        K_SIZE = 7.5
+        R = False
+##        kernel = Kernels.UniformKernel( K_SIZE * SCALE * CELL_SIZE, CELL_SIZE, R )
+        kernel = Kernels.GaussianKernel( K_SIZE / 3.0 * SCALE * CELL_SIZE, CELL_SIZE, R )
+##        kernel = Kernels.BiweightKernel( K_SIZE / 1.2 * SCALE * CELL_SIZE, CELL_SIZE, R )
+        # synthetic data
+        # define the domain
+        W = 8 * SCALE
+        H = 10 * SCALE
+        minCorner = Vector2( -W / 2.0, -H / 2.0 )
+        domainSize = Vector2( W * CELL_SIZE, H * CELL_SIZE )
+        resolution = Vector2( W, H )
+    
+        data = np.zeros( ( W, H ), dtype=np.float32 )
+        print data.shape
+        winset = W / 2 - 2 * SCALE
+        hinset = W / 2 - 2 * SCALE
+        data[ winset:-winset, hinset:-hinset ] = 1.0
+        signal = Signals.FieldSignal( data )
+        grid = Grid.DataGrid( minCorner, domainSize, resolution )
+    else:
+        # voronoi signal
+        CELL_SIZE = 0.033
+        K_SIZE = 0.5
+        R = True
+##        kernel = Kernels.UniformKernel( K_SIZE, CELL_SIZE, R )
+        kernel = Kernels.BiweightKernel( K_SIZE / 1.2, CELL_SIZE, R )
+##        kernel = Kernels.GaussianKernel( K_SIZE / 3.0, CELL_SIZE, R )
+        minCorner = Vector2( 0.0, -4.0 )
+        width = 2.4
+        height = 8.0
+        resolution = ( int( np.ceil( width / CELL_SIZE ) ), int( np.ceil( height / CELL_SIZE ) ) )
+        domainSize = Vector2( resolution[0] * CELL_SIZE, resolution[1] * CELL_SIZE )
+        grid = Grid.DataGrid( minCorner, domainSize, resolution )
+        data = computeVornoiField( grid )
+        signal = Signals.FieldSignal( data )
+    grid.cells[:,:] = data
+    print "Input signal max:", grid.cells.max()
+    print "Input signal sum:", grid.cells.sum()
+    minVal = 0
+    maxVal = grid.cells.max()
+    s = grid.surface( cMap, minVal, maxVal )
+    pygame.image.save( s, os.path.join( PATH, 'fieldBefore.png' ) )
 
-    grid = Grid.DataGrid( minCorner, domainSize, resolution )
-    print "VORONOI min/max", voronoi.ownerGrid.cells.min(), voronoi.ownerGrid.cells.max()
-    grid.cells[:,:] = voronoi.ownerGrid.cells
-    print "GRID cells", grid.cells.min(), grid.cells.max()
-    s = grid.surface( cMap, grid.cells.min(), grid.cells.max() )
-    RADIUS = int( np.ceil( 0.19 / CELL_SIZE ) )
-    for impulse in frame:
-            x, y = grid.getCenter( Vector2( impulse[0], impulse[1] ) )
-            y = int( grid.resolution[1] ) - y
-            pygame.draw.circle( s, ( 50, 50, 255 ), (x,y), RADIUS )
-    pygame.image.save( s, os.path.join( PATH, 'vfieldBefore.png' ) )
     grid.clear()
-    kernel = Kernels.GaussianKernel( smoothParam, CELL_SIZE, REFLECT )
-##    kernel = Kernels.UniformKernel( smoothParam, CELL_SIZE, REFLECT )
     kernel.convolve( signal, grid )
-    s = grid.surface( cMap, grid.cells.min(), grid.cells.max() )
-    pygame.image.save( s, os.path.join( PATH, 'vfieldAfter.png' ) )
+    s = grid.surface( cMap, minVal, maxVal )
+    print "Convolved signal max:", grid.cells.max()
+    print "Convolved signal sum:", grid.cells.sum()
+    pygame.image.save( s, os.path.join( PATH, 'fieldAfter.png' ) )
+
+def computeVornoiField( grid ):
+    '''Computes a voronoi field and caches it to the folder.  If already cached, it simply loads it.'''
+    VORONOI_FILE = os.path.join( PATH, 'testVoronoi.npy' )
+    def makeVoronoi( grid ):
+        print 'COMPUTING VORONOI!'
+        cellArea = grid.cellSize[0] * grid.cellSize[1] 
+        voronoi = Voronoi( grid.minCorner, grid.size, grid.resolution, obstSet )
+        data = SeyfriedTrajReader( 1 / 16.0 )
+        data.readFile( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/dummy.txt' )
+        data.setNext( 0 )
+        frame, frameId = data.next()
+        voronoi.computeVoronoi( grid, frame, 3.0 )
+        data = voronoi.ownerGrid.cells
+        # convert to density
+        print frame.shape
+        density = np.zeros( data.shape, dtype=np.float32 )
+        for id in xrange( -1, frame.shape[0] ):
+            mask = data == id
+            area = np.sum( mask ) * cellArea
+            if ( area > 0.0001 ):
+                density[ mask ] = 1 / area
+            else:
+                density[ mask ] = 0
+        
+        np.save( VORONOI_FILE, density )
+        return density
+    if ( not os.path.exists( VORONOI_FILE ) ):
+        return makeVoronoi( grid )
+    data = np.load( VORONOI_FILE )
+    if ( data.shape != grid.resolution ):
+        return makeVoronoi( grid )
+    return data
     
         
 if __name__ == '__main__':
 ##    testSynthetic()
 ##    testPedestrian()
 ##    testSyntheticField()
-    testVoronoiField()
+    debugFieldConvolve()
     
