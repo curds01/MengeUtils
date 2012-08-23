@@ -70,13 +70,15 @@ class FieldSignal( Signal ):
     def __init__( self, fieldData ):
         '''Constructor based on the provided field data.shape
 
-        @param  fieldData       An MxN numpy array of the data.shape
+        @param  fieldData       An instance of the DataGrid.  Containing the signal
+                                located in space with a particular tesselation.  The
+                                grid is used as given -- it is not copied.
         '''
         self.data = fieldData
         
     @property
     def shape( self ):
-        return self.data.shape
+        return self.data.cells.shape
 
     def getFieldData( self, expansion=0 ):
         '''Returns an image of the signal, possibly with reflection.
@@ -89,34 +91,35 @@ class FieldSignal( Signal ):
                     N' = N + 2 * expansion, where the source field is an
                     M x N field.
         '''
+        sigData = self.data.cells
         if ( expansion ):
-            expandW = self.data.shape[0] + 2 * expansion
-            expandH = self.data.shape[1] + 2 * expansion
-            data = np.empty( ( expandW, expandH ), dtype=self.data.dtype )
+            expandW = sigData.shape[0] + 2 * expansion
+            expandH = sigData.shape[1] + 2 * expansion
+            data = np.empty( ( expandW, expandH ), dtype=sigData.dtype )
             # copy center
-            data[ expansion:-expansion, expansion:-expansion ] = self.data
+            data[ expansion:-expansion, expansion:-expansion ] = sigData
             # copy left
-            hReflAmount = min( expansion, self.data.shape[0] )
+            hReflAmount = min( expansion, sigData.shape[0] )
             left = expansion - hReflAmount
-            data[ left:expansion, expansion:-expansion ] = self.data[ :hReflAmount, : ][ ::-1, : ]
+            data[ left:expansion, expansion:-expansion ] = sigData[ :hReflAmount, : ][ ::-1, : ]
             # copy right
             right = expandW - expansion + hReflAmount
-            data[ -expansion:right, expansion:-expansion ] = self.data[ -hReflAmount:, : ][ ::-1, : ]
+            data[ -expansion:right, expansion:-expansion ] = sigData[ -hReflAmount:, : ][ ::-1, : ]
             # copy top
-            vReflAmount = min( expansion, self.data.shape[1] )
+            vReflAmount = min( expansion, sigData.shape[1] )
             top = expandH - expansion + vReflAmount
-            data[ expansion:-expansion, -expansion:top ] = self.data[ :, -vReflAmount: ][ :, ::-1 ]
+            data[ expansion:-expansion, -expansion:top ] = sigData[ :, -vReflAmount: ][ :, ::-1 ]
             # copy bottom
             bottom = expansion - vReflAmount
-            data[ expansion:-expansion, bottom:expansion ] = self.data[ :, :vReflAmount ][ :, ::-1 ]
+            data[ expansion:-expansion, bottom:expansion ] = sigData[ :, :vReflAmount ][ :, ::-1 ]
             # copy top-left
-            data[ left:expansion, -expansion:top ] = self.data[ :hReflAmount, -vReflAmount: ] [::-1, ::-1 ]
+            data[ left:expansion, -expansion:top ] = sigData[ :hReflAmount, -vReflAmount: ] [::-1, ::-1 ]
             # copy top-right
-            data[ -expansion:right, -expansion:top ] = self.data[ -hReflAmount:, -vReflAmount: ] [::-1, ::-1 ]
+            data[ -expansion:right, -expansion:top ] = sigData[ -hReflAmount:, -vReflAmount: ] [::-1, ::-1 ]
             # copy bottom-left
-            data[ left:expansion, bottom:expansion ] = self.data[ :hReflAmount, :vReflAmount ] [::-1, ::-1 ]
+            data[ left:expansion, bottom:expansion ] = sigData[ :hReflAmount, :vReflAmount ] [::-1, ::-1 ]
             # copy bottom-right
-            data[ -expansion:right, bottom:expansion ] = self.data[ -hReflAmount:, :vReflAmount ] [::-1, ::-1 ]
+            data[ -expansion:right, bottom:expansion ] = sigData[ -hReflAmount:, :vReflAmount ] [::-1, ::-1 ]
             # zero out outer ring
             data[ :left, : ] = 0.0
             data[ right:, : ] = 0.0
@@ -124,7 +127,7 @@ class FieldSignal( Signal ):
             data[ left:right, :bottom ] = 0.0
             return data
         else:
-            return self.data
+            return sigData
 
 class PedestrianSignal( DiracSignal ):
     '''A dirac signal, where the pedestrian positions are the impulses'''

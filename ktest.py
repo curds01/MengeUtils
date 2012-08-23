@@ -139,39 +139,10 @@ def testSynthetic():
     
     visGrids( grids )
     
-def testSyntheticField():
-    '''Test field convolution with a simple'''
-        
-    SIZE = 10.0
-    # define the domain
-    minCorner = Vector2( -SIZE / 2.0, -SIZE / 2.0 )
-    domainSize = Vector2( SIZE, SIZE )
-    RES = int( SIZE / CELL_SIZE )
-    resolution = Vector2( RES, RES )
-    
-    data = np.zeros( ( RES, RES ), dtype=np.float32 )
-    print data.shape
-    inset = RES / 2 - SIZE * 0.25 / CELL_SIZE
-##    data[0,0] = 1.0
-    data[ inset:-inset, inset:-inset ] = 1.0
-    print data.min(),data.max()
-    signal = Signals.FieldSignal( data )
-    grid = Grid.DataGrid( minCorner, domainSize, resolution )
-    grid.cells[:,:] = data
-    print grid.cells.min(), grid.cells.max()
-    s = grid.surface( cMap, grid.cells.min(), grid.cells.max() )
-    pygame.image.save( s, os.path.join( PATH, 'fieldBefore.png' ) )
-    grid.clear()
-##    kernel = Kernels.GaussianKernel( smoothParam, CELL_SIZE, REFLECT )
-    kernel = Kernels.UniformKernel( smoothParam, CELL_SIZE, REFLECT )
-    kernel.convolve( signal, grid )
-    s = grid.surface( cMap, grid.cells.min(), grid.cells.max() )
-    pygame.image.save( s, os.path.join( PATH, 'fieldAfter.png' ) )
-
 def debugFieldConvolve():
     '''Test field convolution with a simple'''
     global CELL_SIZE
-    if ( False ):
+    if ( False ):       # synthetic
         SCALE = 10#30
         K_SIZE = 7.5
         R = False
@@ -191,12 +162,15 @@ def debugFieldConvolve():
         winset = W / 2 - 2 * SCALE
         hinset = W / 2 - 2 * SCALE
         data[ winset:-winset, hinset:-hinset ] = 1.0
-        signal = Signals.FieldSignal( data )
         grid = Grid.DataGrid( minCorner, domainSize, resolution )
+        sigGrid = Grid.DataGrid()
+        sigGrid.copyDomain( grid )
+        sigGrid.cells[ :, : ] = data
+        signal = Signals.FieldSignal( sigGrid )
     else:
         # voronoi signal
         CELL_SIZE = 0.025
-        K_SIZE = 0.5
+        K_SIZE = 1.0
         R = True
 ##        kernel = Kernels.UniformKernel( K_SIZE, CELL_SIZE, R )
 ##        kernel = Kernels.BiweightKernel( K_SIZE / 1.2, CELL_SIZE, R )
@@ -210,15 +184,18 @@ def debugFieldConvolve():
         grid = Grid.DataGrid( minCorner, domainSize, resolution )
         data = computeVornoiField( grid )
         signal = Signals.FieldSignal( data )
-    grid.cells[:,:] = data
-    print "Input signal max:", grid.cells.max()
-    print "Input signal sum:", grid.cells.sum()
+        sigGrid = Grid.DataGrid()
+        sigGrid.copyDomain( grid )
+        sigGrid.cells[ :, : ] = data
+        signal = Signals.FieldSignal( sigGrid )
+
+    print "Input signal max:", sigGrid.cells.max()
+    print "Input signal sum:", sigGrid.cells.sum()
     minVal = 0
-    maxVal = grid.cells.max()
-    s = grid.surface( cMap, minVal, maxVal )
+    maxVal = sigGrid.cells.max()
+    s = sigGrid.surface( cMap, minVal, maxVal )
     pygame.image.save( s, os.path.join( PATH, 'fieldBefore.png' ) )
 
-    grid.clear()
     kernel.convolve( signal, grid )
     s = grid.surface( cMap, minVal, maxVal )
     print "Convolved signal max:", grid.cells.max()

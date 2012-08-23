@@ -9,18 +9,41 @@ from DistFuncs import FUNCS_MAP
 from Kernels import Kernel, Kernel2
 from primitives import Vector2, Segment
 from ObstacleHandler import *
+import copy
 
 BUFFER_DIST = 0.46  # Based on Proxemics for Close Perosnal Distance
 MAX_DIST = 10000
 
 class AbstractGrid:
     '''A class to index into an abstract grid'''
-    def __init__( self, minCorner, size, resolution ):
+    def __init__( self, minCorner=Vector2(0.0, 0.0), size=Vector2(1.0, 1.0), resolution=(1, 1) ):
+        '''Grid constructor.
+
+        @param  minCorner       A 2-tuple-like instace of floats.  The position, in world space,
+                                of the "bottom-left" corner of the domain.  (Minimum x- and y-
+                                values.
+        @param  size            A 2-tuple-like instace of floats.  The span of the domain (in world
+                                space.)  The maximum values of the domain are minCorner[0] + size[0]
+                                and minCorner[1] + size[1], respectively.
+        @param  resolution      A 2-tuple like instance of ints.  The number of cells in the domain in
+                                both the x- and y-directions.  This will imply a cell size.
+        '''
         self.minCorner = minCorner          # tuple (x, y)  - float
         self.size = size                    # tuple (x, y)  - float
         self.resolution = resolution        # tuple (x, y)  - int
         # size of each cell in the world grid
         self.cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )  
+
+    def copyDomain( self, grid ):
+        '''Copies the grid domain parameters from the provided grid.minCorner
+        
+        @param  grid            An instance of an AbstractGrid.  If provided, the previous parameters
+                                are ignored and the values are copied from the provided grid.
+        '''
+        self.minCorner = copy.deepcopy( grid.minCorner )
+        self.size = copy.deepcopy( grid.size )
+        self.resolution = copy.deepcopy( grid.resolution )
+        self.cellSize = copy.deepcopy( grid.cellSize )
 
     def getCenter( self, position ):
         """Returns the closest cell center to this position
@@ -50,11 +73,20 @@ class AbstractGrid:
 
 class DataGrid( AbstractGrid) :
     """A Class to stroe information in grid based structure (i.e the one in Voronoi class ) """
-    def __init__( self, minCorner, size, resolution, initVal=0.0, arrayType=np.float32 ):
+    def __init__( self, minCorner=Vector2(0.0, 0.0), size=Vector2(1.0, 1.0), resolution=(1, 1), initVal=0.0, arrayType=np.float32 ):
         AbstractGrid.__init__( self, minCorner, size, resolution )
         self.initVal = initVal
         self.clear( arrayType )
 
+    def copyDomain( self, grid ):
+        '''Copies the grid domain parameters from the provided grid.minCorner
+        
+        @param  grid            An instance of an AbstractGrid.  If provided, the previous parameters
+                                are ignored and the values are copied from the provided grid.
+        '''
+        AbstractGrid.copyDomain( self, grid )
+        self.initVal = grid.initVal
+        self.clear( grid.cells.dtype )
     def getCenters( self ):
         '''Return NxNx2 array of the world positions of each cell center'''
         firstCenter = self.minCorner + self.cellSize * 0.5
