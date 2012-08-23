@@ -412,9 +412,6 @@ class InseparableKernel( KernelBase ):
         #TODO: Validate that the func has the correct interface
         KernelBase.__init__( self, smoothParam, cellSize, reflect, func )
 
-    def convolveField( self, signal, grid ):
-        raise KernelImplementationError, "This hasn't been implemented yet"
-
     def computeSamples( self ):
         '''Based on the nature of the kernel, pre-compute the discrete kernel for given parameters.'''
         # TODO: If the cells do not align perfectly with the support domain of the kernel, there will be
