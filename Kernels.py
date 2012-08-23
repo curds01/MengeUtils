@@ -28,6 +28,10 @@ UNIFORM_FUNCTION = lambda x, sigma: np.zeros_like( x ) + (1.0 / sigma)
 UNIFORM_FUNCTION_2D = lambda x, y, sigma: np.zeros_like( x ) + ( 1.0 / ( sigma * sigma ) )
 GAUSSIAN_FUNCTION = lambda x, sigma: np.exp( -( x * x ) / ( 2 * sigma * sigma ) ) / ( np.sqrt( 2.0 * np.pi ) * sigma )
 GAUSSIAN_FUNCTION_2D = lambda x, y, sigma: np.exp( -( x * x + y * y) / ( 2 * sigma * sigma ) ) / ( 2.0 * np.pi * sigma * sigma )
+def CIRCLE_FUNC_2D( x, y, sigma ):
+    s2 = sigma * sigma
+    return ( 1 / (np.pi * s2 ) ) * (( x * x + y * y) <= s2)
+
 def POLAR_BIWEIGHT_FUNC_2D( x, y, sigma ):
     '''Defines a 2D biweight function f(x,y): 225/226s^2 * ( 1-x^2/s^2) * (1-y^2/s^2)
     in polar coordinates with CIRCULAR compact support with radius = sigma.'''
@@ -432,7 +436,15 @@ class InseparableKernel( KernelBase ):
         self.data = self.dFunc( X, Y, self._smoothParam ) * ( self._cellSize * self._cellSize )
 
 
+class UniformCircleKernel( InseparableKernel ):
+    '''A uniform kernel with circular support.  The smoothing parameter is the RADIUS of
+    the circle.'''
+    def __init__( self, smoothParam, cellSize, reflect=True ):
+        InseparableKernel.__init__( self, smoothParam, cellSize, reflect, CIRCLE_FUNC_2D )
 
+    def getSupport( self ):
+        '''The circle kernel's support is twice the smoothing parameter'''
+        return 2 * self._smoothParam
     
 class UniformKernel( SeparableKernel ):
     '''A simple uniform kernel'''
