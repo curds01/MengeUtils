@@ -262,7 +262,7 @@ class SeparableKernel( KernelBase ):
         #TODO: Validate that the func has the correct interface
         KernelBase.__init__( self, smoothParam, cellSize, reflect, func )
 
-    def convolveField2( self, signal, grid ):
+    def convolveField( self, signal, grid ):
         # TODO: THIS CAUSES BANDING!!!!  Don't let it.
         assert( signal.shape == grid.cells.shape )
         fieldW = signal.shape[0]
@@ -270,24 +270,24 @@ class SeparableKernel( KernelBase ):
         if ( self.reflectBoundaries ):
             expansion = self.data1D.size / 2
             fieldData = signal.getFieldData( expansion )
-            temp = np.empty( (fieldW, fieldH ), dtype=np.float32 )
-            # horizontal convolution
-            for r in xrange( temp.shape[0] ):
-                result = np.convolve( self.data1D, fieldData[r,:], 'valid' )
+            temp = np.empty( (fieldData.shape[0], fieldH ), dtype=np.float32 )
+            # vertictal convolution
+            for x in xrange( fieldData.shape[0] ):
+                result = np.convolve( self.data1D, fieldData[x,:], 'valid' )
                 try:
-                    temp[ r, : ] = result
+                    temp[ x, : ] = result
                 except:
                     print "Signal shape:", signal.shape
                     print "Convolution result shape:", result.shape
                     print "Kernel shape:", self.data1D.shape
                     print "Reflected Signal shape:", fieldData[r,:].shape
                     raise
-            fieldData[ expansion:-expansion, expansion:-expansion ] = temp
-            # vertical convolution
-            for c in xrange( temp.shape[1] ):
-                result = np.convolve( self.data1D, fieldData[:,c], 'valid' )
+            
+            # horizontal convolution
+            for y in xrange( temp.shape[1] ):
+                result = np.convolve( self.data1D, temp[:,y], 'valid' )
                 try:
-                    grid.cells[ :, c]  = result
+                    grid.cells[ :, y ]  = result
                 except:
                     print "Signal shape:", signal.shape
                     print "Convolution result shape:", result.shape
