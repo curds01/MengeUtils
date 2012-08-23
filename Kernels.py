@@ -431,21 +431,6 @@ class InseparableKernel( KernelBase ):
 
         self.data = self.dFunc( X, Y, self._smoothParam ) * ( self._cellSize * self._cellSize )
 
-##class ConstKernel:
-##    pass
-##
-##class VariableKernel:
-##    def getImpulseKernel( self, impulse ):
-##        '''Returns the kernel appropriate for this impulse'''
-##        return self.data
-##    
-
-
-##class SeparableConstKernel( SeparableKernel ):
-##    pass
-##
-##class ConstGaussianKernel( SeparableKernel ):
-##    pass
 
 
     
