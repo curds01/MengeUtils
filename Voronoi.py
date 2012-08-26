@@ -20,10 +20,11 @@ class Voronoi:
         self.minCorner = minCorner
         self.size = size
         self.resolution = resolution
+        self.domain = AbstractGrid( minCorner, size, resolution )
         # Store shortest distance initally every cells has infinitely far away from agents
-        self.distGrid = DataGrid( self.minCorner, self.size, self.resolution, MAX_DIST )
+        self.distGrid = self.domain.getDataGrid( MAX_DIST )
         # Store index indicating who own the grid initially all the cells don't have any owner
-        self.ownerGrid = DataGrid( self.minCorner, self.size, self.resolution, -1, np.int32 )
+        self.ownerGrid = self.domain.getDataGrid( -1, np.int32 ) 
         self.obstacles = obstacles
     
     def distField( self, points, startPt, l, r, b, t ):

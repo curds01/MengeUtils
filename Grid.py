@@ -12,7 +12,7 @@ GRID_EPS = 0.00001
 
 class AbstractGrid( RectDomain ):
     '''A class to index into an abstract grid'''
-    def __init__( self, minCorner=Vector2(0.0, 0.0), size=Vector2(1.0, 1.0), resolution=(1, 1) ):
+    def __init__( self, minCorner=Vector2(0.0, 0.0), size=Vector2(1.0, 1.0), resolution=(1, 1), cellSize=None ):
         '''Grid constructor.
 
         @param  minCorner       A 2-tuple-like instace of floats.  The position, in world space,
@@ -27,7 +27,12 @@ class AbstractGrid( RectDomain ):
         RectDomain.__init__( self, minCorner, size )
         self.resolution = resolution        # tuple (x, y)  - int
         # size of each cell in the world grid
-        self.cellSize = Vector2( size[0] / float( resolution[0] ), size[1] / float( resolution[1] ) )
+        if ( cellSize is None ):
+            self.cellSize = Vector2( size[0] / float( resolution[0] ), size[1] / float( resolution[1] ) )
+        else:
+            self.cellSize = cellSize
+            assert( np.abs( self.cellSize[0] * self.resolution[0] - self.size[0] ) < 0.0001 and
+                    np.abs( self.cellSize[1] * self.resolution[1] - self.size[1] ) < 0.0001 )
 
     def isAligned( self, grid ):
         '''Reports if this grid is aligned with the given grid.cellSize
@@ -122,6 +127,16 @@ class AbstractGrid( RectDomain ):
         else:
             raise ValueError, 'Grids can only be intersected with RectDomain and its subclasses'
 
+    def getDataGrid( self, initVal=0.0, arrayType=np.float32 ):
+        '''Creates an instance of a DataGrid from this abstract data grid.cellSize
+        
+        @param          initVal         The initial value for the data grid to contain.
+        @param          arrayType       The type of values in the array.
+        @returns        An instance of DataGrid with this grid's position, extent, resolution
+                        and cellsize.
+        '''
+        return DataGrid( self.minCorner, self.size, self.resolution, self.cellSize, initVal, arrayType )
+
 class GridTransform:
     '''A class for transforming from the coordinates of one AbstractGrid to the coordinates of
     another.'''
@@ -153,8 +168,8 @@ class GridTransform:
 
 class DataGrid( AbstractGrid) :
     """A Class to stroe information in grid based structure (i.e the one in Voronoi class ) """
-    def __init__( self, minCorner=Vector2(0.0, 0.0), size=Vector2(1.0, 1.0), resolution=(1, 1), initVal=0.0, arrayType=np.float32 ):
-        AbstractGrid.__init__( self, minCorner, size, resolution )
+    def __init__( self, minCorner=Vector2(0.0, 0.0), size=Vector2(1.0, 1.0), resolution=(1, 1), cellSize=None, initVal=0.0, arrayType=np.float32 ):
+        AbstractGrid.__init__( self, minCorner, size, resolution, cellSize )
         self.initVal = initVal
         self.clear( arrayType )
 

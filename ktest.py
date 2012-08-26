@@ -102,9 +102,10 @@ def testPedestrian():
     domainSize = Vector2( 2.4, 12 )
     pedDomain = Grid.RectDomain( minCorner, domainSize )
     # grid domain
-    minCorner = Vector2( 0.0, -4 )
-    domainSize = Vector2( 2.4, 8 )
+    minCorner = Vector2( 0.0, -3 )
+    domainSize = Vector2( 2.4, 6 )
     resolution = Vector2( domainSize.x / CELL_SIZE, domainSize.y / CELL_SIZE)
+    gridDomain = Grid.AbstractGrid( minCorner, domainSize, resolution )
 
     # load pedestrian data
     data = SeyfriedTrajReader( 1 / 16.0 )
@@ -118,7 +119,7 @@ def testPedestrian():
             sig = Signals.PedestrianSignal( data, pedDomain )
         except StopIteration:
             break
-        grid = Grid.DataGrid( minCorner, domainSize, resolution )
+        grid = gridDomain.getDataGrid() #Grid.DataGrid( minCorner, domainSize, resolution )
         kernel.convolve( sig, grid )
         grid.cells /= ( CELL_SIZE * CELL_SIZE )
         
