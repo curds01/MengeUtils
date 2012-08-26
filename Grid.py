@@ -1,6 +1,7 @@
 # This file contain Abstract Grida and Grid which is used in computing density
 
 import numpy as np
+from domains import RectDomain
 from primitives import Vector2
 import copy
 
@@ -8,25 +9,7 @@ BUFFER_DIST = 0.46  # Based on Proxemics for Close Perosnal Distance
 MAX_DIST = 10000
 
 GRID_EPS = 0.00001
-class RectDomain:
-    '''A simple class to represent a rectangular domain'''
-    def __init__( self, minCorner, size ):
-        '''RectDomain constructor.
-        @param  minCorner       A 2-tuple-like instace of floats.  The position, in world space,
-                                of the "bottom-left" corner of the domain.  (Minimum x- and y-
-                                values.
-        @param  size            A 2-tuple-like instace of floats.  The span of the domain (in world
-                                space.)  The maximum values of the domain are minCorner[0] + size[0]
-                                and minCorner[1] + size[1], respectively.
-        '''
-        self.minCorner = minCorner
-        self.size = size
 
-    def copyDomain( self, domain ):
-        '''Copies the domain settings from the given domain to this domain'''
-        self.minCorner = copy.deepcopy( domain.minCorner )
-        self.size = copy.deepcopy( domain.size )
-        
 class AbstractGrid( RectDomain ):
     '''A class to index into an abstract grid'''
     def __init__( self, minCorner=Vector2(0.0, 0.0), size=Vector2(1.0, 1.0), resolution=(1, 1) ):
@@ -45,6 +28,25 @@ class AbstractGrid( RectDomain ):
         self.resolution = resolution        # tuple (x, y)  - int
         # size of each cell in the world grid
         self.cellSize = Vector2( size[0] / float( resolution[0] ), size[1] / float( resolution[1] ) )
+
+    def isAligned( self, grid ):
+        '''Reports if this grid is aligned with the given grid.cellSize
+
+        To be aligned, two grids need to have the same cell size and their minimum
+        corners must be an integer number of cells removed from each other.
+
+        @param      grid        An instance of AbstractGrid.  The grid to test alignment
+                                with.
+        @returns    A boolean.  True if aligned, False otherwise.
+        '''
+        if ( abs( self.cellSize[0] - grid.cellSize[0] ) > GRID_EPS or
+              abs( self.cellSize[1] - grid.cellSize[1] ) > GRID_EPS ):
+            return False
+        dx = abs( self.minCorner[0] - grid.minCorner[0] ) / self.cellSize[0]
+        dy = abs( self.minCorner[1] - grid.minCorner[1] ) / self.cellSize[1]
+        DX = int( np.round( dx ) )
+        DY = int( np.round( dy ) )
+        return ( abs( dx - DX ) < GRID_EPS and abs( dy - DY ) < GRID_EPS )
 
     def copyDomain( self, grid ):
         '''Copies the grid domain parameters from the provided grid.minCorner
@@ -65,8 +67,8 @@ class AbstractGrid( RectDomain ):
         # offset in cell sizes
         ofX = offset[0] / self.cellSize[0]
         ofY = offset[1] / self.cellSize[1]
-        x = int( ofX )
-        y = int( ofY )
+        x = int( np.floor( ofX ) )
+        y = int( np.floor( ofY ) )
         return x, y
 
     def distanceToNearestBoundary( self, position ):
@@ -81,6 +83,73 @@ class AbstractGrid( RectDomain ):
         dx2 = abs( self.size[0] - dx1 )
         dy2 = abs( self.size[1] - dy1 )
         return min( dx1, dy1, dx2, dy2 )
+
+    def intersection( self, grid ):
+        '''Computes the intersection of this Grid with another Grid or domain.
+
+        If there is no intersection between the two domains, None is returned, regardless
+        of input type.
+        
+        The nature of the intersection depends on the type of domain provided.  If the
+        input is an abstract RectDomain, then the intersection returned is, in turn,
+        a RectDomain in continuous space.
+
+        If the input is a derivative of an AbstractGrid, the grids must be aligned because
+        the intersection is defined in terms of overlapping cells and the return type
+        is a pair of 2-tuples, the minCorner and maxCorner (in grid coordinates) in THIS
+        grid of the intersection.  To determine the coordinates in the provided grid's
+        coordinates, use a GridTransform.        
+
+        @param      grid        The grid/domain against which the intersection is performed.
+        @returns    It depends on the input.  See the notes above.
+        '''
+        if ( isinstance( grid, AbstractGrid ) ):
+            assert( self.isAligned( grid ) )
+            if ( not self.intersects( grid ) ):
+                return None
+            xform = GridTransform( grid, self ) # grid cell coords in this grid's coords
+            gmc = xform( (0, 0) )
+            gMC = xform( grid.resolution )
+            X = [ gmc[0], gMC[0], 0, self.resolution[0] ]
+            X.sort()
+            Y = [ gmc[1], gMC[1], 0, self.resolution[1] ]
+            Y.sort()
+            minCorner = ( X[1], Y[1] )
+            maxCorner = ( X[2], Y[2] )
+            return minCorner, maxCorner
+        elif ( isinstance( grid, RectDomain ) ):
+            return RectDomain.intersection( self, grid )
+        else:
+            raise ValueError, 'Grids can only be intersected with RectDomain and its subclasses'
+
+class GridTransform:
+    '''A class for transforming from the coordinates of one AbstractGrid to the coordinates of
+    another.'''
+    def __init__( self, srcGrid, dstGrid ):
+        '''Constructor.
+
+        Creates a transform to map from grid coordinates in srcGrid to dstGrid.
+        It assumes that the two grids have the same cell size and have corners that
+        are naturally aligned (i.e. the cell centers of the two grids match up.
+
+        @param  srcGrid     An instance of AbstractGrid.  Inputs to the transform are in
+                            this Grid's space.
+        @param  dstGrid     An instance of AbstractGrid.  Outputs of the transform are in
+                            this Grid's space.
+        '''
+        assert( srcGrid.isAligned(  dstGrid ) )
+        self.dx = int( np.round( ( srcGrid.minCorner[0] - dstGrid.minCorner[0] ) / srcGrid.cellSize[0] ) )
+        self.dy = int( np.round( ( srcGrid.minCorner[1] - dstGrid.minCorner[1] ) / srcGrid.cellSize[1] ) )
+
+    def __call__( self, point ):
+        '''Transform the point from srcGrid's space to dstGrid's space.
+
+        @param      point       A 2-tuple-like object of INTs.  The address of a cell in the
+                                space of srcGrid (see __init__).
+        @returns    A 2-tuple-like object of INTs.  The same cell in dstGrid's space.
+        '''
+        return ( point[0] + self.dx, point[1] + self.dy )
+        
 
 class DataGrid( AbstractGrid) :
     """A Class to stroe information in grid based structure (i.e the one in Voronoi class ) """

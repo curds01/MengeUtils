@@ -1,6 +1,7 @@
 # module for handling signals for convolution
 
 import numpy as np
+import Grid
 
 class SignalError( Exception ):
     '''Basic exception for signals'''
@@ -36,6 +37,56 @@ class DiracSignal( Signal ):
         self._data = data
         self.domain = domain
 
+    def getDomainSignal( self, convolveDomain, signalDomain, doReflection ):
+        '''Returns signal to support the domain covered by the given grid.
+
+        The dirac signal does not make any assumptions as to the tesselation of
+        the domain.  The signal uses values in continuous space and, as such, is
+        independent of tesselation.
+
+        If the convolution domain extends beyond signal domain,
+        and doReflection is equal to true, then any points who lie in the domain and
+        its reflections which lie in the domain are included in the signal.
+        Points which lie outside the domain, and their reflections, are not included.
+
+        @param      convolveDomain  An instance of AbstractGrid, which corresponds to
+                                    the convolution domain.  It should lie wholly within the
+                                    signal domain.
+        @param      signalDomain    An instance of AbstractGrid, which corresponds to
+                                    the domain in which signal should be populated.
+        @param      doReflection    A boolean.  Determines if signals are reflected over
+                                    signal boundaries.  True will cause reflection, False
+                                    means the result only includes the original signal.
+        @returns    A numpy array of agents who all lie within the domain implied
+                    by the expanded grid.
+        '''
+        baseIntersection = convolveDomain.intersection( self.domain )
+        if ( baseIntersection is None ):
+            raise SignalDataError, "Trying to compute density in a region without signal"
+        if ( not baseIntersection == convolveDomain ):
+            raise SignalDataError, "The entire convolution domain must lie within the signal domain"
+        
+        count = 0
+        if ( not doReflection ):
+            point = np.empty_like( self._data )
+            for row in self._data :
+                if ( signalDomain.pointInside( row ) ):
+                    point[ count, : ] = row
+                    count += 1
+        else:
+            point = np.empty( ( self._data.shape[0] * 5, 2 ), dtype=np.float32 )
+            for row in self._data:
+                if ( signalDomain.pointInside( row ) ):   # the point is inside the signalDomain
+                    point[ count, : ] = row
+                    count += 1
+
+                    reflection = self.domain.reflectPoint( row )
+                    for r in reflection:
+                        if ( signalDomain.pointInside( r ) ):
+                            point[ count, : ] = r
+                            count += 1
+        return point[:count, : ]
+    
     def getDomain( self ):
         '''Reports the domain of the signal.
 
@@ -79,7 +130,7 @@ class DiracSignal( Signal ):
         return self._data[ i ]
 
     def __len__( self ):
-        '''Returns the number of impulses in the signal.NSIG
+        '''Returns the number of impulses in the signal.
 
         @returns    An int.  The count of impulses.
         '''
@@ -109,13 +160,118 @@ class FieldSignal( Signal ):
     def shape( self ):
         return self.data.cells.shape
 
+    def getDomainSignal( self, convolveDomain, k, doReflection ):
+        '''Returns signal to support the domain covered by the given grid.
+        
+        It is assumed that data in the signal has the same \emph{resolution} as
+        the grid, but may span a different region.  If the convolution domain is
+        completely enclosed in the signal, then simply a sub-portion of the signal
+        is returned.  If the domain extends beyond that of the signal, then the
+        signal is reflected over those boundaries.  If the reflection still does
+        not fill the region, then zeros are used to fill the rest of the domain.
+
+        @param      convolveDomain      An instance of RectDomain, which corresponds to
+                                        the convolution domain.  It is an M x N grid.
+        @param      k                   The number of cells larger than the grid data is
+                                        needed (related to convolution kernel size).
+        @param      doReflection        A boolean reporting whether or not to reflect around
+                                        the signal domain.
+        @returns    An M+k x N+k numpy array.  Representing the signal in the domain.
+        '''
+        baseIntersection = convolveDomain.intersection( self.data )
+        if ( baseIntersection == None ):
+            raise SignalDataError, "Trying to compute density in a region without signal"
+        minPt, maxPt = baseIntersection
+        if ( minPt[0] != 0 or minPt[1] != 0 or maxPt[0] != convolveDomain.resolution[0] or maxPt[1] != convolveDomain.resolution[1] ):
+            raise SignalDataError, "The entire convolution domain must lie within the signal domain"
+        
+        expand = convolveDomain.cellSize * k
+        supportCorner = convolveDomain.minCorner - expand
+        supportSize = convolveDomain.size + ( 2 * expand )
+        supportResolution = ( convolveDomain.resolution[0] + 2 * k, convolveDomain.resolution[1] + 2 * k )
+        supportDomain = Grid.AbstractGrid( supportCorner, supportSize, supportResolution )
+        result = np.zeros( supportDomain.resolution, dtype=convolveDomain.cells.dtype )
+
+        # what section of signal domain overlaps support domain
+        intersection = self.data.intersection( supportDomain )
+        if ( intersection != None ):
+            # the field only gets filled in if there is no intersection
+            sigMin, sigMax = intersection
+            xform = Grid.GridTransform( self.data, supportDomain )
+            supMin = xform( sigMin )
+            supMax = xform( sigMax )
+            result[ supMin[0]:supMax[0], supMin[1]:supMax[1] ] = self.data.cells[ sigMin[0]:sigMax[0], sigMin[1]:sigMax[1] ]
+            
+            # if do reflection
+            if ( doReflection ):
+                # Reflection only necessary if the support domain isn't full of signal
+                if ( supMin[0] > 0 or supMin[1] > 0 or
+                     supMax[0] < supportResolution[0] or supMax[1] < supportResolution[1] ):
+                    sigWidth  = self.data.resolution[ 0 ]
+                    sigHeight = self.data.resolution[ 1 ]
+                    supWidth  = supportDomain.resolution[ 0 ]
+                    supHeight = supportDomain.resolution[ 1 ]
+                    
+                    if ( supMin[0] > 0 ):
+                        # reflect left
+                        rWidth = min( supMin[0], sigWidth )
+                        reflKernel = self.data.cells[ :rWidth, sigMin[1]:sigMax[1] ][::-1, : ]
+                        L = supMin[0]-rWidth
+                        R = supMin[0]
+                        result[ L:R, supMin[1]:supMax[1] ] = reflKernel
+
+                        if ( supMin[1] > 0 ):
+                            #reflect bottom-left
+                            rHeight = min( supMin[1], sigHeight - sigMin[1] )
+                            reflKernel = self.data.cells[ :rWidth, :rHeight ][ ::-1, ::-1 ]
+                            result[ L:R, supMin[1]-rHeight:supMin[1] ] = reflKernel
+
+                        if ( supMax[1] < supHeight ):
+                            #reflect top-left
+                            rHeight = min( sigHeight, supHeight - supMax[1] )
+                            reflKernel = self.data.cells[ :rWidth, sigHeight-rHeight:sigHeight ][::-1,::-1]
+                            result[ L:R, supMax[1]:supMax[1] + rHeight ] = reflKernel
+
+                    if ( supMax[0] < supWidth ):
+                        # reflect right
+                        rWidth = min( supWidth - supMax[0], sigWidth )
+                        reflKernel = self.data.cells[ -rWidth:, sigMin[1]:sigMax[1] ][::-1, :]
+                        L = supMax[0]
+                        R = supMax[0] + rWidth
+                        result[ L:R, supMin[1]:supMax[1] ] = reflKernel
+
+                        if ( supMin[1] > 0 ):
+                            # reflect bottom-right
+                            rHeight = min( supMin[1], sigHeight - sigMin[1] )
+                            reflKernel = self.data.cells[ -rWidth:, :rHeight ][ ::-1, ::-1 ]
+                            result[ L:R, supMin[1]-rHeight:supMin[1] ] = reflKernel
+
+                        if ( supMax[1] < supHeight ):
+                            # reflect top
+                            rHeight = min( sigHeight, supHeight - supMax[1] )
+                            reflKernel = self.data.cells[ -rWidth:, sigHeight-rHeight:sigHeight ][::-1,::-1]
+                            result[ L:R, supMax[1]:supMax[1] + rHeight ] = reflKernel
+
+                    if ( supMin[1] > 0 ):
+                        # reflect bottom
+                        rHeight = min( supMin[1], sigHeight - sigMin[1] )
+                        reflKernel = self.data.cells[ sigMin[0]:sigMax[1], :rHeight ][:, ::-1]
+                        result[ supMin[0]:supMax[0], supMin[1]-rHeight:supMin[1] ] = reflKernel
+
+                    if ( supMax[1] < supHeight ):
+                        # reflect top
+                        rHeight = min( sigHeight, supHeight - supMax[1] )
+                        reflKernel = self.data.cells[ sigMin[0]:sigMax[1], sigHeight-rHeight:sigHeight ][:, ::-1]
+                        result[ supMin[0]:supMax[0], supMax[1]:supMax[1]+rHeight ] = reflKernel
+        return result
+
     def getFieldData( self, expansion=0 ):
         '''Returns an image of the signal, possibly with reflection.
 
         @param      expansion       An non-negative int. Indicates how
                                     much the image should be expanded beyond
                                     the source signal.  The expanded region is
-                                    a reflection, of the adjacent source signal.NSIG
+                                    a reflection, of the adjacent source signal.
         @returns    A M' x N' numpy array.  Where M' = M + 2 * expansion and
                     N' = N + 2 * expansion, where the source field is an
                     M x N field.
@@ -170,27 +326,34 @@ class PedestrianSignal( DiracSignal ):
         frameData, frameID = frameSet.next()
         DiracSignal.__init__( self, frameData[:, :2], domain )
 
-##class VoronoiSignal( FieldSignal ):
-##    '''A field signal comprising of a pre-computed voronoi diagram.'''
-##    pass
-
 if __name__ == '__main__':
+    import domains
     import numpy as np
+    from primitives import Vector2
     def test():
         print "Testing signals!"
         if ( False ):
             print "\n\tTesting dirac signals"
             data = np.random.rand( 10, 2 )
-            s = DiracSignal( data )
+            pedDomain = domains.RectDomain( ( -2.0, -2.0 ), (4.0, 4.0 ) )
+            s = DiracSignal( data, pedDomain )
             for i, pos in enumerate( s.impulses ):
                 print '\t\t', i, pos, data[i, :]
 
         if ( True ):
             print "\n\tTesting field signal"
             data = np.array( ( (1, 2, 3), (10, 20, 30) ), dtype=np.float32 )
-            s = FieldSignal( data )
-            field = s.getFieldData( 4 )
-            print field
-            print
+            grid = Grid.DataGrid( (0.0, 0.0), (2.0, 3.0 ), (2, 3) )
+            grid.cells[:, :] = data
+            s = FieldSignal( grid )
+            convolve = Grid.DataGrid( Vector2(1.0, 1.0), Vector2( 1.0, 1.0 ), (1,1) )
+            domSig = s.getDomainSignal( convolve, 2, False )
+            print data
+            print "NO REFLECTION"
+            print domSig
+            domSig = s.getDomainSignal( convolve, 2, True )
+            print "WITH REFLECTION"
+            print domSig
+            
 
     test()
