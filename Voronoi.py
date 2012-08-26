@@ -1,9 +1,8 @@
 import IncludeHeader
 
 import math
-from Grid import *
+from Grid import AbstractGrid
 from primitives import Vector2, Segment
-from ObstacleStructure import *
 import pylab as plt
 import drawVoronoi
 

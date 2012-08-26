@@ -9,7 +9,6 @@ from primitives import Vector2
 class Grid( DataGrid ):
     """Class to discretize scalar field computation"""
     def __init__( self, minCorner, size, resolution,
-                  domainX=Vector2(0.,3.2), domainY=Vector2(-6.,6.),
                   initVal=0.0 ):
         """Initializes the grid to span the space starting at minCorner,
         extending size amount in each direction with resolution cells
@@ -19,8 +18,6 @@ class Grid( DataGrid ):
         AbstractGrid.__init__( self, minCorner, size, resolution )
         self.initVal = initVal
         self.clear( np.float32 )
-        self.domainX = domainX
-        self.domainY = domainY
 
     def getValueInGrid( self, position ):
         """ Get the value stored in grid cell at given position
