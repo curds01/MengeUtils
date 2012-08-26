@@ -5,6 +5,7 @@ import pygame
 import struct
 import threading
 import time
+import multiprocessing
 
 from Grid import *
 from primitives import Vector2
@@ -79,7 +80,7 @@ class GridFileSequence:
         @param smoothParam: a smoothing value for variable gaussian'''
         global ACTIVE_RASTER_THREADS
 
-        THREAD_COUNT = 1
+        THREAD_COUNT = multiprocessing.cpu_count()
         # file output
         outFile = open( self.outFileName + '.density', 'wb' )
         outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
@@ -140,7 +141,7 @@ class GridFileSequence:
         @param defineRegionY: a pair of center and width to define region in y axis'''
         global ACTIVE_RASTER_THREADS
 
-        THREAD_COUNT = 1
+        THREAD_COUNT = multiprocessing.cpu_count()
         # file output
         outFile = open( self.outFileName + '.density', 'wb' )
         outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
