@@ -323,7 +323,7 @@ class PedestrianSignal( DiracSignal ):
                                 scbData or SeyfriedTrajectoryReader.)
         @raises     StopIteration if the frameSet is out of frames.
         '''
-        frameData, frameID = frameSet.next()
+        frameData, self.index = frameSet.next()
         DiracSignal.__init__( self, frameData[:, :2], domain )
 
 if __name__ == '__main__':
