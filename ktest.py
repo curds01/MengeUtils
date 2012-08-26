@@ -110,16 +110,17 @@ def testPedestrian():
     # load pedestrian data
     data = SeyfriedTrajReader( 1 / 16.0 )
     data.readFile( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/uo-065-240-240_combined_MB.txt' )
-##    data.readFile( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/dummy.txt' )
     data.setNext( 0 )
     grids = []
+
+    sig = Signals.PedestrianSignal( pedDomain )    
     
     while ( True ):
         try:
-            sig = Signals.PedestrianSignal( data, pedDomain )
+            sig.setData( data )
         except StopIteration:
             break
-        grid = gridDomain.getDataGrid() #Grid.DataGrid( minCorner, domainSize, resolution )
+        grid = gridDomain.getDataGrid() 
         kernel.convolve( sig, grid )
         grid.cells /= ( CELL_SIZE * CELL_SIZE )
         
@@ -145,9 +146,10 @@ def testSynthetic():
     grids = []
 
     pedDomain = Grid.RectDomain( minCorner, domainSize )    
+    sig = Signals.DiracSignal( pedDomain )
     
     for i in xrange( STEP_COUNT ):
-        sig = Signals.DiracSignal( traj[:, :, i], pedDomain )
+        sig.setData( traj[:, :, i] )
         grid = Grid.DataGrid( minCorner, domainSize, resolution )
         kernel.convolve( sig, grid )
         grid.cells /= ( CELL_SIZE * CELL_SIZE )
@@ -262,7 +264,7 @@ def computeVornoiField( grid ):
         
 if __name__ == '__main__':
 ##    testSynthetic()
-    testPedestrian()
+##    testPedestrian()
 ##    testSyntheticField()
 ##    debugFieldConvolve()
     

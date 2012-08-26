@@ -73,7 +73,7 @@ class GridFileSequence:
         """
         renderTraces( minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase )
 
-    def computeDensity( self, gridDomain, kernel, frameSet, isDiracSignal=True ):
+    def computeDensity( self, gridDomain, kernel, signal, frameSet ):
         '''Creates a binary file representing the density scalar fields of each frame of the
             pedestrian data.append
 
@@ -81,11 +81,11 @@ class GridFileSequence:
                                     and resolution over which the density field is calculated.
         @param      kernel          The kernel to be used to create the scalar field.  It is
                                     convolved with the pedestrian data.
+        @param      signal          An instance of the signal type to be convolved.  It includes the
+                                    signal domain.  The data for the signal is set in each iteration
+                                    by the data in frameSet.
         @param      frameSet        An instance of a pedestrian data sequence (could be simulated
                                     or real data.  It could be a sequence of voronoi diagrams.
-        @param      isVoronoi       A boolean.  Defines how the frameSet data should be interpreted:
-                                    dirac or field.  If true, it is assumed to be a dirac signal,
-                                    if false, field.  This changes the thread called.
         '''
         global ACTIVE_RASTER_THREADS
 
@@ -110,7 +110,7 @@ class GridFileSequence:
             rasterLogs.append( RasterReport() )
             # This has self.obstacles
             rasterThreads.append( threading.Thread( target=threadConvolve, args=( rasterLogs[-1], bufferLock, buffer, frameLock,
-                                                                                   frameSet, gridDomain, kernel )
+                                                                                   signal.copyEmpty(), frameSet, gridDomain, kernel )
                                                     )  )
 
         for i in range( THREAD_COUNT ):

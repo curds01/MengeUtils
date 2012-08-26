@@ -21,8 +21,9 @@ class BufferGrid:
 
 # The function that does the rasterization work
 ACTIVE_RASTER_THREADS = 0
-def threadConvolve( log, bufferLock, buffer, frameLock,    # thread info
-                     frameSet, gridDomain, kernel ):        # the data to process
+def threadConvolve( log, bufferLock, buffer, frameLock,     # thread info
+                    signal, frameSet,                       # the input signal
+                    gridDomain, kernel ):                   # the convolution domain and convolution kernel
     '''Function for performing simple convolution across a sequence of pedestrian data.
     
     @param      log             An instance of RasterReport (see GridFileSequence.py).
@@ -31,7 +32,9 @@ def threadConvolve( log, bufferLock, buffer, frameLock,    # thread info
     @param      buffer          The buffer for storing the finished convolution.  Shared
                                 across all threads.
     @param      frameLock       A threading.Lock for accessing the pedestrian data.
-    @param      frameSet        An instance of a pedestrian data sequence.
+    @param      signal          An instance of the signal.  Each thread has a unique signal instance.
+    @param      frameSet        An instance of signal data.  In each iteration, the signal's
+                                data is set with this.
     @param      gridDomain      An instance of AbstractGrid defining the extents and resolution
                                 of the convolution domain.
     @param      kernel          An instance of a BaseKernel (see Kernels.py).  Convolution
@@ -42,7 +45,7 @@ def threadConvolve( log, bufferLock, buffer, frameLock,    # thread info
         # acquire frame
         frameLock.acquire()
         try:
-            signal = Signals.PedestrianSignal( frameSet )
+            signal.setData( frameSet )
         except StopIteration:
             break
         finally:            

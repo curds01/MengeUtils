@@ -26,16 +26,38 @@ class Signal:
         '''
         raise SignalImplementationError
 
+    def setData( self, data ):
+        '''Sets the signal's data.'''
+        raise SignalImplementationError
+
+    def copy( self ):
+        '''Creates a full copy of this signal'''
+        raise SignalImplementationError
+
+    def copyEmpty( self ):
+        '''Creates an empty copy of this signal -- keeps the domain, but no
+        data.'''
+        raise SignalImplementationError
+
 class DiracSignal( Signal ):
     '''A signal consisting of a sum of translated dirac functions'''
-    def __init__( self, data, domain ):
+    def __init__( self, domain, data=None ):
         '''Constructor for the signal.
 
-        @param  data        An Nx2 numpy array of flaots. The signal data.
         @param  domain      An instance of Grids.RectDomain.  Defines the domain of the signal.
+        @param  data        An Nx2 numpy array of flaots. The signal data.
         '''
-        self._data = data
         self.domain = domain
+        self._data = data
+
+    def copy( self ):
+        '''Creates a full copy of this signal'''
+        return self.__class__( self.domain, self._data )
+
+    def copyEmpty( self ):
+        '''Creates an empty copy of this signal -- keeps the domain, but no
+        data.'''
+        return self.__class__( self.domain )
 
     def getDomainSignal( self, convolveDomain, signalDomain, doReflection ):
         '''Returns signal to support the domain covered by the given grid.
@@ -59,7 +81,7 @@ class DiracSignal( Signal ):
                                     means the result only includes the original signal.
         @returns    A numpy array of agents who all lie within the domain implied
                     by the expanded grid.
-        '''
+        @raises     AttributeError if the data for the signal has not been set.'''
         baseIntersection = convolveDomain.intersection( self.domain )
         if ( baseIntersection is None ):
             raise SignalDataError, "Trying to compute density in a region without signal"
@@ -118,6 +140,8 @@ class DiracSignal( Signal ):
 
     @property
     def impulses( self ):
+        if ( self._data is None ):
+            raise StopIteration
         return DiracSignal.ImpulseIterator( self )
 
     def __getitem__( self, i ):
@@ -126,6 +150,7 @@ class DiracSignal( Signal ):
         @param      i       The index of the desired impulse.
         @returns    A numpy array with shape (2,).  The ith impulse.
         @raises     IndexError if the index is invalid.
+        @raises     AttributeError if the data for the signal has not been set.
         '''
         return self._data[ i ]
 
@@ -133,13 +158,21 @@ class DiracSignal( Signal ):
         '''Returns the number of impulses in the signal.
 
         @returns    An int.  The count of impulses.
+        @raises     AttributeError if the data for the signal has not been set.
         '''
         return self._data.shape[0]
+    
+    def setData( self, data ):
+        '''Sets the signal's data.
 
+        @param  data        An Nx2 numpy array of floats.
+        '''
+        self._data = data
+        
 class FieldSignal( Signal ):
     '''A discrete approximation of a continuous signal defined over a
         rectangular domain'''
-    def __init__( self, fieldData ):
+    def __init__( self, fieldData=None ):
         '''Constructor based on the provided field data.shape
 
         @param  fieldData       An instance of the DataGrid.  Containing the signal
@@ -148,16 +181,32 @@ class FieldSignal( Signal ):
         '''
         self.data = fieldData
 
+    def copy( self ):
+        '''Creates a full copy of this signal'''
+        return self.__class__( self.data )
+
+    def copyEmpty( self ):
+        '''Creates an empty copy of this signal -- keeps the domain, but no
+        data.'''
+        return self.__class__()
+
     def getDomain( self ):
         '''Reports the domain of the signal.
 
         @returns    Two 2-tuple-like values reporting the minimum value and the size of the domain.
                         (minX, minY) and (width, height).
+        @raises     AttributeError if the data for the signal has not been set.
         '''
         return self.data.minCorner, self.data.size
     
     @property
     def shape( self ):
+        '''Reports the resolution of the field signal.
+
+        @returns    A 2-tuple of ints.  The number of cells in the data in the x-
+                    and y-directions.
+        @raises     AttributeError if the data for the signal has not been set.
+        '''
         return self.data.cells.shape
 
     def getDomainSignal( self, convolveDomain, k, doReflection ):
@@ -177,6 +226,7 @@ class FieldSignal( Signal ):
         @param      doReflection        A boolean reporting whether or not to reflect around
                                         the signal domain.
         @returns    An M+k x N+k numpy array.  Representing the signal in the domain.
+        @raises     AttributeError if the data for the signal has not been set.
         '''
         baseIntersection = convolveDomain.intersection( self.data )
         if ( baseIntersection == None ):
@@ -313,18 +363,41 @@ class FieldSignal( Signal ):
             return data
         else:
             return sigData
+    def setData( self, data ):
+        '''Sets the signal's data.
 
+         @param  data           An instance of the DataGrid.  Contains the signal
+                                located in space with a particular tesselation.  The
+                                grid is used as given -- it is not copied.
+        '''
+        self._data = data
+        
 class PedestrianSignal( DiracSignal ):
     '''A dirac signal, where the pedestrian positions are the impulses'''
-    def __init__( self, frameSet, domain ):
+    def __init__( self, domain, frameSet=None ):
         '''Constructor.
+
+        @param      domain      An instance of Grids.RectDomain.
+                                Defines the domain of the signal.
+        @param      frameSet    A pedestrian data frame set (such as
+                                scbData or SeyfriedTrajectoryReader.)
+        @raises     StopIteration if the frameSet is out of frames.
+        '''
+        if ( not frameSet is None ):
+            frameData, self.index = frameSet.next()
+            DiracSignal.__init__( self, domain, frameData[:, :2] )
+        else:
+            DiracSignal.__init__( self, domain, None )
+
+    def setData( self, data ):
+        '''Sets the signal's data.
 
         @param      frameSet    A pedestrian data frame set (such as
                                 scbData or SeyfriedTrajectoryReader.)
         @raises     StopIteration if the frameSet is out of frames.
         '''
-        frameData, self.index = frameSet.next()
-        DiracSignal.__init__( self, frameData[:, :2], domain )
+        frameData, self.index = data.next()
+        DiracSignal.setData( self, frameData[:, :2] )
 
 if __name__ == '__main__':
     import domains
@@ -332,11 +405,11 @@ if __name__ == '__main__':
     from primitives import Vector2
     def test():
         print "Testing signals!"
-        if ( False ):
+        if ( True ):
             print "\n\tTesting dirac signals"
             data = np.random.rand( 10, 2 )
             pedDomain = domains.RectDomain( ( -2.0, -2.0 ), (4.0, 4.0 ) )
-            s = DiracSignal( data, pedDomain )
+            s = DiracSignal( pedDomain, data )
             for i, pos in enumerate( s.impulses ):
                 print '\t\t', i, pos, data[i, :]
 
@@ -348,12 +421,31 @@ if __name__ == '__main__':
             s = FieldSignal( grid )
             convolve = Grid.DataGrid( Vector2(1.0, 1.0), Vector2( 1.0, 1.0 ), (1,1) )
             domSig = s.getDomainSignal( convolve, 2, False )
-            print data
-            print "NO REFLECTION"
-            print domSig
+            expected = np.array( ( ( 0, 0, 0, 0, 0 ),
+                                   ( 0, 1, 2, 3, 0 ),
+                                   ( 0, 10, 20, 30, 0 ),
+                                   ( 0, 0, 0, 0, 0 ),
+                                   ( 0, 0, 0, 0, 0 ) ), dtype=np.float32 )
+##            print data
+            print "\nNO REFLECTION"
+            different = expected != domSig
+            if ( different.sum() != 0 ):
+                print "\t\tFAILED"
+            else:
+                print "\t\tPASSED"
+##            print domSig
             domSig = s.getDomainSignal( convolve, 2, True )
             print "WITH REFLECTION"
-            print domSig
+            expected = np.array( ( (  1,  1,  2,  3,  3 ),
+                                   (  1,  1,  2,  3,  3 ),
+                                   ( 10, 10, 20, 30, 30 ),
+                                   ( 10, 10, 20, 30, 30 ),
+                                   (  1,  1,  2,  3,  3 ) ), dtype=np.float32 )
+##            different = expected != domSig
+            if ( different.sum() != 0 ):
+                print "\t\tFAILED"
+            else:
+                print "\t\tPASSED"
             
 
     test()
