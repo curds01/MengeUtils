@@ -2,9 +2,9 @@
 # Uniform, Linear, Bi-weight, Gaussian (fixed and variable)
 
 import numpy as np
-from DistFuncs import *
-from Signals import *
 from primitives import Vector2
+import domains
+import Signals
 
 class KernelError( Exception ):
     pass
@@ -156,9 +156,9 @@ class KernelBase( object ):
                             the domain represented by the grid.  The grid's values will be
                             changed as a result of this operation.
         '''
-        if ( isinstance( signal, DiracSignal ) ):
+        if ( isinstance( signal, Signals.DiracSignal ) ):
             self.convolveDirac( signal, grid )
-        elif ( isinstance( signal, FieldSignal ) ):
+        elif ( isinstance( signal, Signals.FieldSignal ) ):
             self.convolveField( signal, grid )
         else:
             raise KernelSignalError, "Unrecognized signal type %s" % ( str( type( signal ) ) )
@@ -205,23 +205,27 @@ class KernelBase( object ):
             
     def convolveField( self, signal, grid ):
         '''The convolution of the 2D kernel with the grid (slow, slow, slow)'''
-        # TODO: This seems to mistakenly pick up signal on the boundaries.  FIND WHY!
-        fieldData = signal.getFieldData()
+        kSize = self.data.shape[0]  #assuming square kernel
+        halfK = kSize / 2
+        dSignal = signal.getDomainSignal( grid, halfK, self.reflectBoundaries )
+
         for y in xrange( grid.cells.shape[1] ):
             for x in xrange( grid.cells.shape[0] ):
-                gridExtent, kernelExtent = self.truncateKernel( grid, ( x, y ) )
-                l, r, t, b = gridExtent
-                kl, kr, kt, kb = kernelExtent
-                value = np.sum( fieldData[ l:r, b:t ] * self.data[ kl:kr, kb:kt ] )
+                value = np.sum( dSignal[ x:x+kSize, y:y+kSize ] * self.data )
                 grid.cells[ x, y ] = value
-                
 
     def convolveDirac( self, signal, grid ):
         '''Convolve the kernel against a dirac signal'''
         w, h = self.data.shape
         w /= 2
         h /= 2
-        for pos in signal.impulses:
+        expandDist = Vector2( grid.cellSize[0] * w, grid.cellSize[1] * h )
+        minPt = grid.minCorner - expandDist
+        size = grid.size + ( 2 * expandDist )
+        domain = domains.RectDomain( minPt, size )
+
+        impulses = signal.getDomainSignal( grid, domain, self.reflectBoundaries )
+        for pos in impulses:
             self.splatKernel( pos, w, h, self.data, grid )               
 
     def splatKernel( self, pos, halfW, halfH, kernelData, grid ):
@@ -265,54 +269,65 @@ class KernelBase( object ):
             # Convolution
             grid.cells[ l:r, b:t ] += kernelData[ kl:kr, kb:kt ]
 
-        if ( self.reflectBoundaries ):
-            reflectTop = kt < kernelData.shape[1] and center[1] < gH
-            reflectBtm = kb > 0 and center[1] > 0
-            if ( kl > 0 and center[0] > 0 ):  # reflect around left boundary
-                # reflect center piece
-                reflKernel = kernelData[ :kl, : ][::-1, : ]
-                tempR = min( r, reflKernel.shape[0] )
-                grid.cells[ l:tempR, b:t ] += reflKernel[ :tempR, kb:kt ]
-                
-                if ( reflectBtm ):  # also reflect around bottom
-                    reflKernel = kernelData[ :kl, :kb ][::-1, ::-1]
-                    tempT = min( t, reflKernel.shape[1] )
-                    grid.cells[ l:tempR, b:tempT ] += reflKernel[ :tempR, :tempT ]
-
-                if ( reflectTop ):  # also reflect around top
-                    reflKernel = kernelData[ :kl, kt: ][::-1, ::-1]
-                    tempB = max( b, t - reflKernel.shape[1] )
-                    tempKB = max( 0, reflKernel.shape[1] - gH )
-                    grid.cells[ l:tempR, tempB:t ] += reflKernel[ :tempR, tempKB:]
-
-            if ( kr < kernelData.shape[0] and center[0] < gW ):  # reflect around right boundary
-                # reflect center piece
-                reflKernel = kernelData[ kr:, : ][::-1, : ]
-                tempKL = max( 0, reflKernel.shape[0] - gW )
-                tempL = max( l, r - reflKernel.shape[0] )
-                grid.cells[ tempL:r, b:t ] += reflKernel[ tempKL:, kb:kt ]
-                
-                if ( reflectBtm ):  # also reflect around bottom
-                    reflKernel = kernelData[ kr:, :kb ][::-1, ::-1]
-                    tempT = min( t, reflKernel.shape[1] )
-                    grid.cells[ tempL:r, b:tempT ] += reflKernel[ tempKL:, :tempT ]
-
-                if ( reflectTop ):  # also reflect around top
-                    reflKernel = kernelData[ kr:, kt: ][::-1, ::-1]
-                    tempB = max( b, t - reflKernel.shape[1] )
-                    tempKB = max( 0, reflKernel.shape[1] - gH )
-                    grid.cells[ tempL:r, tempB:t ] += reflKernel[ tempKL:, tempKB:]
-
-            if ( reflectBtm ):      # reflect around the bottom
-                reflKernel = kernelData[ :, :kb ][:, ::-1]
-                tempT = min( t, reflKernel.shape[1] )
-                grid.cells[ l:r, b:tempT ] += reflKernel[ kl:kr, :tempT ]
-
-            if ( reflectTop ):        # reflect around the top
-                reflKernel = kernelData[ :, kt: ][:, ::-1 ]
-                tempB = max( b, t - reflKernel.shape[1] )
-                tempKB = max( 0, reflKernel.shape[1] - gH )
-                grid.cells[ l:r, tempB:t ] += reflKernel[ kl:kr, tempKB: ]    
+##  This commented code does reflection explicitly
+##      HOWEVER, it does several things WRONG.
+##      1) it reflects around the wrong domin - it should reflect around the SIGNAL domain and not the
+##          convolution domain.
+##      2) It shouldn't reject points which lie outside the convolution domain as reflection candidates
+##          for example, a point just outside the convolution domain would have an affect on the
+##          domain and it may be near an obstacle boundary, so, it and its reflection should affect
+##          the convolution domain.
+##      I'm leaving this commented code here for reference incase the DiracSignal.getSignalDomain approach
+##          used above in insufficiently efficient.  In that case, this code can be used to perform
+##          reflection dynamically, provided it uses the proper domain boundaries for tests and refelection.            
+##        if ( self.reflectBoundaries ):
+##            reflectTop = kt < kernelData.shape[1] and center[1] < gH
+##            reflectBtm = kb > 0 and center[1] > 0
+##            if ( kl > 0 and center[0] > 0 ):  # reflect around left boundary
+##                # reflect center piece
+##                reflKernel = kernelData[ :kl, : ][::-1, : ]
+##                tempR = min( r, reflKernel.shape[0] )
+##                grid.cells[ l:tempR, b:t ] += reflKernel[ :tempR, kb:kt ]
+##                
+##                if ( reflectBtm ):  # also reflect around bottom
+##                    reflKernel = kernelData[ :kl, :kb ][::-1, ::-1]
+##                    tempT = min( t, reflKernel.shape[1] )
+##                    grid.cells[ l:tempR, b:tempT ] += reflKernel[ :tempR, :tempT ]
+##
+##                if ( reflectTop ):  # also reflect around top
+##                    reflKernel = kernelData[ :kl, kt: ][::-1, ::-1]
+##                    tempB = max( b, t - reflKernel.shape[1] )
+##                    tempKB = max( 0, reflKernel.shape[1] - gH )
+##                    grid.cells[ l:tempR, tempB:t ] += reflKernel[ :tempR, tempKB:]
+##
+##            if ( kr < kernelData.shape[0] and center[0] < gW ):  # reflect around right boundary
+##                # reflect center piece
+##                reflKernel = kernelData[ kr:, : ][::-1, : ]
+##                tempKL = max( 0, reflKernel.shape[0] - gW )
+##                tempL = max( l, r - reflKernel.shape[0] )
+##                grid.cells[ tempL:r, b:t ] += reflKernel[ tempKL:, kb:kt ]
+##                
+##                if ( reflectBtm ):  # also reflect around bottom
+##                    reflKernel = kernelData[ kr:, :kb ][::-1, ::-1]
+##                    tempT = min( t, reflKernel.shape[1] )
+##                    grid.cells[ tempL:r, b:tempT ] += reflKernel[ tempKL:, :tempT ]
+##
+##                if ( reflectTop ):  # also reflect around top
+##                    reflKernel = kernelData[ kr:, kt: ][::-1, ::-1]
+##                    tempB = max( b, t - reflKernel.shape[1] )
+##                    tempKB = max( 0, reflKernel.shape[1] - gH )
+##                    grid.cells[ tempL:r, tempB:t ] += reflKernel[ tempKL:, tempKB:]
+##
+##            if ( reflectBtm ):      # reflect around the bottom
+##                reflKernel = kernelData[ :, :kb ][:, ::-1]
+##                tempT = min( t, reflKernel.shape[1] )
+##                grid.cells[ l:r, b:tempT ] += reflKernel[ kl:kr, :tempT ]
+##
+##            if ( reflectTop ):        # reflect around the top
+##                reflKernel = kernelData[ :, kt: ][:, ::-1 ]
+##                tempB = max( b, t - reflKernel.shape[1] )
+##                tempKB = max( 0, reflKernel.shape[1] - gH )
+##                grid.cells[ l:r, tempB:t ] += reflKernel[ kl:kr, tempKB: ]    
 
 class SeparableKernel( KernelBase ):
     '''The base class of a separable convolution kernel'''
@@ -332,58 +347,20 @@ class SeparableKernel( KernelBase ):
         KernelBase.__init__( self, smoothParam, cellSize, reflect, func )
 
     def convolveField( self, signal, grid ):
-        # TODO: THIS CAUSES BANDING!!!!  Don't let it.
-        assert( signal.shape == grid.cells.shape )
-        fieldW = signal.shape[0]
-        fieldH = signal.shape[1]
-        if ( self.reflectBoundaries ):
-            expansion = self.data1D.size / 2
-            fieldData = signal.getFieldData( expansion )
-            temp = np.empty( (fieldData.shape[0], fieldH ), dtype=np.float32 )
-            # vertictal convolution
-            for x in xrange( fieldData.shape[0] ):
-                result = np.convolve( self.data1D, fieldData[x,:], 'valid' )
-                try:
-                    temp[ x, : ] = result
-                except:
-                    print "Signal shape:", signal.shape
-                    print "Convolution result shape:", result.shape
-                    print "Kernel shape:", self.data1D.shape
-                    print "Reflected Signal shape:", fieldData[r,:].shape
-                    raise
+        sigData = signal.getDomainSignal( grid, self.data1D.size / 2, self.reflectBoundaries )
+        
+        fieldW = sigData.shape[0]
+        fieldH = sigData.shape[1]
+        temp = np.empty( ( sigData.shape[0], grid.cells.shape[1] ), dtype=np.float32 )
+        # vertical convolution
+        for x in xrange( sigData.shape[0] ):
+            result = np.convolve( self.data1D, sigData[x,:], 'valid' )
+            temp[ x, : ] = result
             
-            # horizontal convolution
-            for y in xrange( temp.shape[1] ):
-                result = np.convolve( self.data1D, temp[:,y], 'valid' )
-                try:
-                    grid.cells[ :, y ]  = result
-                except:
-                    print "Signal shape:", signal.shape
-                    print "Convolution result shape:", result.shape
-                    print "Kernel shape:", self.data1D.shape
-                    print "Reflected Signal shape:", fieldData[r,:].shape
-                    raise
-        else:
-            fieldData = signal.getFieldData()
-            temp = np.empty_like( fieldData )
-            # vertictal convolution
-            for r in xrange( temp.shape[0] ):
-                                                # select a VERTICAL column with a fixed x value.
-                result = np.convolve( self.data1D, fieldData[r,:], 'same' )
-                if ( fieldH < self.data1D.size ):
-                    delta = ( self.data1D.size - fieldH ) / 2
-                    temp[ r, : ] = result[ delta:delta + fieldH ]
-                else:
-                    temp[ r,:] = result
-            # horizontal convolution
-            for c in xrange( temp.shape[1] ):
-                                            # select a HORIZONTAL column with a fixed x value.
-                result = np.convolve( self.data1D, temp[:,c], 'same' )
-                if ( fieldW < self.data1D.size ):
-                    delta = ( self.data1D.size - fieldW ) / 2
-                    grid.cells[ :, c ] = result[ delta:delta + fieldW ]
-                else:
-                    grid.cells[ :, c ] = result
+        # horizontal convolution
+        for y in xrange( temp.shape[1] ):
+            result = np.convolve( self.data1D, temp[:,y], 'valid' )
+            grid.cells[ :, y ]  = result
         
     def computeSamples( self ):
         '''Based on the nature of the kernel, pre-compute the discrete kernel for given parameters.'''
@@ -578,13 +555,23 @@ class Plaue11Kernel( KernelBase ):
 
     def convolveDirac( self, signal, grid ):
         '''Convolve the kernel against a dirac signal'''
-
         for i, pos in enumerate( signal.impulses ):
             k = self.getImpulseKernel( i, signal, grid )
             w, h = k.shape
-            w /= 2
-            h /= 2
-            self.splatKernel( pos, w, h, k, grid )
+            halfW = w / 2
+            halfH = h / 2
+            self.splatKernel( pos, halfW, halfH, k, grid )
+            if ( self.reflectBoundaries ):
+                w *= self._cellSize
+                h *= self._cellSize
+                corner = Vector2( grid.minCorner[0] - w * 0.5, grid.minCorner[1] - h * 0.5 )
+                size = Vector2( grid.size[0] + w, grid.size[1] + h )
+                tgtDomain = domains.RectDomain( corner, size )
+                reflection = signal.domain.reflectPoint( pos ) 
+                # left point
+                for p in reflection:
+                    if ( tgtDomain.pointInside( p ) ):
+                        self.splatKernel( p, halfW, halfH, k, grid )
 
     def computeSamples( self, minDist=1.0 ):
         '''Based on the nature of the kernel, pre-compute the discrete kernel for given parameters.'''

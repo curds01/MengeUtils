@@ -1,18 +1,23 @@
 # A simple test of the kernel and signal functionality
 
+# python modules
+import numpy as np
+import pygame
+import os
+
+# objreader modules
 import Grid
 import Kernels
 import Signals
 from primitives import Vector2
-import numpy as np
 from ColorMap import BlackBodyMap
-import pygame
-import os
-import IncludeHeader
-from trajectoryReader import SeyfriedTrajReader
 import obstacles 
 import ObstacleHandler
 from Voronoi import Voronoi
+
+# external
+import IncludeHeader
+from trajectoryReader import SeyfriedTrajReader
 # GLOBALS
 
 PATH = 'ktest'
@@ -21,15 +26,15 @@ if ( not os.path.exists( PATH ) ):
 
 cMap = BlackBodyMap()
 CELL_SIZE = 0.05
-smoothParam = 1.5
+smoothParam = 2.5
 
 REFLECT = True
 obst, bb = obstacles.readObstacles( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/c240_obstacles.xml')
 obstSet = ObstacleHandler.ObjectHandler( obst )
 ##kernel = Kernels.UniformKernel( smoothParam, CELL_SIZE, REFLECT )
-kernel = Kernels.TriangleKernel( smoothParam / 1.1, CELL_SIZE, REFLECT )
+##kernel = Kernels.TriangleKernel( smoothParam / 1.1, CELL_SIZE, REFLECT )
 ##kernel = Kernels.BiweightKernel( smoothParam / 1.2, CELL_SIZE, REFLECT )
-##kernel = Kernels.GaussianKernel( smoothParam / 3.0, CELL_SIZE, REFLECT )
+kernel = Kernels.GaussianKernel( smoothParam / 3.0, CELL_SIZE, REFLECT )
 ##kernel = Kernels.Plaue11Kernel( smoothParam, CELL_SIZE, REFLECT, obstSet )
       
 def syntheticPedestrians( SIZE ):
@@ -92,7 +97,12 @@ def visGrids( grids, frames=None ):
 
 def testPedestrian():
     '''Test against legitimate pedestrian data'''
-    minCorner = Vector2( 0.0, -4.0 )
+    # pedestrian domain
+    minCorner = Vector2( 0.0, -6 )
+    domainSize = Vector2( 2.4, 12 )
+    pedDomain = Grid.RectDomain( minCorner, domainSize )
+    # grid domain
+    minCorner = Vector2( 0.0, -4 )
     domainSize = Vector2( 2.4, 8 )
     resolution = Vector2( domainSize.x / CELL_SIZE, domainSize.y / CELL_SIZE)
 
@@ -102,7 +112,7 @@ def testPedestrian():
 ##    data.readFile( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/dummy.txt' )
     data.setNext( 0 )
     grids = []
-    pedDomain = Grid.RectDomain( minCorner, domainSize )   
+    
     while ( True ):
         try:
             sig = Signals.PedestrianSignal( data, pedDomain )
@@ -149,18 +159,20 @@ def debugFieldConvolve():
     global CELL_SIZE
     if ( False ):       # synthetic
         SCALE = 10#30
-        K_SIZE = 7.5
+        K_SIZE = 1.5
         R = False
-##        kernel = Kernels.UniformKernel( K_SIZE * SCALE * CELL_SIZE, CELL_SIZE, R )
-        kernel = Kernels.GaussianKernel( K_SIZE / 3.0 * SCALE * CELL_SIZE, CELL_SIZE, R )
+##        kernel = Kernels.UniformKernel(  K_SIZE * SCALE * CELL_SIZE, CELL_SIZE, R )
+        kernel = Kernels.TriangleKernel( K_SIZE * SCALE * CELL_SIZE / 1.1, CELL_SIZE, R )
 ##        kernel = Kernels.BiweightKernel( K_SIZE / 1.2 * SCALE * CELL_SIZE, CELL_SIZE, R )
+##        kernel = Kernels.GaussianKernel( K_SIZE / 3.0 * SCALE * CELL_SIZE, CELL_SIZE, R )
+        
         # synthetic data
         # define the domain
         W = 8 * SCALE
         H = 10 * SCALE
         minCorner = Vector2( -W / 2.0, -H / 2.0 )
         domainSize = Vector2( W * CELL_SIZE, H * CELL_SIZE )
-        resolution = Vector2( W, H )
+        resolution = ( W, H )
     
         data = np.zeros( ( W, H ), dtype=np.float32 )
         print data.shape
@@ -177,22 +189,24 @@ def debugFieldConvolve():
         CELL_SIZE = 0.025
         K_SIZE = 1.0
         R = True
-##        kernel = Kernels.UniformKernel( K_SIZE, CELL_SIZE, R )
+        kernel = Kernels.UniformKernel( K_SIZE, CELL_SIZE, R )
+##        kernel = Kernels.TriangleKernel( K_SIZE / 1.1, CELL_SIZE, R )
 ##        kernel = Kernels.BiweightKernel( K_SIZE / 1.2, CELL_SIZE, R )
 ##        kernel = Kernels.GaussianKernel( K_SIZE / 3.0, CELL_SIZE, R )
-        kernel = Kernels.TriangleKernel( K_SIZE / 1.1, CELL_SIZE, R )
         minCorner = Vector2( 0.0, -4.0 )
         width = 2.4
         height = 8.0
         resolution = ( int( np.ceil( width / CELL_SIZE ) ), int( np.ceil( height / CELL_SIZE ) ) )
         domainSize = Vector2( resolution[0] * CELL_SIZE, resolution[1] * CELL_SIZE )
-        grid = Grid.DataGrid( minCorner, domainSize, resolution )
-        data = computeVornoiField( grid )
-        signal = Signals.FieldSignal( data )
-        sigGrid = Grid.DataGrid()
-        sigGrid.copyDomain( grid )
-        sigGrid.cells[ :, : ] = data
+        sigGrid = Grid.DataGrid( minCorner, domainSize, resolution )
+        computeVornoiField( sigGrid )
         signal = Signals.FieldSignal( sigGrid )
+        # set up convolution grid
+        corner = Vector2( 0.0, -3 )
+        height = 6.0
+        resolution = ( int( np.ceil( width / CELL_SIZE ) ), int( np.ceil( height / CELL_SIZE ) ) )
+        domainSize = Vector2( resolution[0] * CELL_SIZE, resolution[1] * CELL_SIZE )
+        grid = Grid.DataGrid( corner, domainSize, resolution )
 
     print "Input signal max:", sigGrid.cells.max()
     print "Input signal sum:", sigGrid.cells.sum()
@@ -208,7 +222,8 @@ def debugFieldConvolve():
     pygame.image.save( s, os.path.join( PATH, 'fieldAfter.png' ) )
 
 def computeVornoiField( grid ):
-    '''Computes a voronoi field and caches it to the folder.  If already cached, it simply loads it.'''
+    '''Computes a voronoi field and caches it to the folder.  If already cached, it simply loads it.
+    It places the voronoi field INTO the given grid.'''
     VORONOI_FILE = os.path.join( PATH, 'testVoronoi.npy' )
     def makeVoronoi( grid ):
         print 'COMPUTING VORONOI!'
@@ -232,18 +247,21 @@ def computeVornoiField( grid ):
                 density[ mask ] = 0
         
         np.save( VORONOI_FILE, density )
-        return density
+        grid.cells[:,:] = density
+        
     if ( not os.path.exists( VORONOI_FILE ) ):
-        return makeVoronoi( grid )
-    data = np.load( VORONOI_FILE )
-    if ( data.shape != grid.resolution ):
-        return makeVoronoi( grid )
-    return data
+        makeVoronoi( grid )
+    else:
+        data = np.load( VORONOI_FILE )
+        if ( data.shape != grid.resolution ):
+            makeVoronoi( grid )
+        else:
+            grid.cells[:,:] = data
     
         
 if __name__ == '__main__':
 ##    testSynthetic()
-##    testPedestrian()
+    testPedestrian()
 ##    testSyntheticField()
 ##    debugFieldConvolve()
     
