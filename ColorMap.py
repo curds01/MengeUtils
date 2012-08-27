@@ -94,13 +94,24 @@ class ColorMap:
 class TwoToneHSVMap( ColorMap ):
     '''A color map that interpolates between two HSV values.
     HSV is a 3-tuple (H, S, V), such that H in [0, 360], S & V in [0, 1]'''
-    def __init__( self, minColor, maxColor, dataRange=None ):
+    def __init__( self, minColor=(0,1,1), maxColor=(270,0,0), dataRange=None ):
         ColorMap.__init__( self, dataRange )
+        self.setColor( minColor, maxColor )
+
+    def setColor( self, minColor, maxColor ):
+        '''Sets the color range for the two-tone map.
+
+        @param      minColor        A 3-tuple (HSV) such that H in [0,360], S & V in [0,1].
+                                    This color maps to the minimum value (and below).
+        @param      maxColor        A 3-tuple (HSV) such that H in [0,360], S & V in [0,1].
+                                    This color maps to the maximum value (and above).
+        '''
         self.minColor = np.array( minColor )
         self.minColor.shape = ( 1, 1, 3 )
         self.maxColor = np.array( maxColor )
         self.maxColor.shape = ( 1, 1, 3 )
         self.colorDelta = self.maxColor - self.minColor
+        
 
     def getColor( self, value, (minVal, maxVal) ):
         '''Given a range of values (minVal and maxVal) and a single value, returns
@@ -297,12 +308,38 @@ class RedBlueMap( ColorMap ):
         color[ bgMask ] = 0
         return pygame.surfarray.make_surface( color[:,::-1,:] )
 
-# a dictionary from available color map namess to color map classes
+# a dictionary from available color map namess to an instance of a color map
+
+# TODO:
+#   These shouldn't be instances, they should be classes
 COLOR_MAPS = { "Grey scale":GreyScaleMap(),
                "Black body":BlackBodyMap(),
                "Flame":FlameMap(),
                "Log Black body":LogBlackBodyMap(),
-               "Red Blue":RedBlueMap()
+               "Red Blue":RedBlueMap(),
+               "Two Tone HSF":TwoToneHSVMap()
                }
+
+def getValidColorMaps():
+    '''Returns a list of valid color maps.
+
+    The names returned by this can be used as keys to get the constructors for the color maps.
+
+    @returns    A list of strings.  The names of the valid color maps.
+    '''
+    keys = COLOR_MAPS.keys()
+    keys.sort()
+    return keys
+
+def getColorMapByName( name ):
+    '''Returns an instance of a color map by name.
+
+    @param      name        A string.  The name of a valid color map.
+    @returns    An instance of the color map with the given name.
+    @raises     A KeyError if the name isn't valid.
+    '''
+    return COLOR_MAPS[ name ]
+    
+    
 
             
