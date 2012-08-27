@@ -103,7 +103,7 @@ class KernelBase( object ):
 
         @param  smoothParam     A float.  The smoothing parameter.  The interpretation varies
                                 based on the kernel type.
-        @param  cellSize        The size of the uniform sampling of the kernel.
+        @param  cellSize        A float. The size of the uniform sampling of the kernel.
         @param  reflect         A boolean.  Determines if the kernel reflects at boundaries.
                                 Only supports simple, convex boundaries.
         @param  func            A pointer to the function for the kernel.
@@ -375,7 +375,7 @@ class SeparableKernel( KernelBase ):
             hCount += 1
         x = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
         
-        self.data1D = self.dFunc( x, self._smoothParam ) * self._cellSize
+        self.data1D = self.dFunc( x, self._smoothParam ) #* self._cellSize
         # fix boundaries
         self.fix1DBoundaries()
         temp = np.reshape( self.data1D, (-1, 1 ) )
@@ -421,7 +421,7 @@ class InseparableKernel( KernelBase ):
         o = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
         X, Y = np.meshgrid( o, o )
 
-        self.data = self.dFunc( X, Y, self._smoothParam ) * ( self._cellSize * self._cellSize )
+        self.data = self.dFunc( X, Y, self._smoothParam ) #* ( self._cellSize * self._cellSize )
 
 
 class UniformCircleKernel( InseparableKernel ):
@@ -459,7 +459,7 @@ class UniformKernel( SeparableKernel ):
             assert( rightSupport > cellBoundary )
             w = rightSupport - cellBoundary
             # exploit the knowlege of the constant function
-            self.data1D[ 0 ] = self.data1D[ -1 ] = w * self.dFunc( cellBoundary, self._smoothParam )
+            self.data1D[ 0 ] = self.data1D[ -1 ] = w * self.dFunc( cellBoundary, self._smoothParam ) / self._cellSize
 
 class BiweightKernel( SeparableKernel ):
     '''A 2D biweight kernel with square support.  The smoothing parameter is the HALF width of
@@ -488,7 +488,7 @@ class BiweightKernel( SeparableKernel ):
             # width of supported region in final cell
             assert( rightSupport > cellBoundary )
             # integrate the biweight function from cellBoundary to rightSupport
-            value = BIWEIGHT_FUNC_INT( cellBoundary, rightSupport, self._smoothParam )
+            value = BIWEIGHT_FUNC_INT( cellBoundary, rightSupport, self._smoothParam ) / self._cellSize
             self.data1D[ 0 ] = self.data1D[ -1 ] = value
 
 class TriangleKernel( SeparableKernel ):
@@ -518,7 +518,7 @@ class TriangleKernel( SeparableKernel ):
             # width of supported region in final cell
             assert( rightSupport > cellBoundary )
             # integrate the biweight function from cellBoundary to rightSupport
-            value = TRIANGLE_FUNC_INT( cellBoundary, rightSupport, self._smoothParam )
+            value = TRIANGLE_FUNC_INT( cellBoundary, rightSupport, self._smoothParam ) / self._cellSize
             self.data1D[ 0 ] = self.data1D[ -1 ] = value
             
 class GaussianKernel( SeparableKernel ):
@@ -588,7 +588,7 @@ class Plaue11Kernel( KernelBase ):
             hCount += 1
         x = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
         
-        data1D = self.dFunc( x, gaussSigma ) * self._cellSize
+        data1D = self.dFunc( x, gaussSigma ) #* self._cellSize
         temp = np.reshape( data1D, (-1, 1 ) )
         self.data = temp * temp.T
         

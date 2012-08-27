@@ -122,7 +122,7 @@ def testPedestrian():
             break
         grid = gridDomain.getDataGrid() 
         kernel.convolve( sig, grid )
-        grid.cells /= ( CELL_SIZE * CELL_SIZE )
+##        grid.cells /= ( CELL_SIZE * CELL_SIZE )
         
         grids.append( grid )
 
@@ -152,7 +152,7 @@ def testSynthetic():
         sig.setData( traj[:, :, i] )
         grid = Grid.DataGrid( minCorner, domainSize, resolution )
         kernel.convolve( sig, grid )
-        grid.cells /= ( CELL_SIZE * CELL_SIZE )
+##        grid.cells /= ( CELL_SIZE * CELL_SIZE )
         grids.append( grid )
     
     visGrids( grids )
@@ -266,5 +266,4 @@ if __name__ == '__main__':
 ##    testSynthetic()
 ##    testPedestrian()
 ##    testSyntheticField()
-##    debugFieldConvolve()
-    
+    debugFieldConvolve()
