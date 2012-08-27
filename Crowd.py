@@ -35,6 +35,7 @@ import pylab as plt
 from ObjSlice import Polygon
 from obstacles import *
 import pylab as plt
+from GFSVis import visualizeGFS
 
 class StatRecord:
     '''A simple, callable object for accumulating statistical information about the
@@ -532,8 +533,8 @@ def main():
         print "\tComputing density images",
         s = time.clock()
         imageName = os.path.join( outPath, 'dense', 'dense' )
-        grids.densityImages( colorMap, imageName )
-        pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
+        reader = GridFileSequenceReader( grids.outFileName + ".density"  )
+        visualizeGFS( reader, colorMap, imageName, 'png', 1.0, grids.obstacles )
         print "Took", (time.clock() - s), "seconds"
 
     if ( options.speed ):
@@ -550,8 +551,8 @@ def main():
         s = time.clock()
         imageName = os.path.join( outPath, 'speed', 'speed' )
         # the limit: 0.5 means the color map is saturated from from minVal to 50% of the range
-        grids.speedImages( colorMap, imageName, 0.75, MAX_FRAMES )
-        pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
+        reader = GridFileSequenceReader( grids.outFileName + ".speed"  )
+        visualizeGFS( reader, colorMap, imageName, 'png', 0.75, grids.obstacles )
         print "Took", (time.clock() - s), "seconds"
 
     if ( options.omega ):
@@ -568,8 +569,10 @@ def main():
         s = time.clock()
         imageName = os.path.join( outPath, 'omega', 'omega' )
         colorMap = RedBlueMap()
-        grids.makeImages( colorMap, imageName, 'omega' )
-        pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
+        
+        reader = GridFileSequenceReader( grids.outFileName + ".omega"  )
+        visualizeGFS( reader, colorMap, imageName, 'png', 1.0, grids.obstacles )
+
         print "Took", (time.clock() - s), "seconds"
 
     if ( options.progress ):
@@ -586,8 +589,8 @@ def main():
         s = time.clock()
         imageName = os.path.join( outPath, 'progress', 'progress' )
         colorMap = FlameMap( (0.0, 1.0) )
-        grids.makeImages( colorMap, imageName, 'progress' )
-        pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
+        reader = GridFileSequenceReader( grids.outFileName + ".progress"  )
+        visualizeGFS( reader, colorMap, imageName, 'png', 1.0, grids.obstacles )
         print "Took", (time.clock() - s), "seconds"
 
     if ( False ):
@@ -602,8 +605,8 @@ def main():
         print "\tComputing advection images",
         s = time.clock()
         imageName = os.path.join( outPath, 'advec', 'advec' )
-        grids.makeImages( colorMap, imageName, 'advec' )
-        pygame.image.save( colorMap.lastMapBar(7), '%sbar.png' % ( imageName ) )
+        reader = GridFileSequenceReader( grids.outFileName + ".advec"  )
+        visualizeGFS( reader, colorMap, imageName, 'png', 1.0, grids.obstacles )
         print "Took", (time.clock() - s), "seconds"
 
     if ( options.koshak ):

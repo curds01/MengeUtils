@@ -7,6 +7,7 @@ from scbData import FrameSet, NPFrameSet
 from ColorMap import *
 import Crowd
 import os, sys
+from GFSVis import visualizeGFS
 
 # TODO: Switch everything to NPFrameSet
 
@@ -56,8 +57,8 @@ class CrowdAnalyzeThread( QtCore.QThread ):
             imageName = os.path.join( imgPath, 'density_' )
             print 'Creating density images...'
             s = time.clock()
-            grids.makeImages( colorMap, imageName, 'density', self.data[ 'imgFormat' ] )
-            pygame.image.save( colorMap.lastMapBar(7), '%sbar.%s' % ( imageName, self.data[ 'imgFormat' ] ) )
+            reader = GridFileSequenceReader( grids.outFileName + ".density"  )
+            visualizeGFS( reader, colorMap, imageName, self.data[ 'imgFormat' ], 1.0, grids.obstacles )
             print '    done in %.2f seconds' % ( time.clock() - s ) 
 
         speedAction = self.data[ 'SPEED_ACTION' ]
@@ -73,8 +74,8 @@ class CrowdAnalyzeThread( QtCore.QThread ):
             imageName = os.path.join( imgPath, 'speed_' )
             print 'Creating speed images...' 
             s = time.clock()
-            grids.makeImages( colorMap, imageName, 'speed', self.data[ 'imgFormat' ] )
-            pygame.image.save( colorMap.lastMapBar(7), '%sbar.%s' % ( imageName, self.data[ 'imgFormat' ] ) )
+            reader = GridFileSequenceReader( grids.outFileName + ".speed"  )
+            visualizeGFS( reader, colorMap, imageName, self.data[ 'imgFormat' ], 1.0, grids.obstacles )
             print '    done in %.2f seconds' % ( time.clock() - s ) 
 
         frameSet = NPFrameSet( scbFile )

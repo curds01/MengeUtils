@@ -1,7 +1,6 @@
 # This file contain GridFileSquence class which create grid for squence of frame
 
 import numpy as np
-import pygame
 import struct
 import threading
 import time
@@ -43,10 +42,123 @@ class RasterReport:
         if ( val > self.maxVal ):
             self.maxVal = val
 
+# A mapping of numpy array type to an int iterator for storing in the file
+NP_TYPES = ( np.float32, np.float64, np.float96, np.int8, np.int16, np.int32, np.int64 )
+TYPE_ID_MAP = dict( map( lambda x: ( x[1], x[0] ), enumerate( NP_TYPES ) ) )
+
+
+class GridFileSequenceReader:
+    '''A simple class for reading and iterating through a GridFileSequence'''
+    def __init__( self, fileName, startGrid=0, maxGrids=-1, gridStep=1 ):
+        '''Initializes the reader to a particular file.
+
+        @param      fileName        A string.  The path to a grid file sequence file.
+        @param      startGrid       An int.  The first grid to return in the sequence.
+                                    (Defaults to 0, the first grid.)
+        @param      maxGrids        An int.  The maximum number of grids to iterate through.
+                                    If negative, all grids in the file will be used.  If
+                                    non-negative, it iterates through min( maxGrids, count).
+        @param      gridStep        An int.  The stride between accessible grids.
+                                    The default is 1 (every grid.)
+        @raises     IOError if the file doesn't exist.
+        '''
+        self.file = open( fileName, 'rb' )
+        # read the header
+        self.readHeader()
+        self.currGridID = 0
+        self.startGrid = startGrid
+        if ( maxGrids == -1 ):
+            self.maxGrids = self.count
+        else:
+            self.maxGrids = min( self.count, self.maxGrids )
+        assert( gridStep > 0 )
+        self.gridStride = self.gridSize() * ( gridStep - 1 )
+        self.currGrid = np.empty( ( self.w, self.h ), dtype=self.arrayType )
+
+    def summary( self ):
+        '''Produces a string which summarizes the sequence'''
+        s = "Grid file sequence"
+        s += "\n\tMinimum corner: (%.2f, %.2f)" % ( self.corner[0], self.corner[1] )
+        s += '\n\tSize:           (%.2f, %.2f)' % ( self.size[0], self.size[1] )
+        s += '\n\tResolution:     (%d, %d )' % ( self.w, self.h )
+        s += '\n\tGrid count:     %d' % self.count
+        s += '\n\tData type:      %s' % str( self.arrayType )
+        s += '\n\tData range:     (%s, %s)' % ( str( self.range[0] ), str( self.range[1] ) )
+        return s
+
+    def readHeader( self ):
+        '''Reads the header of the open file.'''
+        corner = struct.unpack( 'ff', self.file.read( 8 ) )
+        self.corner = Vector2( corner[0], corner[1] )
+        size = struct.unpack( 'ff', self.file.read( 8 ) )
+        self.size = Vector2( size[0], size[1] )
+        self.w, self.h = struct.unpack( 'ii', self.file.read( 8 ) )
+        self.arrayType = np.dtype( NP_TYPES[ struct.unpack( 'i', self.file.read( 4 ) )[0] ] )
+        self.count = struct.unpack( 'i', self.file.read( 4 ) )[0]
+        self.range = struct.unpack( self.arrayType.char * 2, self.file.read( self.arrayType.itemsize * 2 ) )
+        self.headerSize = 32 + self.arrayType.itemsize * 2
+
+    def gridSize( self ):
+        '''Returns the size of a grid in bytes.capitalize
+
+        @returns    The number of bytes in a single frame
+        '''
+        return self.w * self.h * 4
+
+    def gridCount( self ):
+        '''Returns the number of grids in the sequence.
+
+        @returns    An int.  The number of grids (not in the file, but the number
+                    to be iterated across accounting for startGrid, maxGrids and gridStep.'''
+        return self.maxGrids
+
+    def __iter__( self ):
+        '''Returns an iterator to the grids (it is itself).
+
+        The iterator continues from the current state of the reader.  I.e. if it is currently on
+        frame 5, the iterator will start on frame 5.  It is the responsibility of the caller to
+        call setNext(0) on the sequence before using it as an interable if the caller wants to
+        iterate over all values.
+        '''
+        return self
+
+    def setNext( self, gridID ):
+        '''Sets the reader so that the grid returned on the next invocaiton of "next" is gridID.
+
+        @param      gridID      An int.  The index of the next next grid.  Should be in the range [0, self.count ).
+        '''
+        assert( gridID >= 0 and gridID <= self.maxGrids )
+        if ( gridID > self.maxGrids ):
+            self.currGridID = self.maxGrids
+        else:
+            self.currGridID = gridID - 1
+            size = self.gridSize()
+            byteAddr = self.headerSize + self.startGrid * size + ( gridID * self.gridStride )
+            self.file.seek( byteAddr )
+        
+    def next( self ):
+        '''Returns the next frame in the sequence.
+
+        @returns        A 2-tuple ( grid, gridID ).  It returns a numpy array consisting of the
+                        grid (with shape ( self.w, self.h )) and the index of that grid.  The
+                        index value is with respect to the stride and starting grid.
+        @raises         StopIteration when there are no more grids.
+        '''
+        if ( self.currGridID + 1 >= self.maxGrids ):
+            raise StopIteration
+        dataCount = self.w * self.h
+        try:
+            self.currGrid[:, :] = np.reshape( np.fromstring( self.file.read( self.gridSize() ), self.arrayType, dataCount), ( self.w, self.h ) )
+        except ValueError:
+            raise StopIteration
+        self.currGridID += 1
+        if ( self.gridStride ):
+            self.file.seek( self.gridStride )
+        return self.currGrid, self.currGridID
+    
 class GridFileSequence:
     """Creates a grid sequence from a frame file and streams the resulting grids to
        a file"""
-    HEADER_SIZE = 20        # 20 bytes: resolution, grid count, min/max values
     # different ways of visualizing speed
     BLIT_SPEED = 0      # simply blit the agent to the cell center with his speed
     NORM_SPEED = 1      # distribute speed with a normalized gaussian
@@ -55,13 +167,57 @@ class GridFileSequence:
     NORM_CONTRIB_SPEED = 4 # distribute speed with normalized gaussian and then divide by contribution matrix
     LAPLACE_SPEED = 5   # compute the magnitude of the laplacian of the velocity field
     
-    def __init__( self, outFileName, obstacles=None ):
-        """@param domainX is a Vector2 storing range of value x from user. domainX[0] stores min value and domainX[1] stores max value.
-           @param domainY is a similar to domainX but in y-axis
-           @param obstacle is a obstalceHandler object which provides interface to find intersection for the underlying
-                   with every objects in the scene """
+    def __init__( self, outFileName, obstacles=None, arrayType=np.float32 ):
+        """Constructs a GridFileSequence which caches to the indicated file name.
+
+        @param  outFileName     The name of the file to which the gridFileSequence writes.
+        @param  obstacles       An optional obstacleHandler object.  Used for obstacle-dependent
+                                computations.
+        @param  arrayType       A numpy datatype.  Defaults to np.float32.
+        """
         self.outFileName = outFileName
+        # TODO: This currently doesn't have any effect.  Eventually, it can be used for object-aware convolution
+        #   or other operations.
         self.obstacles = obstacles
+        self.arrayType = np.dtype( arrayType )
+        self.headerSize = 40    # this assumes that the arrayType is np.float32
+
+    def header( self, corner, size, resolution ):
+        '''Prepares a string for the header of the grid file sequence.
+
+        It is assumed that some of the information is unknown (min/max vals, grid count) and zero
+        place holders will be inserted for later replacement.
+
+        @param      corner      A Vector2 instance.  The left-bottom corner of the grid's domain 
+                                (i.e. the minimum x- and y-values).
+        @param      size        A Vector2 instance.  The width and height of the grid's domain.
+        @param      resolution  A 2-tuple of ints.  Indicates the (width, height) of the grid.
+        @returns    A binary string which represents the header information for this file sequence.
+        '''
+        s = struct.pack( 'ff', corner[0], corner[1] )           # minimum corner of grid
+        s += struct.pack( 'ff', size[0], size[1] )              # domain width and height
+        s += struct.pack( 'ii', resolution[0], resolution[1] )  # size of grid (cell counts)
+        s += struct.pack( 'i', TYPE_ID_MAP[ self.arrayType.type ] )  # the data type of the grids
+        s += struct.pack( 'i', 0 )                              # grid count
+        s += struct.pack( 2 * self.arrayType.char, 0, 0 )       # range of grid values
+        self.headerSize = len( s )
+        return s
+
+    def fillInHeader( self, file, gridCount, minVal, maxVal ):
+        '''Writes the final grid count, minimum and maximum values to the file's header section.
+
+        This assumes that the original header had been already written and the sequence has been
+        fully created and written to the file.  Now, the post hoc derived values must be set into
+        the header.
+
+        @param      file        An open file object.
+        @param      gridCount   An int.  The number of grids in the file.
+        @param      minVal      A value of type self.arrayType. The minimum value across all grids.
+        @param      maxVal      A value of type self.arrayType. The maximum value across all grids.
+        '''
+        file.seek( 28 )
+        file.write( struct.pack( 'i', gridCount ) )
+        file.write( struct.pack( 2 * self.arrayType.char, minVal, maxVal ) )
 
     def renderTraces( self, minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase ):
         """Creates a sequence of images of the traces of the agents.
@@ -92,9 +248,7 @@ class GridFileSequence:
         THREAD_COUNT = multiprocessing.cpu_count()
         # file output
         outFile = open( self.outFileName + '.density', 'wb' )
-        outFile.write( struct.pack( 'ii', gridDomain.resolution[0], gridDomain.resolution[1] ) )  # size of grid (cell counts)
-        outFile.write( struct.pack( 'i', 0 ) )                              # grid count
-        outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
+        outFile.write( self.header( gridDomain.minCorner, gridDomain.size, gridDomain.resolution ) )
         buffer = []
         bufferLock = threading.Lock()
         saveThread = threading.Thread( target=threadOutput, args=(outFile, buffer, bufferLock, time.clock() ) )
@@ -127,10 +281,8 @@ class GridFileSequence:
             if ( log.maxVal > maxVal ):
                 maxVal = log.maxVal
 
-        # add the additional information about grid count and maximum values            
-        outFile.seek( 8 )
-        outFile.write( struct.pack( 'i', gridCount ) )
-        outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
+        # add the additional information about grid count and maximum values
+        self.fillInHeader( outFile, gridCount, 0.0, maxVal )
         outFile.close()
         
 ##    def computeDensityStandard( self, minCorner, size, resolution, defineRegionX,
@@ -211,9 +363,7 @@ class GridFileSequence:
 ##                maxVal = log.maxVal
 ##
 ##        # add the additional information about grid count and maximum values            
-##        outFile.seek( 8 )
-##        outFile.write( struct.pack( 'i', gridCount ) )
-##        outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
+##        self.fillInHeader( outFile, gridCount, 0.0, maxVal )
 ##        outFile.close()
 
     def splatAgents( self, minCorner, size, resolution, radius, frameSet ):
@@ -224,10 +374,8 @@ class GridFileSequence:
         print "\tresolution: ", resolution
         print "\tradius:     ", radius
         outFile = open( self.outFileName + '.splat', 'wb' )
-        outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
-        outFile.write( struct.pack( 'i', 0 ) )                              # grid count
-        outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
-
+        outFile.write( self.header( minCorner, size, resolution ) )
+        
         frameSet.setNext( 0 )
 
         # all of this together should make a function which draws filled-in circles
@@ -250,9 +398,7 @@ class GridFileSequence:
             outFile.write( grid.binaryString() )
             gridCount += 1
             
-        outFile.seek( 8 )
-        outFile.write( struct.pack( 'i', gridCount ) )
-        outFile.write( struct.pack( 'ff', 0.0, 1.0 ) )
+        self.fillInHeader( outFile, gridCount, 0.0, 1.0 )
         outFile.close()
         
     def computeSpeeds( self, minCorner, size, resolution, maxRad, frameSet, timeStep, excludeStates, speedType=NORM_CONTRIB_SPEED, timeWindow=1 ):
@@ -265,9 +411,7 @@ class GridFileSequence:
         print "\ttime step:  ", timeStep
         print "\ttime window:", timeWindow
         outFile = open( self.outFileName + '.speed', 'wb' )
-        outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
-        outFile.write( struct.pack( 'i', 0 ) )                              # grid count
-        outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
+        outFile.write( self.header( minCorner, size, resolution ) )
         maxVal = -1e6
         minVal = 1e6
         gridCount = 0
@@ -292,17 +436,18 @@ class GridFileSequence:
             kernel = Kernel( maxRad, distFunc, cellSize )
             gridFunc = lambda: Grid( minCorner, size, resolution )
         elif ( speedType == GridFileSequence.NORM_DENSE_SPEED ):
-            try:
-                denseFile = open( self.outFileName + ".density", "rb" )
-            except:
-                print "Can't open desnity file: %.density" % ( self.outFileName )
-                raise
-            else:
-                w, h, count, minVal, maxVal = struct.unpack( 'iiiff', denseFile.read( GridFileSequence.HEADER_SIZE ) )
-                assert( w == resolution[0] and h == resolution[1] )
-            speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeDenseSpeed( g, denseFile, k, f2, f1, dist, rad, step )
-            kernel = Kernel( maxRad, distFunc, cellSize )
-            gridFunc = lambda: Grid( minCorner, size, resolution )
+##            try:
+##                denseFile = open( self.outFileName + ".density", "rb" )
+##            except:
+##                print "Can't open desnity file: %.density" % ( self.outFileName )
+##                raise
+##            else:
+##                w, h, count, minVal, maxVal = struct.unpack( 'iiiff', denseFile.read( self.headerSize ) )
+##                assert( w == resolution[0] and h == resolution[1] )
+##            speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeDenseSpeed( g, denseFile, k, f2, f1, dist, rad, step )
+##            kernel = Kernel( maxRad, distFunc, cellSize )
+##            gridFunc = lambda: Grid( minCorner, size, resolution )
+            raise ValueError, "This currently unsupported."
         elif ( speedType == GridFileSequence.NORM_CONTRIB_SPEED ):
             speedFunc = Grid.rasterizeContribSpeed
             kernel = Kernel( maxRad, distFunc, cellSize )
@@ -336,9 +481,7 @@ class GridFileSequence:
         if ( speedType != GridFileSequence.LAPLACE_SPEED ):
             minVal = 0
         # add the additional information about grid count and maximum values            
-        outFile.seek( 8 )
-        outFile.write( struct.pack( 'i', gridCount ) )
-        outFile.write( struct.pack( 'ff', minVal, maxVal ) )
+        self.fillInHeader( outFile, gridCount, minVal, maxVal )
         outFile.close()
         return stats
 
@@ -367,9 +510,7 @@ class GridFileSequence:
         print "\ttime step:  ", timeStep
         print "\ttime window:", timeWindow
         outFile = open( self.outFileName + '.progress', 'wb' )
-        outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
-        outFile.write( struct.pack( 'i', 0 ) )                              # grid count
-        outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
+        outFile.write( self.header( minCorner, size, resolution ) )
         maxVal = -1e6
         minVal = 1e6
         gridCount = 0
@@ -402,9 +543,7 @@ class GridFileSequence:
             stats.nextFrame()
         print
         # add the additional information about grid count and maximum values            
-        outFile.seek( 8 )
-        outFile.write( struct.pack( 'i', gridCount ) )
-        outFile.write( struct.pack( 'ff', minVal, maxVal ) )
+        self.fillInHeader( outFile, gridCount, minVal, maxVal )
         outFile.close()
         return stats
 
@@ -418,9 +557,7 @@ class GridFileSequence:
         print "\ttime step:  ", timeStep
         print "\ttime window:", timeWindow
         outFile = open( self.outFileName + '.omega', 'wb' )
-        outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
-        outFile.write( struct.pack( 'i', 0 ) )                              # grid count
-        outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
+        outFile.write( self.header( minCorner, size, resolution ) )
         maxVal = -1e6
         minVal = 1e6
         gridCount = 0
@@ -454,7 +591,7 @@ class GridFileSequence:
 ##                print "Can't open desnity file: %.density" % ( self.outFileName )
 ##                raise
 ##            else:
-##                w, h, count, minVal, maxVal = struct.unpack( 'iiiff', denseFile.read( GridFileSequence.HEADER_SIZE ) )
+##                w, h, count, minVal, maxVal = struct.unpack( 'iiiff', denseFile.read( self.headerSize ) )
 ##                assert( w == resolution[0] and h == resolution[1] )
 ##            speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeDenseSpeed( g, denseFile, k, f2, f1, dist, rad, step )
 ##            kernel = Kernel( maxRad, distFunc, cellSize )
@@ -495,104 +632,17 @@ class GridFileSequence:
 ##        if ( speedType != GridFileSequence.LAPLACE_SPEED ):
 ##            minVal = 0
         # add the additional information about grid count and maximum values            
-        outFile.seek( 8 )
-        outFile.write( struct.pack( 'i', gridCount ) )
-        outFile.write( struct.pack( 'ff', minVal, maxVal ) )
+        self.fillInHeader( outFile, gridCount, minVal, maxVal )
         outFile.close()
         return stats
 
     def readGrid( self, g, file, gridSize, index ):
         """Returns the index grid from the given file"""
         gridSize = resolution[0] * resolution[1]
-        file.seek( GridFileSequence.HEADER_SIZE + index * gridSize )
+        file.seek( self.headerSize + index * gridSize )
         data = file.read( gridSize )
         g.setFromBinary( data )
 
-    def densityImages( self, colorMap, fileBase ):
-        """Outputs the density images"""
-        OBST_COLOR = np.array( (255,255,255), dtype=np.uint8 )
-        OBST_WIDTH = 1
-        def imgSpace( point, grid ):
-            '''Given a grid and a point in world space, returns the grid cell value.'''
-            return grid.getCenter( point )
-        try:
-            f = open( self.outFileName + ".density", "rb" )
-        except:
-            print "Can't open desnity file: %.density" % ( self.outFileName )
-        else:
-            w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
-            print "Density images in range:", minVal, maxVal
-            gridSize = w * h * 4
-####            if self.obsLayover:
-####                minPt = Vector2( self.domainX[0], self.domainY[0] )
-####                size = Vector2( self.domainX[1], self.domainY[1] ) - minPt
-####                res = ( int( size.x/0.1 ), int( size.y/0.1 ) )
-####                g = Grid( minPt, size, res, self.domainX, self.domainY)
-##            else:
-            g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h) )
-                
-            for i in range( count ):
-                data = f.read( gridSize )
-                g.setFromBinary( data )
-                s = g.surface( colorMap, minVal, maxVal )
-##                if (self.obstacles is not None) and self.obsLayover:
-##                    for seg in self.obstacles.structure.data:
-##                        sta = Vector2(seg.p1[0], -seg.p1[1])
-##                        end = Vector2(seg.p2[0], -seg.p2[1])
-##                        p0 = imgSpace( sta, g )
-##                        p1 = imgSpace( end, g )
-##                        pygame.draw.line( s, OBST_COLOR, (p0[0],p0[1]), (p1[0], p1[1]), OBST_WIDTH )
-                pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
-            f.close()
-
-    def speedImages( self, colorMap, fileBase, limit, maxFrames=-1 ):
-        """Outputs the speed images"""
-        try:
-            f = open( self.outFileName + ".speed", "rb" )
-        except:
-            print "Can't open desnity file: %.speed" % ( self.outFileName )
-        else:
-            w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
-            print "Speed images:"
-            print "\tFull range:          ", minVal, maxVal
-            maxVal = minVal + (maxVal - minVal) * limit
-            print "\tClamped visual range:", minVal, maxVal
-            gridSize = w * h * 4
-            g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h) )
-            if ( maxFrames > -1 ):
-                if ( maxFrames < count ):
-                    count = maxFrames
-            for i in range( count ):
-##                g.cells = np.loadtxt( 'junk%d.speed' % i )
-
-                data = f.read( gridSize )
-                g.setFromBinary( data )
-                s = g.surface( colorMap, minVal, maxVal )
-                pygame.image.save( s, '%s%03d.png' % ( fileBase, i ) )
-            f.close()
-
-    def makeImages( self, colorMap, fileBase, suffix, imgFormat='png' ):
-        """Outputs the density images"""
-        try:
-            f = open( self.outFileName + ".%s" % ( suffix ), "rb" )
-        except:
-            print "Can't open file: %.%s" % ( suffix ) % ( self.outFileName )
-        else:
-            w, h, count, minVal, maxVal = struct.unpack( 'iiiff', f.read( GridFileSequence.HEADER_SIZE ) )
-            print "%s images in range:" % ( suffix ), minVal, maxVal
-            gridSize = w * h * 4
-            digits = int( np.ceil( np.log10( count ) ) )
-            g = Grid( Vector2(0.0, 0.0), Vector2(10.0, 10.0), (w, h) )
-            for i in range( count ):
-                data = f.read( gridSize )
-                g.setFromBinary( data )
-                try:
-                    s = g.surface( colorMap, minVal, maxVal )
-                except MemoryError:
-                    print "Error on frame", i
-                    raise
-                pygame.image.save( s, '{0}{1:0{2}d}.{3}'.format( fileBase, i, digits, imgFormat ) )
-            f.close()
 
     def computeAdvecFlow( self,  minCorner, size, resolution, distFunc, maxDist, kernelSize, frameSet, lines ):
         """Performs a visualization of marking agents according to their intial position w.r.t. a line"""
@@ -631,9 +681,7 @@ class GridFileSequence:
                 break
 
         # add the additional information about grid count and maximum values            
-        outFile.seek( 8 )
-        outFile.write( struct.pack( 'i', gridCount ) )
-        outFile.write( struct.pack( 'ff', 0.0, maxVal ) )
+        self.fillInHeader( outFile, gridCount, 0.0, maxVal )
         outFile.close()               
     def computeRegionSpeed( self, frameSet, polygons, timeStep, excludeStates, timeWindow=1 ):
         '''Given an ordered set of polygons, computes the average speed for all agents in each polygon
