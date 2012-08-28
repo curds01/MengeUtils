@@ -168,6 +168,33 @@ class DiracSignal( Signal ):
         @param  data        An Nx2 numpy array of floats.
         '''
         self._data = data
+
+class PedestrianSignal( DiracSignal ):
+    '''A dirac signal, where the pedestrian positions are the impulses'''
+    def __init__( self, domain, frameSet=None ):
+        '''Constructor.
+
+        @param      domain      An instance of Grids.RectDomain.
+                                Defines the domain of the signal.
+        @param      frameSet    A pedestrian data frame set (such as
+                                scbData or SeyfriedTrajectoryReader.)
+        @raises     StopIteration if the frameSet is out of frames.
+        '''
+        if ( not frameSet is None ):
+            frameData, self.index = frameSet.next()
+            DiracSignal.__init__( self, domain, frameData[:, :2] )
+        else:
+            DiracSignal.__init__( self, domain, None )
+
+    def setData( self, data ):
+        '''Sets the signal's data.
+
+        @param      frameSet    A pedestrian data frame set (such as
+                                scbData or SeyfriedTrajectoryReader.)
+        @raises     StopIteration if the frameSet is out of frames.
+        '''
+        frameData, self.index = data.next()
+        DiracSignal.setData( self, frameData[:, :2] )
         
 class FieldSignal( Signal ):
     '''A discrete approximation of a continuous signal defined over a
@@ -372,23 +399,6 @@ class FieldSignal( Signal ):
         '''
         self._data = data
         
-class PedestrianSignal( DiracSignal ):
-    '''A dirac signal, where the pedestrian positions are the impulses'''
-    def __init__( self, domain, frameSet=None ):
-        '''Constructor.
-
-        @param      domain      An instance of Grids.RectDomain.
-                                Defines the domain of the signal.
-        @param      frameSet    A pedestrian data frame set (such as
-                                scbData or SeyfriedTrajectoryReader.)
-        @raises     StopIteration if the frameSet is out of frames.
-        '''
-        if ( not frameSet is None ):
-            frameData, self.index = frameSet.next()
-            DiracSignal.__init__( self, domain, frameData[:, :2] )
-        else:
-            DiracSignal.__init__( self, domain, None )
-
     def setData( self, data ):
         '''Sets the signal's data.
 
