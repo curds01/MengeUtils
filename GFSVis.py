@@ -51,16 +51,15 @@ def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, obstacles
     maxVal = gfsFile.range[1]
     maxVal = ( maxVal - minVal ) * mapRange + minVal
     
-    for gridData, gridID in gfsFile:
-        g.cells[ :, : ] = gridData
+    for grid, gridID in gfsFile:
         try:
-            s = g.surface( cMap, minVal, maxVal )
+            s = grid.surface( cMap, minVal, maxVal )
         except MemoryError:
             print "Error on frame", i
             raise
         if ( not obstacles is None ):
             for obst in obstacles.polys:
-                drawObstacle( obst, s, g )
+                drawObstacle( obst, s, grid )
         pygame.image.save( s, '{0}{1:0{2}d}.{3}'.format( outFileBase, gridID, digits, imgFormat ) )
     pygame.image.save( cMap.lastMapBar(7), '%sbar.png' % ( outFileBase ) )
         

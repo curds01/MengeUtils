@@ -80,7 +80,7 @@ class GridFileSequenceReader:
             self.maxGrids = min( self.count, self.maxGrids )
         assert( gridStep > 0 )
         self.gridStride = self.gridSize() * ( gridStep - 1 )
-        self.currGrid = np.empty( ( self.w, self.h ), dtype=self.arrayType )
+        self.currGrid = DataGrid( self.corner, self.size, ( self.w, self.h ), arrayType=self.arrayType, leaveEmpty=True )
         self.activeThreadCount = 0
 
     def getCellSize( self ):
@@ -162,7 +162,7 @@ class GridFileSequenceReader:
             raise StopIteration
         dataCount = self.w * self.h
         try:
-            self.currGrid[:, :] = np.reshape( np.fromstring( self.file.read( self.gridSize() ), self.arrayType, dataCount), ( self.w, self.h ) )
+            self.currGrid.cells[:, :] = np.reshape( np.fromstring( self.file.read( self.gridSize() ), self.arrayType, dataCount), ( self.w, self.h ) )
         except ValueError:
             raise StopIteration
         self.currGridID += 1
