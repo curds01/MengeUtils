@@ -4,6 +4,7 @@
 from Grid import *
 from Voronoi import *
 import drawVoronoi
+import threading
 
 V_RAD = 1.0 # radius to compute constraint Voronoi
 
@@ -21,6 +22,17 @@ class BufferGrid:
 
 # The function that does the rasterization work
 ACTIVE_RASTER_THREADS = 0
+printLock = threading.Lock()
+def threadPrint( msg ):
+    '''A simple function for doing threadsafe printing so that various output streams
+    don't step on each other.  The calling thread's identity is pre-pended.
+
+    @param      msg         A string.  The message to print.
+    '''
+    printLock.acquire()
+    print '%s: %s' % ( threading.current_thread().getName(), msg )
+    printLock.release()
+
 def threadConvolve( log, bufferLock, buffer, frameLock,     # thread info
                     signal, frameSet,                       # the input signal
                     gridDomain, kernel ):                   # the convolution domain and convolution kernel
