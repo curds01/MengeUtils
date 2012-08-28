@@ -72,7 +72,7 @@ def threadConvolve( log, bufferLock, buffer, frameLock,     # thread info
         finally:            
             frameLock.release()
             
-        g = gridDomain.getDataGrid()
+        g = gridDomain.getDataGrid( leaveEmpty=True )
         kernel.convolve( signal, g )
 
         # update log

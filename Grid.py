@@ -34,6 +34,10 @@ class AbstractGrid( RectDomain ):
             assert( np.abs( self.cellSize[0] * self.resolution[0] - self.size[0] ) < 0.0001 and
                     np.abs( self.cellSize[1] * self.resolution[1] - self.size[1] ) < 0.0001 )
 
+    def copy( self ):
+        '''Creates a copy of itself'''
+        return AbstractGrid( self.minCorner, self.size, self.resolution, self.cellSize )
+            
     def isAligned( self, grid ):
         '''Reports if this grid is aligned with the given grid.cellSize
 
@@ -136,15 +140,18 @@ class AbstractGrid( RectDomain ):
         stack = np.dstack( (X, Y) )
         return stack
     
-    def getDataGrid( self, initVal=0.0, arrayType=np.float32 ):
+    def getDataGrid( self, initVal=0.0, arrayType=np.float32, leaveEmpty=False ):
         '''Creates an instance of a DataGrid from this abstract data grid.cellSize
         
         @param          initVal         The initial value for the data grid to contain.
         @param          arrayType       The type of values in the array.
+        @param          leaveEmpty      A boolean.  Determines if the DataGrid is initialized or not.
+                                        If True, the data will NOT be initialized, if False, it will be
+                                        initialize to initVal.
         @returns        An instance of DataGrid with this grid's position, extent, resolution
                         and cellsize.
         '''
-        return DataGrid( self.minCorner, self.size, self.resolution, self.cellSize, initVal, arrayType )
+        return DataGrid( self.minCorner, self.size, self.resolution, self.cellSize, initVal, arrayType, leaveEmpty )
 
     def cellArea( self ):
         '''Reports the area of the cell in the grid.cellSize
@@ -184,11 +191,17 @@ class GridTransform:
 
 class DataGrid( AbstractGrid) :
     """A Class to stroe information in grid based structure (i.e the one in Voronoi class ) """
-    def __init__( self, minCorner=Vector2(0.0, 0.0), size=Vector2(1.0, 1.0), resolution=(1, 1), cellSize=None, initVal=0.0, arrayType=np.float32 ):
+    def __init__( self, minCorner=Vector2(0.0, 0.0), size=Vector2(1.0, 1.0), resolution=(1, 1), cellSize=None, initVal=0.0, arrayType=np.float32, leaveEmpty=False ):
         AbstractGrid.__init__( self, minCorner, size, resolution, cellSize )
         self.initVal = initVal
-        self.clear( arrayType )
+        self.clear( arrayType, leaveEmpty )
 
+    def copy( self ):
+        '''Produces a copy of itself - including underlying data'''
+        grid = DataGrid( self.minCorner, self.size, self.resolution, self.cellSize, self.initVal, self.cells.dtype, True )
+        grid.cells[ :, : ] = self.cells
+        return grid
+    
     def copyDomain( self, grid ):
         '''Copies the grid domain parameters from the provided grid.minCorner
         
@@ -232,13 +245,17 @@ class DataGrid( AbstractGrid) :
         """Returns the maximum value of the grid"""
         return self.cells.min()
 
-    def clear( self, arrayType=np.float32 ):
+    def clear( self, arrayType=np.float32, leaveEmpty=False ):
         # Cells are a 2D array accessible with (x, y) values
         #   x = column, y = row
-        if ( self.initVal == 0 ):
-            self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=arrayType )
+        if ( leaveEmpty ):
+            self.cells = np.empty( ( self.resolution[0], self.resolution[1] ), dtype=arrayType )
         else:
-            self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=arrayType ) + self.initVal
+            if ( self.initVal == 0 ):
+                self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=arrayType )
+            else:
+                self.cells = np.zeros( ( self.resolution[0], self.resolution[1] ), dtype=arrayType ) + self.initVal
+
 
     def surface( self, map, minVal, maxVal ):
         """Creates a pygame surface"""

@@ -52,7 +52,10 @@ class DiracSignal( Signal ):
 
     def copy( self ):
         '''Creates a full copy of this signal'''
-        return self.__class__( self.domain, self._data )
+        if ( self._data ):
+            return self.__class__( self.domain, self._data.copy() )
+        else:
+            return self.__class__( self.domain, self._data )
 
     def copyEmpty( self ):
         '''Creates an empty copy of this signal -- keeps the domain, but no
@@ -210,7 +213,7 @@ class FieldSignal( Signal ):
 
     def copy( self ):
         '''Creates a full copy of this signal'''
-        return self.__class__( self.data )
+        return self.__class__( self.data.copy() )
 
     def copyEmpty( self ):
         '''Creates an empty copy of this signal -- keeps the domain, but no
