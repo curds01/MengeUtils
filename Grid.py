@@ -211,9 +211,9 @@ class DataGrid( AbstractGrid) :
         """Produces a binary string for the data"""
         return self.cells.tostring()
 
-    def setFromBinary( self, binary ):
+    def setFromBinary( self, binary, arrayType ):
         """Populates the grid values from a binary string"""
-        self.cells = np.fromstring( binary, np.float32 )
+        self.cells = np.fromstring( binary, arrayType )
         self.cells = self.cells.reshape( self.resolution )
 
     def __idiv__( self, scalar ):
