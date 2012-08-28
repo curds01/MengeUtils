@@ -400,7 +400,7 @@ class FieldSignal( Signal ):
                                 located in space with a particular tesselation.  The
                                 grid is used as given -- it is not copied.
         '''
-        self._data = data
+        self.data = data
         
     def setData( self, data ):
         '''Sets the signal's data.
