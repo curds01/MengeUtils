@@ -2,7 +2,7 @@ import pygame as pg
 import numpy as np
 from primitives import Vector2
 
-def drawVoronoi( data, fileName, obstacles=None, grid=None ):
+def drawVoronoi( data, fileName, sites=None, obstacles=None, grid=None ):
     '''Creates an image of the voronoi diagram specified by the ownerData
     and saves it out as fileName.  If an ObstacleSet is provided, it also
     draws the obstacles - must also provide a grid.'''
@@ -33,6 +33,14 @@ def drawVoronoi( data, fileName, obstacles=None, grid=None ):
     color[ bg, : ] = BG_COLOR
 
     surf = pg.surfarray.make_surface( color[:, ::-1, : ] )
+    if ( not sites is None ):
+        for site in sites:
+            x, y = grid.getCenter( Vector2( site[0], site[1] ) )
+            y = grid.resolution[1] - y
+            RADIUS = 3
+            pg.draw.circle( surf, (0,0,0), (x,y), RADIUS + 2 )
+            pg.draw.circle( surf, (255, 255, 255), (x,y), RADIUS )
+            
     if (obstacles and grid):
         for seg in obstacles.structure.data:
             # Have to changet the coordinate between position of agent and obstacles
