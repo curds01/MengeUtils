@@ -125,7 +125,7 @@ class TwoToneHSVMap( ColorMap ):
         '''Creates the two tone colors the same sizes as the data'''
         assert( len( data.shape ) == 2 )
         if ( not self.fixedRange ):
-            self.dataRange = dataRange
+            self.dataRange = map( lambda x: float(x), dataRange )
         normData = self._normalize( data, self.dataRange )
         normData.shape = ( normData.shape[0], normData.shape[1], 1 )
         hsv = self.minColor + self.colorDelta * normData
@@ -144,7 +144,7 @@ class GreyScaleMap( ColorMap ):
         """Creates a greyscale map the same size as the data"""
         assert( len( data.shape ) == 2 )
         if ( not self.fixedRange ):
-            self.dataRange = dataRange
+            self.dataRange = map( lambda x: float(x), dataRange )
         normData = self._normalize( data, self.dataRange )
         color = np.zeros( ( data.shape[0], data.shape[1], 3 ), dtype=np.uint8 )
         color[:,:,0] = normData * 255
@@ -166,7 +166,7 @@ class BlackBodyMap( ColorMap ):
         """Creates a greyscale map the same size as the data"""
         assert( len( data.shape ) == 2 )
         if ( not self.fixedRange ):
-            self.dataRange = dataRange
+            self.dataRange = map( lambda x: float(x), dataRange )
         normData = self._normalize( data, self.dataRange )
         color = np.zeros( ( data.shape[0], data.shape[1], 3 ), dtype=np.uint8 )
         color[:,:,0] = ( normData * 2.0 ).clip( 0.0, 1.0 ) * 255
@@ -203,7 +203,7 @@ class FlameMap( ColorMap ):
         """Creates a flame-colored map the same size as the data"""
         assert( len( data.shape ) == 2 )
         if ( not self.fixedRange ):
-            self.dataRange = dataRange
+            self.dataRange = map( lambda x: float(x), dataRange )
         normData = self._normalize( data, self.dataRange )
         color = np.zeros( ( data.shape[0], data.shape[1], 3 ), dtype=np.uint8 )
         color[:,:,0] = ( ( normData - 0.25 ) * 4.0 ).clip( 0.0, 1.0 ) * 255
@@ -232,7 +232,7 @@ class StephenBlackBodyMap( BlackBodyMap ):
     def colorOnSurface( self, dataRange, data ):
         """Creates a greyscale map the same size as the data"""
         if ( dataRange[1] > self.maxVal ):
-            dataRange = [ dataRange[0], self.maxVal ]
+            dataRange = [ float( dataRange[0]), float( self.maxVal ) ]
         return BlackBodyMap.colorOnSurface( self, dataRange, data )
     
 class LogBlackBodyMap( BlackBodyMap ):
@@ -248,7 +248,7 @@ class LogBlackBodyMap( BlackBodyMap ):
         print "Log BlackBodyMap", dRange
         s =  BlackBodyMap.colorOnSurface( self, dRange, np.log( data + 0.001 ) )
         if ( not self.fixedRange ):
-            self.dataRange = dataRange
+            self.dataRange = map( lambda x: float(x), dataRange )
         return s
     
 class BandedBlackBodyMap( BlackBodyMap ):
@@ -261,7 +261,7 @@ class BandedBlackBodyMap( BlackBodyMap ):
         """Creates a greyscale map the same size as the data"""
         assert( len( data.shape ) == 2 )
         if ( not self.fixedRange ):
-            self.dataRange = dataRange
+            self.dataRange = map( lambda x: float(x), dataRange )
         normData = self._normalize( data, self.dataRange )
         normData = np.ceil( normData * self.bandCount ) / self.bandCount
         
@@ -283,7 +283,7 @@ class RedBlueMap( ColorMap ):
         to 1 and -abs(maxVal, minVal) maps to 0.'''
         maxVal = max( abs( minVal ), abs( maxVal ) )
         minVal = -maxVal
-        return minVal, maxVal
+        return float( minVal ), float( maxVal )
         
     def colorOnSurface( self, dataRange, data ):
         """Creates a greyscale map the same size as the data"""
