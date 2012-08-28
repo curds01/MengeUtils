@@ -127,6 +127,15 @@ class AbstractGrid( RectDomain ):
         else:
             raise ValueError, 'Grids can only be intersected with RectDomain and its subclasses'
 
+    def getCenters( self ):
+        '''Return MxNx2 array of the world positions of each cell center'''
+        firstCenter = self.minCorner + self.cellSize * 0.5
+        x = np.arange( self.resolution[0] ) * self.cellSize[0] + firstCenter[0]
+        y = np.arange( self.resolution[1] ) * self.cellSize[1] + firstCenter[1]
+        X, Y = np.meshgrid( y, x ) 
+        stack = np.dstack( (X, Y) )
+        return stack
+    
     def getDataGrid( self, initVal=0.0, arrayType=np.float32 ):
         '''Creates an instance of a DataGrid from this abstract data grid.cellSize
         
@@ -183,20 +192,6 @@ class DataGrid( AbstractGrid) :
         self.initVal = grid.initVal
         self.clear( grid.cells.dtype )
 
-    def getCenters( self ):
-        '''Return NxNx2 array of the world positions of each cell center'''
-        firstCenter = self.minCorner + self.cellSize * 0.5
-        resolution = self.resolution[1]
-        if (self.resolution[0] > self.resolution[1]):
-            resolution = self.resolution[0]
-        x = np.arange( resolution ) * self.cellSize[0] + firstCenter[0]
-        y = np.arange( resolution ) * self.cellSize[1] + firstCenter[1]
-        X, Y = np.meshgrid( y,x ) 
-        stack = np.dstack( (X,Y) )
-        # Truncate the stack down
-        stack = stack[0:self.resolution[0]:1,0:self.resolution[1]:1,:]
-        return stack
-    
     def __str__( self ):
         s = 'Grid'
         for row in range( self.resolution[1] - 1, -1, -1 ):
