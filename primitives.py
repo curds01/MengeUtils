@@ -400,6 +400,36 @@ class Segment:
             C = -( A * self.p1.x + B * self.p1.y )
             return abs( A * p.x + B * p.y + C )
 
+    def implicitEquation( self ):
+        '''Computes the implicit equation for the line on which this segment lies.
+
+        The implicit equation is Ax + By + C = 0.  This function computes this equation and
+        returns these coefficients.
+
+        @returns    A 3-tuple of floats.  The floats (A, B, C ) in the implicit equation.
+        '''
+        disp = self.p2 - self.p1
+        segLen = disp.magnitude()
+        assert( segLen > 0 )
+        dir = disp / segLen
+        A = -norm.y
+        B = norm.x
+        C = -( A * self.p1.x + B * self.p1.y )
+        return A, B, C
+
+    def originDirLen( self ):
+        '''Returns an alternative representation of the segment: origin, direction and length.
+
+        @returns    A 3-tuple of various values: (Vector2, Vector2, float).  The first value is
+                    the origin of the segment.  The second is a unit normal, the direction of
+                    the segment.  The final float is the length of the segment.
+        '''
+        disp = self.p2 - self.p1
+        segLen = disp.magnitude()
+        assert( segLen > 0 )
+        dir = disp / segLen
+        return self.p1, dir, segLen
+
     def flip( self ):
         '''Reverses the direction of the line'''
         t = self.p1
