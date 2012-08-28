@@ -50,8 +50,9 @@ def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, obstacles
     minVal = gfsFile.range[0]
     maxVal = gfsFile.range[1]
     maxVal = ( maxVal - minVal ) * mapRange + minVal
+    
     for gridData, gridID in gfsFile:
-        g.setFromBinary( gridData )
+        g.cells[ :, : ] = gridData
         try:
             s = g.surface( cMap, minVal, maxVal )
         except MemoryError:
