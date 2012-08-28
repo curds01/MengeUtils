@@ -2,6 +2,7 @@
 
 import numpy as np
 import Grid
+from GridFileSequence import GridFileSequenceReader
 
 class SignalError( Exception ):
     '''Basic exception for signals'''
@@ -402,15 +403,36 @@ class FieldSignal( Signal ):
         '''
         self.data = data
         
+class GFSSignal( FieldSignal ):
+    '''A discrete approximation of the voronoi diagram.  This one knows how to
+    read voronoi data from a GridFileSequenceReader.'''
     def setData( self, data ):
         '''Sets the signal's data.
 
-        @param      frameSet    A pedestrian data frame set (such as
-                                scbData or SeyfriedTrajectoryReader.)
+         @param  data           This is overloaded.  It can be one of:
+                                     1) an instance of a DataGrid,
+                                     2) a numpy array which has the same resolution
+                                as the current data grid, or
+                                    3) A GridFileSequenceReader
+                                In all cases, the data is COPIED into the signal.
         @raises     StopIteration if the frameSet is out of frames.
+        @raises     ValueError if the data cannot be set due to data format issues (wrong array size, etc.)
         '''
-        frameData, self.index = data.next()
-        DiracSignal.setData( self, frameData[:, :2] )
+        if ( isinstance( data, Grid.DataGrid ) ):
+            self.data = data.copy()
+        elif ( isinstance( data, np.ndarray ) ):
+            if ( not self.data is None ):
+                self.data.cells[:, :] = data
+            else:
+                raise ValueError, 'Cannot set the data for a VoronoiSignal with a numpy array without first setting the data grid.'
+        elif ( isinstance( data, GridFileSequenceReader ) ):
+            gridData, self.index = data.next()
+            if ( self.data is None ):
+                self.data = gridData.copy()
+            else:
+                self.data.cells[:, :] = gridData
+        else:
+            raise ValueError, 'Bad data type for setting Voronoi signal: %s' % ( str( data ) )
 
 if __name__ == '__main__':
     import domains
