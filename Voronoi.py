@@ -368,13 +368,13 @@ def computeVoronoiDensity( domain, sites, ids, obstacles=None, voronoiLimit=-1 )
 ##        densityGrid.size = orgSize
 ##        densityGrid.resolution = orgResolution
 ##        temp = densityGrid.cells
-        xStart = paddingSize[0]
-        xEnd = xStart + orgResolution[0]
-        yStart = paddingSize[1]
-        yEnd = yStart + orgResolution[1]
-        densityGrid.cells = np.resize(temp,(orgResolution[0],orgResolution[1]))
-        densityGrid.cells[0:orgResolution[0],0:orgResolution[1]] = temp[xStart:xEnd,yStart:yEnd]
-        return densityGrid
+##        xStart = paddingSize[0]
+##        xEnd = xStart + orgResolution[0]
+##        yStart = paddingSize[1]
+##        yEnd = yStart + orgResolution[1]
+##        densityGrid.cells = np.resize(temp,(orgResolution[0],orgResolution[1]))
+##        densityGrid.cells[0:orgResolution[0],0:orgResolution[1]] = temp[xStart:xEnd,yStart:yEnd]
+##        return densityGrid
 
 def test():
     import time
