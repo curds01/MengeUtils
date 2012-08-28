@@ -146,6 +146,13 @@ class AbstractGrid( RectDomain ):
         '''
         return DataGrid( self.minCorner, self.size, self.resolution, self.cellSize, initVal, arrayType )
 
+    def cellArea( self ):
+        '''Reports the area of the cell in the grid.cellSize
+
+        @returns    A float.  The area of the square.
+        '''
+        return self.cellSize[0] * self.cellSize[1]
+
 class GridTransform:
     '''A class for transforming from the coordinates of one AbstractGrid to the coordinates of
     another.'''
