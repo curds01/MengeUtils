@@ -56,6 +56,7 @@ def threadConvolve( log, bufferLock, buffer, frameLock,     # thread info
 
         # update log
         log.setMax( g.maxVal() )
+        log.setMin( g.minVal() )
         log.incCount()
         # put into buffer
         bufferLock.acquire()

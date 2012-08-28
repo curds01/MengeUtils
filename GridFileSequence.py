@@ -33,6 +33,7 @@ class RasterReport:
     """Simple class to return the results of rasterization"""
     def __init__( self ):
         self.maxVal = 0.0
+        self.minVal = 1e6
         self.count = 0
 
     def incCount( self ):
@@ -41,6 +42,10 @@ class RasterReport:
     def setMax( self, val ):
         if ( val > self.maxVal ):
             self.maxVal = val
+
+    def setMin( self, val ):
+        if ( val < self.minVal ):
+            self.minVal = val
 
 # A mapping of numpy array type to an int iterator for storing in the file
 NP_TYPES = ( np.float32, np.float64, np.float96, np.int8, np.int16, np.int32, np.int64 )
