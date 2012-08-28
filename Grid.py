@@ -196,6 +196,10 @@ class DataGrid( AbstractGrid) :
         self.initVal = initVal
         self.clear( arrayType, leaveEmpty )
 
+    def getAbstractGrid( self ):
+        '''Returns an AbstractGrid copy of this grid'''
+        return AbstractGrid( self.minCorner, self.size, self.resolution, self.cellSize )
+    
     def copy( self ):
         '''Produces a copy of itself - including underlying data'''
         grid = DataGrid( self.minCorner, self.size, self.resolution, self.cellSize, self.initVal, self.cells.dtype, True )
