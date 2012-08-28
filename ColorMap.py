@@ -312,12 +312,12 @@ class RedBlueMap( ColorMap ):
 
 # TODO:
 #   These shouldn't be instances, they should be classes
-COLOR_MAPS = { "Grey scale":GreyScaleMap(),
-               "Black body":BlackBodyMap(),
-               "Flame":FlameMap(),
-               "Log Black body":LogBlackBodyMap(),
-               "Red Blue":RedBlueMap(),
-               "Two Tone HSF":TwoToneHSVMap()
+COLOR_MAPS = { 'grey_scale':GreyScaleMap(),
+               'black_body':BlackBodyMap(),
+               "flame":FlameMap(),
+               "log_black-body":LogBlackBodyMap(),
+               "red_blue":RedBlueMap(),
+               "two_tone_HSF":TwoToneHSVMap()
                }
 
 def getValidColorMaps():

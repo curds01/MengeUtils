@@ -67,28 +67,55 @@ def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, obstacles
         
 
 if __name__ == '__main__':
-    def test():
+    def main():
         from GridFileSequence import GridFileSequenceReader
-        import obstacles
+        import optparse
         import ColorMap
-        import os
-        obstPath = r'/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_oneway/c240_obstacles.xml'
-        path = r'/projects/crowd/fund_diag/paper/pre_density/experiment/results/density/gaussian_S1.5/uo-065-240-240_combined_MB.density'
-        outPath = r'/projects/crowd/fund_diag/paper/pre_density/experiment/results/density/gaussian_S1.5/uo-065-240-240_combined_MB_density/'
-        if ( not os.path.exists( outPath ) ):
-            os.makedirs( outPath )
-##        colorMap = ColorMap.TwoToneHSVMap( (180, 1, 1), (270, 1, 1) )
-##        colorMap = ColorMap.GreyScaleMap()
-##        colorMap = ColorMap.BlackBodyMap()
-##        colorMap = ColorMap.StephenBlackBodyMap()
-##        colorMap = ColorMap.LogBlackBodyMap()
-        colorMap = ColorMap.BandedBlackBodyMap()
-##        colorMap = ColorMap.RedBlueMap()
-        reader = GridFileSequenceReader( path )
-        reader.setNext( 0 )
-        obstacles, bb = obstacles.readObstacles( obstPath )
-        mapRange = 1.5
-        visualizeGFS( reader, colorMap, outPath, 'png', mapRange, obstacles )
+        import sys, os
+        import obstacles
+        parser = optparse.OptionParser()
+        parser.add_option( '-i', '--input', help='A path to a grid file sequence - the data to visualize',
+                           action='store', dest='input', default='' )
+        parser.add_option( '-o', '--output', help='The path and base filename for the output images (Default is "vis").',
+                           action='store', dest='output', default='./vis' )
+        parser.add_option( '-c', '--colorMap', help='Specify the color map to use.  Valid values are: %s.  Defaults to "black_body".' % ColorMap.getValidColorMaps(),
+                           action='store', dest='cmapName', default='black_body' )
+        parser.add_option( '-e', '--extension', help='Image format: [png, jpg, bmp] (default is png)',
+                           action='store', dest='ext', default='png' )
+        parser.add_option( '-b', '--obstacles', help='Path to an obstacle xml file',
+                           action='store', dest='obstXML', default=None )
+        options, args = parser.parse_args()
 
-    test()    
+        if ( options.input == '' ):
+            print '\n *** You must specify an input file'
+            parser.print_help()
+            sys.exit(1)
+
+        try:
+            colorMap = ColorMap.getColorMapByName( options.cmapName )
+        except KeyError:
+            print '\n *** You have selected an invalid color map: %s' % ( options.cmapName )
+            parser.print_help()
+            sys.exit(1)
+
+        if ( not options.ext.lower() in ( 'png', 'jpg', 'bmp' ) ):
+            print '\n *** You have selected an invalid file format: %s' % ( options.ext )
+            parser.print_help()
+            sys.exit(1)
+
+        folder, baseName = os.path.split( options.output )
+        if ( folder ):
+            if ( not os.path.exists( folder ) ):
+                os.makedirs( folder )
+
+        reader = GridFileSequenceReader( options.input )
+        reader.setNext( 0 )    
+
+        obstacles = None
+        if ( options.obstXML ):
+            obstacles, bb = obstacles.readObstacles( options.obstXML )
+
+        visualizeGFS( reader, colorMap, options.output, options.ext, 1.0, obstacles )
+        
+    main()    
     
