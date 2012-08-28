@@ -8,6 +8,8 @@ from ColorMap import *
 import Crowd
 import os, sys
 from GFSVis import visualizeGFS
+import Kernels
+import Signals
 
 # TODO: Switch everything to NPFrameSet
 
@@ -48,7 +50,9 @@ class CrowdAnalyzeThread( QtCore.QThread ):
         if ( densityAction == 1 or densityAction == 3 ):
             print 'Computing densities...'
             s = time.clock()
-            grids.computeDensity( domainMin, domainSize, res, dfunc, 3 * R, frameSet )
+            kernel = Kernels.GaussianKernel( R, CELL_SIZE, False )
+            signal = Signals.PedestrianSignal( domain ) # signal domain is the same as convolution domain
+            grids.convolveSignal( domain, kernel, signal, frameSet )
             print '    done in %.2f seconds' % ( time.clock() - s )
         if ( densityAction >= 2 ):
             imgPath = os.path.join( self.data[ 'outDir' ], 'density' )

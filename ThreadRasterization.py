@@ -21,7 +21,7 @@ class BufferGrid:
         return "BufferGrid %d, %f" % ( self.id, self.grid.maxVal() )
 
 # The function that does the rasterization work
-ACTIVE_RASTER_THREADS = 0
+
 printLock = threading.Lock()
 def threadPrint( msg ):
     '''A simple function for doing threadsafe printing so that various output streams
@@ -32,6 +32,15 @@ def threadPrint( msg ):
     printLock.acquire()
     print '%s: %s' % ( threading.current_thread().getName(), msg )
     printLock.release()
+
+# TODO: This could be refactored.
+# The only difference between these three function is updating the signal and doing the work.
+#   If a single class were passed which is responsible for offering methods:
+#       getNextInput
+#       processInput
+#       getGridResult
+#   Then this could be a single function, with a single argument that is responsible for
+#   knowin what the work is.
 
 def threadConvolve( log, bufferLock, buffer, frameLock,     # thread info
                     signal, frameSet,                       # the input signal
@@ -75,144 +84,102 @@ def threadConvolve( log, bufferLock, buffer, frameLock,     # thread info
         buffer.append( BufferGrid( signal.index, g ) )
         bufferLock.release()
 
-def threadVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
-                            minCorner, size, resolution, distFunc, smoothParam,
-                            domainX, domainY, obstacles=None, reflection=False ):
+
+def threadVoronoiDensity( log, bufferLock, buffer, frameLock,  # thread management
+                          frameSet,            # the iterable set of sites
+                          gridDomain,          # the domain over which the voronoi is computed
+                          obstacles=None,      # the optional set of obstacles (for the constraints)
+                          limit=-1                    
+                   ):
+    '''Function for computing the discrete, constrained voronoi diagram over a given domain.
+
+    @param      log             An instance of RasterReport (see GridFileSequence.py).
+                                Each thread gets its own copy.
+    @param      bufferLock      A threading.Lock for accessing the buffer.
+    @param      buffer          The buffer for storing the finished convolution.  Shared
+                                across all threads.
+    @param      frameLock       A threading.Lock for accessing the pedestrian data.
+    @param      frameSet        An instance of site data.  Typically, it is pedestrian data
+                                (real or synthesized).
+    @param      gridDomain      An instance of AbstractGrid defining the extents and resolution
+                                of the domain in which the Voronoi is computed.
+    @param      obstacles        An instance of ???OBSTACLE???.  Enables the constrained voronoi
+                                computations.  Currently not supported
+    @param      limit           A float.  The maximum distance a point can be and still lie
+                                in a voronoi region.
+    '''
+        
     while ( True ):
-        vxCell = float(size.x)/resolution.x
-        vyCell = float(size.y)/resolution.y
-        PADDING_RAD = 1.0
-        PADDING_SIZE = Vector2( PADDING_RAD * 1./vxCell, PADDING_RAD * 1./vyCell )
         # create grid and rasterize
         # acquire frame
         frameLock.acquire()
         try:
             frame, index = frameSet.next()
+            ids = frameSet.getFrameIds()
         except StopIteration:
             break
         finally:            
             frameLock.release()
 
-        # Calculate new size for Voronoi with padding
-        vDomainX = Vector2( domainX[0] - PADDING_RAD, domainX[1] + PADDING_RAD)
-        vDomainY = Vector2( domainY[0] - PADDING_RAD, domainY[1] + PADDING_RAD )
-        vMinCorner = Vector2( vDomainX[0], vDomainY[0])
-        vSize = Vector2( vDomainX[1], vDomainY[1]) - vMinCorner
-        vRes = Vector2( int(vSize.x/vxCell), int(vSize.y/vyCell) )
-##        g = Grid( minCorner, size, resolution, domainX, domainY )
-##        vRegion = Voronoi( minCorner, size, resolution, obstacles )
-        g = Grid( vMinCorner, vSize, vRes, vDomainX, vDomainY )
-        vRegion = Voronoi( vMinCorner, vSize, vRes, obstacles)
-        # Compute density based on Voronoi region
-        densityRegion = vRegion.computeVoronoiDensity( g, frame, minCorner, size,
-                                                       resolution, domainX, domainY, PADDING_SIZE, V_RAD ) # Default agent radius is 1
-        # TESTING : draw Voronoi diagram as image file
-        if ( False ):
-            import os
-##            filePath = r'\Users\ksuvee\Documents\Density_project\VoronoiRegion'
-            filePath = r'\Users\TofuYui\Google Drive\Density_project\VoronoiRegion'
-            if ( not os.path.exists( filePath ) ):
-                os.makedirs( filePath  )
-            fileName = os.path.join( filePath, 'vRegion%s.png' % (index))
-            drawVoronoi.drawVoronoi( vRegion.ownerGrid.cells, fileName, obstacles, vRegion.ownerGrid)
+        try:
+            density = computeVoronoiDensity( gridDomain, frame, ids, obstacles, limit )
+        except Exception as e:
+            print "ERROR", e
+            raise
 
-        # Perform Function convolution
-        densityGrid = Grid( densityRegion.minCorner, densityRegion.size, densityRegion.resolution, initVal=0.0 )
-        densityRegion.rasterizeVoronoiDensity( frame, distFunc, smoothParam, densityGrid )
-        
         # update log
-        # print densityGrid.maxVal()
-        log.setMax( densityGrid.maxVal() )
+        log.setMax( density.maxVal() )
+        log.setMin( density.minVal() )
         log.incCount()
         # put into buffer
         bufferLock.acquire()
-        buffer.append( BufferGrid( index, densityGrid ) )
+        buffer.append( BufferGrid( index, density ) )
         bufferLock.release()
 
-        # acquire next frame ALWAYS GET COMMENT
-##        frameLock.acquire()
-##        frame, index = frameSet.next()
-##        frameLock.release()
+def threadVoronoi( log, bufferLock, buffer, frameLock,  # thread management
+                   frameSet,            # the iterable set of sites
+                   gridDomain,          # the domain over which the voronoi is computed
+                   obstacles=None,      # the optional set of obstacles (for the constraints)
+                   limit=10.0
+                   ):
+    '''Function for computing the discrete, constrained voronoi diagram over a given domain.
 
-##def threadStandardVoronoiRasterize( log, bufferLock, buffer, frameLock, frameSet,
-##                                    minCorner, size, resolution, boundIndexX, boundIndexY,
-##                                    boundArea, domainX, domainY, obstacles=None ):
-##    while ( True ):
-##        vxCell = float(size.x)/resolution.x
-##        vyCell = float(size.y)/resolution.y
-##        PADDING_RAD = 1.0
-##        PADDING_SIZE = Vector2( PADDING_RAD * 1./vxCell, PADDING_RAD * 1./vyCell )
-##        # create grid and rasterize
-##        # acquire frame
-##        frameLock.acquire()
-##        try:
-##            frame, index = frameSet.next()
-##        except StopIteration:
-##            break
-##        finally:            
-##            frameLock.release()
-##
-##        # Calculate new size for Voronoi with padding
-##        vDomainX = Vector2( domainX[0] - PADDING_RAD, domainX[1] + PADDING_RAD)
-##        vDomainY = Vector2( domainY[0] - PADDING_RAD, domainY[1] + PADDING_RAD )
-##        vMinCorner = Vector2( vDomainX[0], vDomainY[0])
-##        vSize = Vector2( vDomainX[1], vDomainY[1]) - vMinCorner
-##        vRes = Vector2( int(vSize.x/vxCell), int(vSize.y/vyCell) )
-####        g = Grid( minCorner, size, resolution, domainX, domainY )
-####        vRegion = Voronoi( minCorner, size, resolution, obstacles )
-##        g = Grid( vMinCorner, vSize, vRes, vDomainX, vDomainY )
-##        vRegion = Voronoi( vMinCorner, vSize, vRes, obstacles)
-##        # Compute density based on Voronoi region
-##        densityRegion = vRegion.computeVoronoiDensity( g, frame, minCorner, size,
-##                                                       resolution, domainX, domainY, PADDING_SIZE, V_RAD ) # Default agent radius is 1
-##        # TESTING : draw Voronoi diagram as image file
-##        if ( False ):
-##            import os
-####            filePath = r'\Users\ksuvee\Documents\Density_project\VoronoiRegion'
-##            filePath = r'\Users\TofuYui\Google Drive\Density_project\VoronoiRegion'
-##            if ( not os.path.exists( filePath ) ):
-##                os.makedirs( filePath  )
-##            fileName = os.path.join( filePath, 'vRegion%s.png' % (index))
-##            drawVoronoi.drawVoronoi( vRegion.ownerGrid.cells, fileName, obstacles, vRegion.ownerGrid )
-##
-##        densityGrid = Grid( densityRegion.minCorner, densityRegion.size, densityRegion.resolution, initVal=0.0 )
-##        sumDensity = np.sum( densityRegion.cells[ boundIndexX[0]:boundIndexX[1],
-##                                                  boundIndexY[0]:boundIndexY[1] ] )
-##        densityGrid.cells[ boundIndexX[0]:boundIndexX[1],
-##                           boundIndexY[0]:boundIndexY[1] ] = sumDensity/boundArea
-##        # update log
-##        log.setMax( densityGrid.maxVal() )
-##        log.incCount()
-##        # put into buffer
-##        bufferLock.acquire()
-##        buffer.append( BufferGrid(index, densityGrid ) )
-##        bufferLock.release()
-##
-##
-##def threadStandardRasterize( log, bufferLock, buffer, frameLock, frameSet,
-##                            minCorner, size, resolution, defineRegionX, defineRegionY,
-##                            domainX, domainY ):
-##    while ( True ):
-##        # create grid and rasterize
-##        # acquire frame
-##        frameLock.acquire()
-##        try:
-##            frame, index = frameSet.next()
-##        except StopIteration:
-##            break
-##        finally:            
-##            frameLock.release()
-##        g = Grid( minCorner, size, resolution, domainX, domainY )
-##        g.rasterizeStandard( frame, defineRegionX, defineRegionY )
-##        # update log
-##        log.setMax( g.maxVal() )
-##        log.incCount()
-##        # put into buffer
-##        bufferLock.acquire()
-##        buffer.append( BufferGrid(index, g ) )
-##        bufferLock.release()
-####        # acquire next frame
-####        frameLock.acquire()
-####        frame, index = frameSet.next()
-####        frameLock.release()
+    @param      log             An instance of RasterReport (see GridFileSequence.py).
+                                Each thread gets its own copy.
+    @param      bufferLock      A threading.Lock for accessing the buffer.
+    @param      buffer          The buffer for storing the finished convolution.  Shared
+                                across all threads.
+    @param      frameLock       A threading.Lock for accessing the pedestrian data.
+    @param      frameSet        An instance of site data.  Typically, it is pedestrian data
+                                (real or synthesized).
+    @param      gridDomain      An instance of AbstractGrid defining the extents and resolution
+                                of the domain in which the Voronoi is computed.
+    @param      obstacles       An instance of ???OBSTACLE???.  Enables the constrained voronoi
+                                computations.  Currently not supported
+    @param      limit           A float.  The maximum distance a point can be and still lie
+                                in a voronoi region.
+    '''
+        
+    while ( True ):
+        # create grid and rasterize
+        # acquire frame
+        frameLock.acquire()
+        try:
+            frame, index = frameSet.next()
+            ids = frameSet.getFrameIds()
+        except StopIteration:
+            break
+        finally:            
+            frameLock.release()
 
+        voronoi = computeVoronoi( gridDomain, frame, ids, obstacles, limit )
+        drawVoronoi.drawVoronoi( voronoi.cells, 'test%02d.png' % index, frame, None, gridDomain )
+
+        # update log
+        log.setMax( voronoi.maxVal() )
+        log.setMin( voronoi.minVal() )
+        log.incCount()
+        # put into buffer
+        bufferLock.acquire()
+        buffer.append( BufferGrid( index, voronoi ) )
+        bufferLock.release()

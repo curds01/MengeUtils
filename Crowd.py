@@ -36,6 +36,8 @@ from ObjSlice import Polygon
 from obstacles import *
 import pylab as plt
 from GFSVis import visualizeGFS
+import Signals
+import Kernels
 
 class StatRecord:
     '''A simple, callable object for accumulating statistical information about the
@@ -428,59 +430,16 @@ def main():
     
     timeStep = 1.0
     outPath = '.'
-    if ( False ):
-        size = Vector2(12.0, 12.0 )
-        minPt = Vector2( size.x / -2.0, size.y / -2.0 )
-        res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
-        path = 'data/Circle10/playbackPLE.scb'
-    elif ( False ):
-        size = Vector2(60.0, 60.0 )
-        minPt = Vector2( size.x / -2.0, size.y / -2.0 )
-        res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
-        path = '/projects/SG10/CrowdViewer/Exe/Win32/2circle/playback.scb'        
-##        path = '/projects/SG10/CrowdViewer/Exe/Win32/2circle/playbackRVO.scb'
-    elif ( False ):
-        size = Vector2( 150.0, 110.0 )
-        minPt = Vector2( -70.0, -55.0 )
-        res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
-##        srcFile = '13KNew'
-##        srcFile = '13KNoAgg'
-##        srcFile = '25KNew'
-##        timeStep = 0.025
-##        FRAME_STEP = 40
-        
-        srcFile = '13KNewObs'
-        srcFile = '13KNewObsNoAgg'
-        srcFile = '13KSame'
-        srcFile = '13KSameNoAgg'
-        srcFile = '13KNew0'
-        srcFile = '13KNew20'
-        srcFile = '13K_custom'
-        srcFile = '13K_thingy'
-##        srcFile = '25K_thingy'
-##        srcFile = '25k_slower'
-##        srcFile = '25k_slowest'
-        srcFile = '25k_evenSlower'
-        srcFile = '5K_40FPS'
-##        srcFile = 'denseTest'
-        timeStep = 0.1
-        timeStep = 0.025    # 5K_40FPS
-        FRAME_STEP = 10
-        FRAME_STEP = 40     # 5K_40FPS
-        outPath = os.path.join( '/projects','tawaf','sim','jun2011' )
-        path = os.path.join( outPath, '{0}.scb'.format( srcFile ) )
-        outPath = os.path.join( outPath, srcFile )
-        
-##        MAX_AGENTS = 50
-        MAX_FRAMES = 120
-    elif ( True ):
+    
+    if ( True ):
         # This size doesn't work for 25k
-        size = Vector2( 175.0, 120.0 )
-        minPt = Vector2( -75.0, -60.0 )
+##        size = Vector2( 175.0, 120.0 )
+##        minPt = Vector2( -75.0, -60.0 )
         # this size DOES work for 25k
         size = Vector2( 215.0, 160.0 )
         minPt = Vector2( -95.0, -80.0 )
         res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
+        size = Vector2( res[0] * CELL_SIZE, res[1] * CELL_SIZE )
         timeStep = 0.05
         outPath = os.path.join( '/projects','tawaf','sim','jul2011','results' )
         path = os.path.join( outPath, '{0}.scb'.format( srcFile ) )
@@ -488,16 +447,8 @@ def main():
         outPath = os.path.join( outPath, srcFile )
         if ( not options.includeAll ):
             EXCLUDE_STATES = (1, 2, 3, 4, 5, 6, 7, 8, 9)
-    elif ( False ):
-        size = Vector2( 15, 5 )
-        minPt = Vector2( -1.0, -2.5 )
-        res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
-        path = 'linear.scb'
-    elif ( False ):
-        size = Vector2( 30, 5 )
-        minPt = Vector2( -1.0, -2.5 )
-        res = (int( size.x / CELL_SIZE ), int( size.y / CELL_SIZE ) )
-        path = 'quad.scb'
+
+    domain = AbstractGrid( minPt, size, res )
     print "Size:", size
     print "minPt:", minPt
     print "res:", res
@@ -528,7 +479,9 @@ def main():
     
         print "\tComputing density with R = %f" % R
         s = time.clock()
-        grids.computeDensity( minPt, size, res, dfunc, R, frameSet )
+        kernel = Kernels.GaussianKernel( R, CELL_SIZE, False )
+        signal = Signals.PedestrianSignal( domain ) # signal domain is the same as convolution domain
+        grids.convolveSignal( domain, kernel, signal, frameSet )
         print "\t\tTotal computation time: ", (time.clock() - s), "seconds"
         print "\tComputing density images",
         s = time.clock()

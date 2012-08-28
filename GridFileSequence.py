@@ -11,11 +11,13 @@ from RasterGrid import Grid
 from primitives import Vector2
 from ThreadRasterization import *
 
+THREAD_COUNT = multiprocessing.cpu_count()
+        
 # the thread that does the file output
-def threadOutput( outFile, buffer, bufferLock, startTime ):
+def threadOutput( outFile, buffer, bufferLock, startTime, gfs ):
     """Reads grids from the buffer and writes them to the output file"""
     nextGrid = 0
-    while ( buffer or ACTIVE_RASTER_THREADS ):
+    while ( buffer or gfs.activeThreadCount ):
         # keep doing the work as long as the buffer has contents or there are active raster threads
         bufferLock.acquire()
         try:
@@ -79,7 +81,14 @@ class GridFileSequenceReader:
         assert( gridStep > 0 )
         self.gridStride = self.gridSize() * ( gridStep - 1 )
         self.currGrid = np.empty( ( self.w, self.h ), dtype=self.arrayType )
+        self.activeThreadCount = 0
 
+    def getCellSize( self ):
+        '''Reports the cellsize of the grid.
+
+        @returns    A 2-tuple of floats.  The cell size in the x- and y-directions.'''
+        return ( self.size[0] / self.w, self.size[1] / self.h )
+    
     def summary( self ):
         '''Produces a string which summarizes the sequence'''
         s = "Grid file sequence"
@@ -234,9 +243,9 @@ class GridFileSequence:
         """
         renderTraces( minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase )
 
-    def computeDensity( self, gridDomain, kernel, signal, frameSet ):
+    def convolveSignal( self, gridDomain, kernel, signal, frameSet  ):
         '''Creates a binary file representing the density scalar fields of each frame of the
-            pedestrian data.append
+            pedestrian data.
 
         @param      gridDomain      An instance of AbstractGrid, specifying the grid domain
                                     and resolution over which the density field is calculated.
@@ -248,129 +257,105 @@ class GridFileSequence:
         @param      frameSet        An instance of a pedestrian data sequence (could be simulated
                                     or real data.  It could be a sequence of voronoi diagrams.
         '''
-        global ACTIVE_RASTER_THREADS
+        frameSet.setNext( 0 )
+        argsFunc = lambda: ( signal.copyEmpty(), frameSet, gridDomain, kernel )
+        self._threadWork( 'density', threadConvolve, argsFunc, gridDomain )
+        
 
-        THREAD_COUNT = multiprocessing.cpu_count()
+    def computeVoronoiDensity( self, gridDomain, frameSet, obstacles=None, limit=-1  ):
+        '''Computes a density field for the frameset based on the voronoi diagram.
+        The density of each voronoi region is the inverse of the area of that region.
+
+        @param      gridDomain      An instance of AbstractGrid, specifying the grid domain
+                                    and resolution over which the density field is calculated.
+        @param      frameSet        An instance of a pedestrian data sequence (could be simulated
+                                    or real data.  It could be a sequence of voronoi diagrams.
+        @param      obstacles       An instance of ?????.  Used for performing the constrained voronoi
+                                    based on obstacles.
+        @param      limit           A float.  The maximum distance a point can be and still lie
+                                    in a voronoi region.
+        '''
+        frameSet.setNext( 0 )
+        argsFunc = lambda: ( frameSet, gridDomain, obstacles, limit )
+        self._threadWork( 'voronoiDensity', threadVoronoiDensity, argsFunc, gridDomain )
+        
+
+    def computeVoronoi( self, gridDomain, frameSet, obstacles=None, limit=-1 ):
+        '''Computes a density field for the frameset based on the voronoi diagram.
+        The density of each voronoi region is the inverse of the area of that region.
+
+        @param      gridDomain      An instance of AbstractGrid, specifying the grid domain
+                                    and resolution over which the density field is calculated.
+        @param      frameSet        An instance of a pedestrian data sequence (could be simulated
+                                    or real data.  It could be a sequence of voronoi diagrams.
+        @param      obstacles       An instance of ?????.  Used for performing the constrained voronoi
+                                    based on obstacles.
+        @param      limit           A float.  The maximum distance a point can be and still lie
+                                    in a voronoi region.
+        '''
+        frameSet.setNext( 0 )
+        argsFunc = lambda: ( frameSet, gridDomain, obstacles, limit )
+        self._threadWork( 'voronoi', threadVoronoi, argsFunc, gridDomain )
+        
+
+    def _threadWork( self, fileExt, function, funcArgs, gridDomain ):
+        '''Sets up threaded work.
+
+        @param      fileExt         A string.  The extension applied to the GFS file.
+        @param      function        A function object.  The function executed by each thread.
+                                    For the function to work its first four args must be:
+                                       1. a RasterReport instance
+                                       2. a threading lock for the buffer
+                                       3. A buffer instance ( simply a python list)
+                                       4. A threading lock for the data
+        @param      funcArgs        A callable object.  Its return value is a tuple of values.
+                                    These values are the additional arguments for the work function.
+                                    They will be concatenated to the arguments liated above.
+                                    This is a function, because the arguments may need to change
+                                    with each thread.  This interface allows that.
+        @param      gridDomain      An instance of AbstractGrid, specifying the grid domain
+                                    and resolution over which the density field is calculated.
+        '''
         # file output
-        outFile = open( self.outFileName + '.density', 'wb' )
+        outFile = open( '%s.%s' % ( self.outFileName, fileExt ), 'wb' )
         outFile.write( self.header( gridDomain.minCorner, gridDomain.size, gridDomain.resolution ) )
         buffer = []
         bufferLock = threading.Lock()
-        saveThread = threading.Thread( target=threadOutput, args=(outFile, buffer, bufferLock, time.clock() ) )
-        ACTIVE_RASTER_THREADS = THREAD_COUNT
+        saveThread = threading.Thread( target=threadOutput, args=(outFile, buffer, bufferLock, time.clock(), self ) )
+        self.activeThreadCount = THREAD_COUNT
         saveThread.start()
 
         # prepare rasterization        
-        frameSet.setNext( 0 )
         frameLock = threading.Lock()
         rasterThreads = []
         rasterLogs = []
         for i in range( THREAD_COUNT ):
             rasterLogs.append( RasterReport() )
             # This has self.obstacles
-            rasterThreads.append( threading.Thread( target=threadConvolve, args=( rasterLogs[-1], bufferLock, buffer, frameLock,
-                                                                                   signal.copyEmpty(), frameSet, gridDomain, kernel )
-                                                    )  )
+            threadArgs = ( rasterLogs[-1], bufferLock, buffer, frameLock )
+            rasterThreads.append( threading.Thread( target=function, args=threadArgs + funcArgs() )  )
 
         for i in range( THREAD_COUNT ):
             rasterThreads[i].start()
         for i in range( THREAD_COUNT ):
             rasterThreads[i].join()
-            ACTIVE_RASTER_THREADS -= 1
+            self.activeThreadCount -= 1
         saveThread.join()
 
         gridCount = 0
         maxVal = 0.0
+        minVal = 1e8
         for log in rasterLogs:
             gridCount += log.count
             if ( log.maxVal > maxVal ):
                 maxVal = log.maxVal
+            if ( log.minVal < minVal ):
+                minVal = log.minVal
 
         # add the additional information about grid count and maximum values
-        self.fillInHeader( outFile, gridCount, 0.0, maxVal )
+        self.fillInHeader( outFile, gridCount, minVal, maxVal )
         outFile.close()
         
-##    def computeDensityStandard( self, minCorner, size, resolution, defineRegionX,
-##                                defineRegionY, frameSet, isVoronoi ):
-##        '''Creates a binary file representing the density scalar fields of each frame
-##        @param defineRegionX: a pair of minimum and maximum to define region in x axis
-##        @param defineRegionY: a pair of center and width to define region in y axis'''
-##        global ACTIVE_RASTER_THREADS
-##
-##        THREAD_COUNT = multiprocessing.cpu_count()
-##        # file output
-##        outFile = open( self.outFileName + '.density', 'wb' )
-##        outFile.write( struct.pack( 'ii', resolution[0], resolution[1] ) )  # size of grid
-##        outFile.write( struct.pack( 'i', 0 ) )                              # grid count
-##        outFile.write( struct.pack( 'ff', 0.0, 0.0 ) )                      # range of grid values
-##        buffer = []
-##        bufferLock = threading.Lock()
-##        saveThread = threading.Thread( target=threadOutput, args=(outFile, buffer, bufferLock, time.clock() ) )
-##        ACTIVE_RASTER_THREADS = THREAD_COUNT
-##        saveThread.start()
-##
-##        # prepare rasterization        
-##        frameSet.setNext( 0 )
-##        frameLock = threading.Lock()
-##        rasterThreads = []
-##        rasterLogs = []
-##
-##        for i in range( THREAD_COUNT ):
-##            rasterLogs.append( RasterReport() )
-##            if( isVoronoi ):
-##                print "Voronoi Computation"
-##                print defineRegionX
-##                # Compute boundary in y-axis
-##                left = defineRegionY[0] - defineRegionY[1] * 0.5
-##                right = defineRegionY[0] + defineRegionY[1] * 0.5
-##                area = (right-left) * ( defineRegionX[1] - defineRegionX[0] )
-##                cellSize = Vector2( size.x/float( resolution[0] ),
-##                                    size.y/float( resolution[1] ) )
-##                print "\n defineRegionX %f %f" % ( defineRegionX[0], defineRegionX[1] )
-##                print "\n defineRegionY %f %f" % ( left, right )
-##                # Convert to grid space
-##                offset0 = Vector2( defineRegionX[0], left ) - minCorner
-##                offset1 = Vector2( defineRegionX[1], right ) - minCorner
-##                ofX0 = offset0.x/cellSize.x
-##                ofX1 = offset1.x/cellSize.x
-##                ofY0 = offset0.y/cellSize.y
-##                ofY1 = offset1.y/cellSize.y
-##                # Grid space index
-##                boundIndexX = ( ofX0, ofX1 )
-##                boundIndexY = ( ofY0, ofY1 )
-##                rasterThreads.append( threading.Thread( target=threadStandardVoronoiRasterize,
-##                                                       args=( rasterLogs[-1], bufferLock,
-##                                                              buffer, frameLock, frameSet,
-##                                                              minCorner, size, resolution,
-##                                                              boundIndexX, boundIndexY, area,
-##                                                              self.domainX, self.domainY, self.obstacles ) ) )
-##            else:
-##                print "Standard computation"
-##                rasterThreads.append( threading.Thread( target=threadStandardRasterize,
-##                                                        args=( rasterLogs[-1],bufferLock,
-##                                                               buffer, frameLock, frameSet,
-##                                                               minCorner, size, resolution,
-##                                                               defineRegionX, defineRegionY,
-##                                                               self.domainX, self.domainY ) ) )
-##            
-##        for i in range( THREAD_COUNT ):
-##            rasterThreads[i].start()
-##        for i in range( THREAD_COUNT ):
-##            rasterThreads[i].join()
-##            ACTIVE_RASTER_THREADS -= 1
-##        saveThread.join()
-##
-##        gridCount = 0
-##        maxVal = 0.0
-##        for log in rasterLogs:
-##            gridCount += log.count
-##            if ( log.maxVal > maxVal ):
-##                maxVal = log.maxVal
-##
-##        # add the additional information about grid count and maximum values            
-##        self.fillInHeader( outFile, gridCount, 0.0, maxVal )
-##        outFile.close()
-
     def splatAgents( self, minCorner, size, resolution, radius, frameSet ):
         '''Simply splats the agents onto the grid'''
         print "Splatting agents:"
@@ -687,7 +672,8 @@ class GridFileSequence:
 
         # add the additional information about grid count and maximum values            
         self.fillInHeader( outFile, gridCount, 0.0, maxVal )
-        outFile.close()               
+        outFile.close()
+        
     def computeRegionSpeed( self, frameSet, polygons, timeStep, excludeStates, timeWindow=1 ):
         '''Given an ordered set of polygons, computes the average speed for all agents in each polygon
         per time step.'''
@@ -709,3 +695,26 @@ class GridFileSequence:
             data.append( frameSet.next() )
         data = np.array( speeds )
         np.savetxt( self.outFileName + ".region", data, fmt='%.5f' )
+
+        
+if __name__ == '__main__':
+    def test():
+        from Grid import AbstractGrid
+        import IncludeHeader
+        from trajectoryReader import SeyfriedTrajReader
+        import os
+##        obstPath = r'/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_oneway/c240_obstacles.xml'
+##        path = r'/projects/crowd/fund_diag/paper/pre_density/experiment/results/density/gaussian_S1.5/uo-065-240-240_combined_MB.density'
+##        outPath = r'/projects/crowd/fund_diag/paper/pre_density/experiment/results/density/gaussian_S1.5/uo-065-240-240_combined_MB_density/'
+        frameSet = SeyfriedTrajReader( 1/ 16.0 )
+        frameSet.readFile( r'/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/uo-065-240-240_combined_MB.txt' )
+        domain = AbstractGrid( Vector2( 0.0, -6 ), Vector2( 2.4, 12 ), ( 10, 100 ) )
+        gfs = GridFileSequence( 'sequence', arrayType=np.float32 )
+        gfs.computeVoronoiDensity( domain, frameSet, None )
+##        gfs = GridFileSequence( 'sequence', arrayType=np.int32 )
+##        gfs.computeVoronoi( domain, frameSet, None )
+
+    test()    
+    
+
+        
