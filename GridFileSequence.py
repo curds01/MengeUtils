@@ -167,7 +167,7 @@ class GridFileSequenceReader:
             raise StopIteration
         self.currGridID += 1
         if ( self.gridStride ):
-            self.file.seek( self.gridStride )
+            self.file.seek( self.gridStride, 1 )    # 1 = seek offset from current position
         return self.currGrid, self.currGridID
     
 class GridFileSequence:
