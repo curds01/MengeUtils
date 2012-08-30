@@ -175,7 +175,6 @@ def threadVoronoi( log, bufferLock, buffer, frameLock,  # thread management
             frameLock.release()
 
         voronoi = computeVoronoi( gridDomain, frame, ids, obstacles, limit )
-        drawVoronoi.drawVoronoi( voronoi.cells, 'test%02d.png' % index, frame, None, gridDomain )
 
         # update log
         log.setMax( voronoi.maxVal() )
