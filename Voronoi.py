@@ -376,44 +376,80 @@ def computeVoronoiDensity( domain, sites, ids, obstacles=None, voronoiLimit=-1 )
 ##        densityGrid.cells[0:orgResolution[0],0:orgResolution[1]] = temp[xStart:xEnd,yStart:yEnd]
 ##        return densityGrid
 
-def test():
-    import time
-    import pygame
-    import ColorMap
-    import drawVoronoi
+def main():
+    from GridFileSequence import GridFileSequence
+    import optparse
+    import sys, os
+    import obstacles
+    import IncludeHeader
+    from trajectoryReader import SeyfriedTrajReader
+    parser = optparse.OptionParser()
+    parser.set_description( 'Compute a sequence of discrete voronoi diagrams for a trajectory file' )
+    parser.add_option( '-t', '--trajectory', help='The path to the trajectoroy data.',
+                       action='store', dest='trajFileName', default='' )
+    parser.add_option( '-x', '--xDomain', help='The extents of the region along x-axis',
+                       nargs=2, action='store', type='float', dest='xRange', default=None )
+    parser.add_option( '-y', '--yDomain', help='The extents of the region along y-axis',
+                       nargs=2, action='store', type='float', dest='yRange', default=None )
+    parser.add_option( '-c', '--cellSize', help='The size of the cell size in the discretization. Default is 0.1',
+                       action='store', type='float', dest='cellSize', default=0.1 )
+    parser.add_option( '-o', '--output', help='The path and base filename for the grid file sequence to be written -- no extension required. (Default is "output.voronoi").',
+                       action='store', dest='output', default='./output' )
+    parser.add_option( '-b', '--obstacles', help='Path to an obstacle xml file - not currently supported.',
+                       action='store', dest='obstXML', default=None )
+    parser.add_option( '-d', '--density', help='Indicates that the voronoi density should be computed and not the voronoi diagram',
+                       action='store_true', default=False, dest='density' )
+    options, args = parser.parse_args()
 
-    MIN_CORNER = Vector2(-5.0, -5.0)
-    SIZE = Vector2(5.0, 10.0)
-    RES = (20, 40)
+    if ( options.trajFileName == '' ):
+        print '\n *** You must specify an input trajectory file'
+        parser.print_help()
+        sys.exit(1)
 
-    domain = AbstractGrid( MIN_CORNER, SIZE, RES )
+    if ( options.xRange is None ):
+        print '\n *** You must specify the x-range'
+        parser.print_help()
+        sys.exit(1)
 
-    frame = np.array( ( (0, 0) ,
-                        (-0.5, 0) ,
-                         ( 1, 4 ),
-                         ( 2.5, -1 ),
-                         (-2, 1),
-                         (3,3),
-                         (4.5, -4.5)
-                     )
-                   )
-    ids = np.arange( frame.shape[0] )
+    if ( options.yRange is None ):
+        print '\n *** You must specify the y-range'
+        parser.print_help()
+        sys.exit(1)
 
-##    import obstacles
-##    obst, bb = obstacles.readObstacles( 'obst.xml' )
-    obst = None
-    agentRadius = 3.5
+    folder, baseName = os.path.split( options.output )
+    baseName, ext = os.path.splitext( baseName )
+    # strip extension
+    if ( folder ):
+        if ( not os.path.exists( folder ) ):
+            os.makedirs( folder )
+
+    obstacles = None
+    if ( options.obstXML ):
+        obstacles, bb = obstacles.readObstacles( options.obstXML )
+
     
-    voronoi = computeVoronoi( domain, frame, ids, obst, agentRadius )
-    s = time.clock()    
-    drawVoronoi.drawVoronoi( voronoi.cells, "testVoronoi.png", frame, obst, domain )
-    print "Mine elapsed:", time.clock() - s
 
-    rho = computeVoronoiDensity( domain, frame, ids, obst, agentRadius )
-    cMap = ColorMap.BlackBodyMap()
-    s = rho.surface( cMap, 0.0, rho.maxVal() )
-    pygame.image.save( s, 'testVoronoiRho.png' )
+    minCorner = Vector2( options.xRange[0], options.yRange[0] )
+    size = Vector2( options.xRange[1] - minCorner[0], options.yRange[1] - minCorner[1] )
+    rX = int( np.ceil( size[0] / options.cellSize ) )
+    rY = int( np.ceil( size[1] / options.cellSize ) )
+    size = Vector2( rX * options.cellSize, rY * options.cellSize )
+    voronoiDomain = AbstractGrid( minCorner, size, (rX, rY) )
+
+    # currently assuming julich data for voronoi    
+    pedData = SeyfriedTrajReader( 1 / 16.0 )
+    pedData.readFile( options.trajFileName )
+    pedData.setNext( 0 )
+
+    if ( options.density ):
+        print 'Computing density voronoi'
+        gfs = GridFileSequence( os.path.join( folder, baseName ), obstacles, arrayType=np.float32 )
+        gfs.computeVoronoiDensity( voronoiDomain, pedData, obstacles )
+    else:
+        print 'Computing normal voronoi'
+        gfs = GridFileSequence( os.path.join( folder, baseName ), obstacles, arrayType=np.int32 )
+        gfs.computeVoronoi( voronoiDomain, pedData, obstacles )
 
 if __name__ == '__main__':
-    test()
+    main()
     
