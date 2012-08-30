@@ -257,6 +257,12 @@ class GridFileSequence:
         @param      frameSet        An instance of a pedestrian data sequence (could be simulated
                                     or real data.  It could be a sequence of voronoi diagrams.
         '''
+        print "Convolve signal"
+        print "\t", gridDomain
+        print "\t", kernel
+        print "\t", signal
+        print "\t", frameSet
+        
         frameSet.setNext( 0 )
         argsFunc = lambda: ( signal.copyEmpty(), frameSet, gridDomain, kernel )
         self._threadWork( 'density', threadConvolve, argsFunc, gridDomain )
@@ -275,6 +281,9 @@ class GridFileSequence:
         @param      limit           A float.  The maximum distance a point can be and still lie
                                     in a voronoi region.
         '''
+        print "computeVoronoiDensity"
+        print "\t", gridDomain
+        print "\t", frameSet
         frameSet.setNext( 0 )
         argsFunc = lambda: ( frameSet, gridDomain, obstacles, limit )
         self._threadWork( 'voronoiDensity', threadVoronoiDensity, argsFunc, gridDomain )
@@ -293,6 +302,9 @@ class GridFileSequence:
         @param      limit           A float.  The maximum distance a point can be and still lie
                                     in a voronoi region.
         '''
+        print "computeVoronoi"
+        print "\t", gridDomain
+        print "\t", frameSet
         frameSet.setNext( 0 )
         argsFunc = lambda: ( frameSet, gridDomain, obstacles, limit )
         self._threadWork( 'voronoi', threadVoronoi, argsFunc, gridDomain )
