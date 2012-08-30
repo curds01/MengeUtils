@@ -27,6 +27,9 @@ class Signal:
         '''
         raise SignalImplementationError
 
+    def __str__( self ):
+        return self.__class__.__name__
+
     def setData( self, data ):
         '''Sets the signal's data.'''
         raise SignalImplementationError
@@ -215,6 +218,12 @@ class FieldSignal( Signal ):
         '''
         self.data = fieldData
 
+    def __str__( self ):
+        if ( self.data ):
+            return '%s - %s' % ( self.__class__.__name__, self.data )
+        else:
+            return '%s - Empty' % ( self.__class__.__name__ )
+        
     def copy( self ):
         '''Creates a full copy of this signal'''
         return self.__class__( self.data.copy() )
