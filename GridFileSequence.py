@@ -83,6 +83,9 @@ class GridFileSequenceReader:
         self.currGrid = DataGrid( self.corner, self.size, ( self.w, self.h ), arrayType=self.arrayType, leaveEmpty=True )
         self.activeThreadCount = 0
 
+    def __str__( self ):
+        return self.summary()
+    
     def getCellSize( self ):
         '''Reports the cellsize of the grid.
 
