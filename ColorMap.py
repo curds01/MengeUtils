@@ -83,8 +83,12 @@ class ColorMap:
 
     def _normalize( self, data, (minVal, maxVal) ):
         """Returns an affine mapped version of the data based on the data range provided"""
-        assert( maxVal > minVal )
-        return ( data - minVal ) / ( maxVal - minVal )
+        assert( maxVal >= minVal )
+        range = maxVal - minVal
+        if ( range > 0.00001 ):
+            return ( data - minVal ) / ( maxVal - minVal )
+        else:
+            return np.zeros_like( data )
     
     def bgMask( self, data, dataRange ):
         """Creates a mask on the data for the background"""
