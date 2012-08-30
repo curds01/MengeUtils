@@ -442,7 +442,7 @@ class GFSSignal( FieldSignal ):
             if ( self.data is None ):
                 self.data = gridData.copy()
             else:
-                self.data.cells[:, :] = gridData
+                self.data.cells[:, :] = gridData.cells
         else:
             raise ValueError, 'Bad data type for setting Voronoi signal: %s' % ( str( data ) )
 
