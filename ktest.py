@@ -13,7 +13,7 @@ from primitives import Vector2
 from ColorMap import BlackBodyMap
 import obstacles 
 import ObstacleHandler
-from Voronoi import Voronoi
+from Voronoi import *
 
 # external
 import IncludeHeader
@@ -25,8 +25,8 @@ if ( not os.path.exists( PATH ) ):
     os.makedirs( PATH )
 
 cMap = BlackBodyMap()
-CELL_SIZE = 0.05
-smoothParam = 2.5
+CELL_SIZE = 0.03125 #0.05
+smoothParam = 1.5
 
 REFLECT = True
 obst, bb = obstacles.readObstacles( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/c240_obstacles.xml')
@@ -102,8 +102,8 @@ def testPedestrian():
     domainSize = Vector2( 2.4, 12 )
     pedDomain = Grid.RectDomain( minCorner, domainSize )
     # grid domain
-    minCorner = Vector2( 0.0, -3 )
-    domainSize = Vector2( 2.4, 6 )
+    minCorner = Vector2( 0.0, -2 )
+    domainSize = Vector2( 2.4, 4 )
     resolution = Vector2( domainSize.x / CELL_SIZE, domainSize.y / CELL_SIZE)
     gridDomain = Grid.AbstractGrid( minCorner, domainSize, resolution )
 
@@ -113,7 +113,8 @@ def testPedestrian():
     data.setNext( 0 )
     grids = []
 
-    sig = Signals.PedestrianSignal( pedDomain )    
+    sig = Signals.PedestrianSignal( pedDomain )
+    print gridDomain
     
     while ( True ):
         try:
@@ -123,8 +124,10 @@ def testPedestrian():
         grid = gridDomain.getDataGrid() 
         kernel.convolve( sig, grid )
 ##        grid.cells /= ( CELL_SIZE * CELL_SIZE )
-        
+
+        print "Frame %d has min/max values: %f, %f" % ( sig.index, grid.minVal(), grid.maxVal() )        
         grids.append( grid )
+##        break
 
     data.setNext( 0 )    
     visGrids( grids, data )
@@ -230,27 +233,33 @@ def computeVornoiField( grid ):
     VORONOI_FILE = os.path.join( PATH, 'testVoronoi.npy' )
     def makeVoronoi( grid ):
         print 'COMPUTING VORONOI!'
-        cellArea = grid.cellSize[0] * grid.cellSize[1] 
-        voronoi = Voronoi( grid.minCorner, grid.size, grid.resolution, obstSet )
         data = SeyfriedTrajReader( 1 / 16.0 )
         data.readFile( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/dummy.txt' )
         data.setNext( 0 )
         frame, frameId = data.next()
-        voronoi.computeVoronoi( grid, frame, 3.0 )
-        data = voronoi.ownerGrid.cells
-        # convert to density
-        print frame.shape
-        density = np.zeros( data.shape, dtype=np.float32 )
-        for id in xrange( -1, frame.shape[0] ):
-            mask = data == id
-            area = np.sum( mask ) * cellArea
-            if ( area > 0.0001 ):
-                density[ mask ] = 1 / area
-            else:
-                density[ mask ] = 0
-        
-        np.save( VORONOI_FILE, density )
-        grid.cells[:,:] = density
+        density = computeVoronoiDensity( grid, frame, data.getFrameIds() )
+        grid.cells[ :, : ] = density.cells
+##        cellArea = grid.cellSize[0] * grid.cellSize[1] 
+##        voronoi = Voronoi( grid.minCorner, grid.size, grid.resolution, obstSet )
+##        data = SeyfriedTrajReader( 1 / 16.0 )
+##        data.readFile( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/dummy.txt' )
+##        data.setNext( 0 )
+##        frame, frameId = data.next()
+##        voronoi.computeVoronoi( grid, frame, 3.0 )
+##        data = voronoi.ownerGrid.cells
+##        # convert to density
+##        print frame.shape
+##        density = np.zeros( data.shape, dtype=np.float32 )
+##        for id in xrange( -1, frame.shape[0] ):
+##            mask = data == id
+##            area = np.sum( mask ) * cellArea
+##            if ( area > 0.0001 ):
+##                density[ mask ] = 1 / area
+##            else:
+##                density[ mask ] = 0
+##        
+##        np.save( VORONOI_FILE, density )
+##        grid.cells[:,:] = density
         
     if ( not os.path.exists( VORONOI_FILE ) ):
         makeVoronoi( grid )
@@ -264,6 +273,6 @@ def computeVornoiField( grid ):
         
 if __name__ == '__main__':
 ##    testSynthetic()
-##    testPedestrian()
+    testPedestrian()
 ##    testSyntheticField()
-    debugFieldConvolve()
+##    debugFieldConvolve()
