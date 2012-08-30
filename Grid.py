@@ -216,13 +216,13 @@ class DataGrid( AbstractGrid) :
         self.initVal = grid.initVal
         self.clear( grid.cells.dtype )
 
-    def __str__( self ):
-        s = 'Grid'
-        for row in range( self.resolution[1] - 1, -1, -1 ):
-            s += '\n'
-            for col in range( self.resolution[0] ):
-                s += '%7.2f' % ( self.cells[ col ][ row ] )
-        return s
+##    def __str__( self ):
+##        s = 'Grid'
+##        for row in range( self.resolution[1] - 1, -1, -1 ):
+##            s += '\n'
+##            for col in range( self.resolution[0] ):
+##                s += '%7.2f' % ( self.cells[ col ][ row ] )
+##        return s
 
     def binaryString( self ):
         """Produces a binary string for the data"""
