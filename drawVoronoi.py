@@ -70,6 +70,11 @@ def drawVoronoiSeries( gfsData, outBaseName, trajData=None, obstacles=None, ext=
     '''
     pg.init()
 
+    # make sure the path exists
+    path, name = os.path.split( outBaseName )
+    if ( not os.path.exists( path ) ):
+        os.makedirs( path )    
+
     print gfsData.summary()
     digits = int( np.ceil( np.log10( gfsData.gridCount() ) ) )
 
@@ -78,7 +83,7 @@ def drawVoronoiSeries( gfsData, outBaseName, trajData=None, obstacles=None, ext=
             frame = None
             if ( trajData ):
                 frame, frameID = trajData.next()
-            fileName = os.path.join( '%s_%02d.%s' % ( outBaseName, gridID, ext ) )
+            fileName = '{0}{1:0{2}d}.{3}'.format( outBaseName, gridID, digits, ext )
             drawVoronoi( grid, fileName, frame, obstacles )
         except MemoryError:
             print "Error on frame", i
