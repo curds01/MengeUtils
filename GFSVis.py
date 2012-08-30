@@ -2,6 +2,7 @@
 
 from Grid import DataGrid
 import numpy as np
+import os
 import pygame
 from primitives import Vector2
 
@@ -63,6 +64,11 @@ def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, sites=Non
                                 Then they will be drawn over the top of the data.
     '''
     pygame.init()
+
+    # make sure the path exists
+    path, name = os.path.split( outFileBase )
+    if ( not os.path.exists( path ) ):
+        os.makedirs( path )
     
     print gfsFile.summary()
     digits = int( np.ceil( np.log10( gfsFile.gridCount() ) ) )
