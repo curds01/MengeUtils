@@ -51,6 +51,9 @@ class DiracSignal( Signal ):
         self.domain = domain
         self._data = data
 
+    def __str__( self ):
+        return '%s - %s' % ( self.__class__.__name__, self.domain )
+
     def copy( self ):
         '''Creates a full copy of this signal'''
         if ( self._data ):
@@ -120,7 +123,7 @@ class DiracSignal( Signal ):
                         (minX, minY) and (width, height).
         '''
         return self.domain.minCorner, self.domain.size
-    
+
     class ImpulseIterator:
         '''An iterator for the dirac impulses'''
         def __init__( self, diracSignal ):
