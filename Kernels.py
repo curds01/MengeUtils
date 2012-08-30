@@ -114,6 +114,27 @@ class KernelBase( object ):
 
     def __str__( self ):
         return '%s: smooth: %f, cellSize: %f' % ( self.__class__.__name__, self._smoothParam, self._cellSize )
+    def needsInitOutput( self, signal ):
+        '''This function reports if the output grid needs to be initialized.
+
+        Depending on the nature of the signal, the output grid may or may not have to be
+        convolved.  For example, convolving with a dirac signal basically splats copies
+        of the kernel onto the grid domain.  So, it must start empty.  However, in convolving
+        with a field signal, the whole domain is replaced wholesale, so no initialization
+        is required.
+
+        @param      signal      An instance of a Signal.  The signal to be convolved
+                                against.
+        @retuns    A 2-tuple ( boolean, value ).  The boolean indicates if the grid needs to
+                    be initialized (True) or can be left empty (False), and, in the case
+                    of initialization, the value is the initialiation value.
+        '''
+        if ( isinstance( signal, Signals.DiracSignal ) ):
+            return ( True, 0.0 )
+        elif ( isinstance( signal, Signals.FieldSignal ) ):
+            return ( False, 0.0 )
+        else:
+            raise ValueError, "Invalid signal type"
     
     def sampleKernel( self, smoothParam, cellSize ):
         self._smoothParam = smoothParam

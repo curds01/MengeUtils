@@ -61,6 +61,7 @@ def threadConvolve( log, bufferLock, buffer, frameLock,     # thread info
     @param      kernel          An instance of a BaseKernel (see Kernels.py).  Convolution
                                 is performed between this kernel and the data in frameSet.
     '''
+    needInit, iValue = kernel.needsInitOutput( signal )      
     while ( True ):
         # create grid and rasterize
         # acquire frame
@@ -71,14 +72,15 @@ def threadConvolve( log, bufferLock, buffer, frameLock,     # thread info
             break
         finally:            
             frameLock.release()
-            
-        g = gridDomain.getDataGrid( leaveEmpty=True )
+              
+        g = gridDomain.getDataGrid( initVal=iValue, leaveEmpty=not needInit )
         kernel.convolve( signal, g )
 
         # update log
         log.setMax( g.maxVal() )
         log.setMin( g.minVal() )
         log.incCount()
+##        threadPrint( "Grid %d has min/max values: %f, %f" % ( signal.index, g.minVal(), g.maxVal() ) )
         # put into buffer
         bufferLock.acquire()
         buffer.append( BufferGrid( signal.index, g ) )
