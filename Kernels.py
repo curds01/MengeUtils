@@ -230,17 +230,6 @@ class KernelBase( object ):
             t = gH
         return (l, r, t, b), (kl, kr, kt, kb)
             
-    def convolveField( self, signal, grid ):
-        '''The convolution of the 2D kernel with the grid (slow, slow, slow)'''
-        kSize = self.data.shape[0]  #assuming square kernel
-        halfK = kSize / 2
-        dSignal = signal.getDomainSignal( grid, halfK, self.reflectBoundaries )
-
-        for y in xrange( grid.cells.shape[1] ):
-            for x in xrange( grid.cells.shape[0] ):
-                value = np.sum( dSignal[ x:x+kSize, y:y+kSize ] * self.data )
-                grid.cells[ x, y ] = value
-
     def convolveDirac( self, signal, grid ):
         '''Convolve the kernel against a dirac signal'''
         w, h = self.data.shape
@@ -407,6 +396,7 @@ class SeparableKernel( KernelBase ):
         self.fix1DBoundaries()
         temp = np.reshape( self.data1D, (-1, 1 ) )
         self.data = temp * temp.T
+        self.data1D *= self._cellSize
 
     def fix1DBoundaries( self ):
         '''Examines the boundaries of the discretized kernel, and if it extends past the compact
@@ -449,7 +439,18 @@ class InseparableKernel( KernelBase ):
         X, Y = np.meshgrid( o, o )
 
         self.data = self.dFunc( X, Y, self._smoothParam ) #* ( self._cellSize * self._cellSize )
+        self.normData = self.data * ( self._cellSize * self._cellSize )
 
+    def convolveField( self, signal, grid ):
+        '''The convolution of the 2D kernel with the grid (slow, slow, slow)'''
+        kSize = self.normData.shape[0]  #assuming square kernel
+        halfK = kSize / 2
+        dSignal = signal.getDomainSignal( grid, halfK, self.reflectBoundaries )
+
+        for y in xrange( grid.cells.shape[1] ):
+            for x in xrange( grid.cells.shape[0] ):
+                value = np.sum( dSignal[ x:x+kSize, y:y+kSize ] * self.normData )
+                grid.cells[ x, y ] = value
 
 class UniformCircleKernel( InseparableKernel ):
     '''A uniform kernel with circular support.  The smoothing parameter is the RADIUS of
