@@ -22,6 +22,7 @@ class BufferGrid:
 
 # The function that does the rasterization work
 
+DEBUG = False
 printLock = threading.Lock()
 def threadPrint( msg ):
     '''A simple function for doing threadsafe printing so that various output streams
@@ -29,9 +30,10 @@ def threadPrint( msg ):
 
     @param      msg         A string.  The message to print.
     '''
-    printLock.acquire()
-    print '%s: %s' % ( threading.current_thread().getName(), msg )
-    printLock.release()
+    if ( DEBUG ):
+        printLock.acquire()
+        print '%s: %s' % ( threading.current_thread().getName(), msg )
+        printLock.release()
 
 # TODO: This could be refactored.
 # The only difference between these three function is updating the signal and doing the work.
@@ -70,17 +72,20 @@ def threadConvolve( log, bufferLock, buffer, frameLock,     # thread info
             signal.setData( frameSet )
         except StopIteration:
             break
+        except:
+            raise
         finally:            
             frameLock.release()
               
         g = gridDomain.getDataGrid( initVal=iValue, leaveEmpty=not needInit )
+        threadPrint('Grid %d- %s' % ( signal.index, hex( id( g ) ) ) )
         kernel.convolve( signal, g )
 
         # update log
         log.setMax( g.maxVal() )
         log.setMin( g.minVal() )
         log.incCount()
-##        threadPrint( "Grid %d has min/max values: %f, %f" % ( signal.index, g.minVal(), g.maxVal() ) )
+        threadPrint( "\tAfter convolve: min/max/mean values: %f, %f, %f" % ( g.minVal(), g.maxVal(), g.cells.mean() ) )
         # put into buffer
         bufferLock.acquire()
         buffer.append( BufferGrid( signal.index, g ) )
@@ -133,6 +138,7 @@ def threadVoronoiDensity( log, bufferLock, buffer, frameLock,  # thread manageme
         log.setMax( density.maxVal() )
         log.setMin( density.minVal() )
         log.incCount()
+        threadPrint( "Grid %d has min/max/mean values: %f, %f, %f" % ( index, density.minVal(), density.maxVal(), density.cells.mean() ) )
         # put into buffer
         bufferLock.acquire()
         buffer.append( BufferGrid( index, density ) )
@@ -180,6 +186,7 @@ def threadVoronoi( log, bufferLock, buffer, frameLock,  # thread management
         log.setMax( voronoi.maxVal() )
         log.setMin( voronoi.minVal() )
         log.incCount()
+        threadPrint( "Grid %d has min/max/mean values: %f, %f, %f" % ( index, voronoi.minVal(), voronoi.maxVal(), voronoi.cells.mean() ) )
         # put into buffer
         bufferLock.acquire()
         buffer.append( BufferGrid( index, voronoi ) )
