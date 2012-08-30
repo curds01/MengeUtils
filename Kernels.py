@@ -113,7 +113,13 @@ class KernelBase( object ):
         self.reflectBoundaries = reflect
 
     def __str__( self ):
-        return '%s: smooth: %f, cellSize: %f' % ( self.__class__.__name__, self._smoothParam, self._cellSize )
+        s = '%s: smooth: %f, cellSize: %f' % ( self.__class__.__name__, self._smoothParam, self._cellSize )
+        if ( self.reflectBoundaries ):
+            s += " (reflective)"
+        else:
+            s += " (NO reflection)"
+        return s
+
     def needsInitOutput( self, signal ):
         '''This function reports if the output grid needs to be initialized.
 
