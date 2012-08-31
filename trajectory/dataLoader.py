@@ -14,10 +14,12 @@ def loadTrajectory( fileName ):
     '''
     try:
         data = scbData.NPFrameSet( fileName )
+        data.setNext(0)
     except scbData.SCBError:
         try:
             data = julichData.JulichData( 1/ 16.0 )
             data.readFile( fileName )
+            data.setNext(0)
         except:
             raise ValueError, "Unrecognized trajectory data"
     return data
