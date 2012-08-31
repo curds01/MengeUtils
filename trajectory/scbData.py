@@ -163,6 +163,13 @@ class FrameSet:
         valid = version in ( '1.0', '2.0', '2.1', '2.2', '3.0' ) and data[-1] == '\x00'
         f.close()
         return valid
+
+    def summary( self ):
+        '''Creates a simple summary of the trajectory data'''
+        s = 'SCB Trajectory data'
+        s += '\n\t%d pedestrians' % self.agentCount()
+        s += '\n\t%d frames of  data' % self.totalFrames()
+        return s
     
     def readHeader1_0( self, scbFile ):
         '''Reads the header for a version 1.0 scb file'''
