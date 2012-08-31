@@ -99,8 +99,7 @@ if __name__ == '__main__':
         import ColorMap
         import sys, os
         import obstacles
-        import IncludeHeader
-        from trajectoryReader import SeyfriedTrajReader
+        from trajectory import loadTrajectory
         parser = optparse.OptionParser()
         parser.add_option( '-i', '--input', help='A path to a grid file sequence - the data to visualize',
                            action='store', dest='input', default='' )
@@ -134,10 +133,11 @@ if __name__ == '__main__':
             sys.exit(1)
 
         trajData = None
-        if ( options.trajName ):
-            trajData = SeyfriedTrajReader( 1 / 16.0 )
-            trajData.readFile( options.trajName )
-            trajData.setNext( 0 )
+        if ( not options.trajName is None ):
+            try:
+                trajData = loadTrajectory( options.trajName )
+            except ValueError:
+                print "Unable to recognize the data in the file: %s" % ( options.trajName )
 
         folder, baseName = os.path.split( options.output )
         if ( folder ):

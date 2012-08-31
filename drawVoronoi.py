@@ -79,11 +79,15 @@ def drawVoronoiSeries( gfsData, outBaseName, trajData=None, obstacles=None, ext=
     digits = int( np.ceil( np.log10( gfsData.gridCount() ) ) )
 
     for grid, gridID in gfsData:
-        try:
-            frame = None
-            if ( trajData ):
+        
+        frame = None
+        if ( trajData ):
+            try:
                 frame, frameID = trajData.next()
-            fileName = '{0}{1:0{2}d}.{3}'.format( outBaseName, gridID, digits, ext )
+            except StopIteration:
+                break
+        fileName = '{0}{1:0{2}d}.{3}'.format( outBaseName, gridID, digits, ext )
+        try:
             drawVoronoi( grid, fileName, frame, obstacles )
         except MemoryError:
             print "Error on frame", i
@@ -95,8 +99,7 @@ if __name__ == '__main__':
         import optparse
         import sys, os
         import obstacles
-        import IncludeHeader
-        from trajectoryReader import SeyfriedTrajReader
+        from trajectory import loadTrajectory
         parser = optparse.OptionParser()
         parser.set_description( 'Visualize a sequence of voronoi diagrams in a GridFileSequence' )
         parser.add_option( '-i', '--input', help='A path to a grid file sequence - the data to visualize',
@@ -128,11 +131,10 @@ if __name__ == '__main__':
 
         trajData = None
         if ( not options.trajName is None ):
-            # BAD, currently assuming the type of trajectory data.  I need a function that'll figure
-            # that out and load the right data.
-            trajData = SeyfriedTrajReader( 1 / 16.0 )
-            trajData.readFile( options.trajName )
-            trajData.setNext( 0 )
+            try:
+                trajData = loadTrajectory( options.trajName )
+            except ValueError:
+                print "Unable to recognize the data in the file: %s" % ( options.trajName )
 
         reader = GridFileSequenceReader( options.gfsName )
         reader.setNext( 0 )    

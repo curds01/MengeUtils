@@ -381,8 +381,7 @@ def main():
     import optparse
     import sys, os
     import obstacles
-    import IncludeHeader
-    from trajectoryReader import SeyfriedTrajReader
+    from trajectory import loadTrajectory
     parser = optparse.OptionParser()
     parser.set_description( 'Compute a sequence of discrete voronoi diagrams for a trajectory file' )
     parser.add_option( '-t', '--trajectory', help='The path to the trajectoroy data.',
@@ -436,10 +435,12 @@ def main():
     size = Vector2( rX * options.cellSize, rY * options.cellSize )
     voronoiDomain = AbstractGrid( minCorner, size, (rX, rY) )
 
-    # currently assuming julich data for voronoi    
-    pedData = SeyfriedTrajReader( 1 / 16.0 )
-    pedData.readFile( options.trajFileName )
-    pedData.setNext( 0 )
+    # currently assuming julich data for voronoi
+    try:
+        pedData = loadTrajectory( options.trajFileName )
+    except ValueError:
+        print "Unable to recognize the data in the file: %s" % ( options.trajFileName )
+        sys.exit(1)
 
     if ( options.density ):
         print 'Computing density voronoi'

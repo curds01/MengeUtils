@@ -14,10 +14,8 @@ from ColorMap import BlackBodyMap
 import obstacles 
 import ObstacleHandler
 from Voronoi import *
+from trajectory import loadTrajectory
 
-# external
-import IncludeHeader
-from trajectoryReader import SeyfriedTrajReader
 # GLOBALS
 
 PATH = 'ktest'
@@ -108,9 +106,12 @@ def testPedestrian():
     gridDomain = Grid.AbstractGrid( minCorner, domainSize, resolution )
 
     # load pedestrian data
-    data = SeyfriedTrajReader( 1 / 16.0 )
-    data.readFile( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/uo-065-240-240_combined_MB.txt' )
-    data.setNext( 0 )
+    pedFile = '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/uo-065-240-240_combined_MB.txt'
+    try:
+        data = loadTrajectory ( pedFile )
+    except ValueError:
+        print "Unable to recognize the data in the file: %s" % ( pedFile )
+        return
     grids = []
 
     sig = Signals.PedestrianSignal( pedDomain )
@@ -233,33 +234,14 @@ def computeVornoiField( grid ):
     VORONOI_FILE = os.path.join( PATH, 'testVoronoi.npy' )
     def makeVoronoi( grid ):
         print 'COMPUTING VORONOI!'
-        data = SeyfriedTrajReader( 1 / 16.0 )
-        data.readFile( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/dummy.txt' )
-        data.setNext( 0 )
+        pedFile = '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/dummy.txt'
+        try:
+            data = loadTrajectory( pedFile )
+        except ValueError:
+            print "Unable to recognize the data in the file: %s" % ( pedFile )
         frame, frameId = data.next()
         density = computeVoronoiDensity( grid, frame, data.getFrameIds() )
         grid.cells[ :, : ] = density.cells
-##        cellArea = grid.cellSize[0] * grid.cellSize[1] 
-##        voronoi = Voronoi( grid.minCorner, grid.size, grid.resolution, obstSet )
-##        data = SeyfriedTrajReader( 1 / 16.0 )
-##        data.readFile( '/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/dummy.txt' )
-##        data.setNext( 0 )
-##        frame, frameId = data.next()
-##        voronoi.computeVoronoi( grid, frame, 3.0 )
-##        data = voronoi.ownerGrid.cells
-##        # convert to density
-##        print frame.shape
-##        density = np.zeros( data.shape, dtype=np.float32 )
-##        for id in xrange( -1, frame.shape[0] ):
-##            mask = data == id
-##            area = np.sum( mask ) * cellArea
-##            if ( area > 0.0001 ):
-##                density[ mask ] = 1 / area
-##            else:
-##                density[ mask ] = 0
-##        
-##        np.save( VORONOI_FILE, density )
-##        grid.cells[:,:] = density
         
     if ( not os.path.exists( VORONOI_FILE ) ):
         makeVoronoi( grid )

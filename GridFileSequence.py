@@ -715,14 +715,16 @@ class GridFileSequence:
 if __name__ == '__main__':
     def test():
         from Grid import AbstractGrid
-        import IncludeHeader
-        from trajectoryReader import SeyfriedTrajReader
+        from trajectory import loadTrajectory
         import os
 ##        obstPath = r'/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_oneway/c240_obstacles.xml'
 ##        path = r'/projects/crowd/fund_diag/paper/pre_density/experiment/results/density/gaussian_S1.5/uo-065-240-240_combined_MB.density'
 ##        outPath = r'/projects/crowd/fund_diag/paper/pre_density/experiment/results/density/gaussian_S1.5/uo-065-240-240_combined_MB_density/'
-        frameSet = SeyfriedTrajReader( 1/ 16.0 )
-        frameSet.readFile( r'/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/uo-065-240-240_combined_MB.txt' )
+        pedFile = r'/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_onewayDB/uo-065-240-240_combined_MB.txt'
+        try:
+            frameSet = loadTrajectory( pedFile )
+        except ValueError:
+            print "Unable to recognize the data in the file: %s" % ( pedFile )
         domain = AbstractGrid( Vector2( 0.0, -6 ), Vector2( 2.4, 12 ), ( 10, 100 ) )
         gfs = GridFileSequence( 'sequence', arrayType=np.float32 )
         gfs.computeVoronoiDensity( domain, frameSet, None )
