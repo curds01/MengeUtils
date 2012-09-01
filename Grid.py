@@ -139,6 +139,26 @@ class AbstractGrid( RectDomain ):
         X, Y = np.meshgrid( y, x ) 
         stack = np.dstack( (X, Y) )
         return stack
+
+    def getRangeCenters( self, l, r, b, t ):
+        '''Returns an MxNx2 array of world positions of cell centers in the region
+        bounded by the cell coordiantes (l,b) and (r,t).
+
+        @param      l       An int.  In grid coordinates, the left-most bound of the region.
+        @param      r       An int.  In grid coordinates, the right-most bound of the region.
+        @param      b       An int.  In grid coordinates, the bottom-most bound of the region.
+        @param      t       An int.  In grid coordinates, the top-most bound of the region.
+        @returns    An MxNx2 numpy array.  Where M = r - l, N = t - b.
+        '''
+        firstX = self.minCorner[0] + self.cellSize[0] * ( l + 0.5 )
+        firstY = self.minCorner[1] + self.cellSize[1] * ( b + 0.5 )
+        M = r - l
+        N = t - b
+        x = np.arange( M ) * self.cellSize[0] + firstX 
+        y = np.arange( N ) * self.cellSize[1] + firstY
+        X, Y = np.meshgrid( y, x )
+        return np.dstack( (Y, X) )
+        
     
     def getDataGrid( self, initVal=0.0, arrayType=np.float32, leaveEmpty=False ):
         '''Creates an instance of a DataGrid from this abstract data grid.cellSize

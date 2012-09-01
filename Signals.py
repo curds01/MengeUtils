@@ -30,6 +30,19 @@ class Signal:
     def __str__( self ):
         return self.__class__.__name__
 
+    def reflectPoint ( self, point ):
+        '''Given a point INSIDE the signal's domain, returns four points.  The reflection of the
+            point over all domain boundaries.
+
+            It is the caller's responsibility to only call this function on a point that is KNOWN
+            to be inside the domain.  Otherwise, the reflection values will not be meaningful.
+
+        @param      point       A 2-tuple like class with floats.  The x-and y-values of the point
+                                in world space.
+        @returns    A 4 x 2 numpy array.  Each row is a reflected point: left, right, bottom, top.
+        '''
+        raise SignalImplementationError
+
     def setData( self, data ):
         '''Sets the signal's data.'''
         raise SignalImplementationError
@@ -56,6 +69,19 @@ class DiracSignal( Signal ):
 
     def __str__( self ):
         return '%s - %s' % ( self.__class__.__name__, self.domain )
+
+    def reflectPoint ( self, point ):
+        '''Given a point INSIDE the signal's domain, returns four points.  The reflection of the
+            point over all domain boundaries.
+
+            It is the caller's responsibility to only call this function on a point that is KNOWN
+            to be inside the domain.  Otherwise, the reflection values will not be meaningful.
+
+        @param      point       A 2-tuple like class with floats.  The x-and y-values of the point
+                                in world space.
+        @returns    A 4 x 2 numpy array.  Each row is a reflected point: left, right, bottom, top.
+        '''
+        return self.domain.reflectPoint( point )
 
     def copy( self ):
         '''Creates a full copy of this signal'''
@@ -224,6 +250,19 @@ class FieldSignal( Signal ):
         else:
             return '%s - Empty' % ( self.__class__.__name__ )
         
+    def reflectPoint ( self, point ):
+        '''Given a point INSIDE the signal's domain, returns four points.  The reflection of the
+            point over all domain boundaries.
+
+            It is the caller's responsibility to only call this function on a point that is KNOWN
+            to be inside the domain.  Otherwise, the reflection values will not be meaningful.
+
+        @param      point       A 2-tuple like class with floats.  The x-and y-values of the point
+                                in world space.
+        @returns    A 4 x 2 numpy array.  Each row is a reflected point: left, right, bottom, top.
+        '''
+        return self.data.reflectPoint( point )
+
     def copy( self ):
         '''Creates a full copy of this signal'''
         return self.__class__( self.data.copy() )
