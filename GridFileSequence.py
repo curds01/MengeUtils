@@ -150,9 +150,9 @@ class GridFileSequenceReader:
         else:
             self.currGridID = gridID - 1
             size = self.gridSize()
-            byteAddr = self.headerSize + self.startGrid * size + ( gridID * self.gridStride )
-            self.file.seek( byteAddr )
-        
+            byteAddr = self.headerSize + ( self.startGrid + gridID ) * size + ( gridID * self.gridStride )
+            self.file.seek( byteAddr, 0 )
+            
     def next( self ):
         '''Returns the next frame in the sequence.
 
