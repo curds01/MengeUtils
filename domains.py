@@ -50,7 +50,7 @@ class RectDomain:
         self.size = copy.deepcopy( domain.size )
 
     def pointInside( self, point ):
-        '''Reports if the given point is inside the domain.minCorner
+        '''Reports if the given point is inside the domain.
 
         @param      point       A 2-tuple like class with floats.  The x- and y-values
                                 of the point in world space.
@@ -61,6 +61,18 @@ class RectDomain:
         localY = point[1] - self.minCorner[1]
         return ( localX >= 0 and localY >= 0 and
                  localX <= self.size[0] and localY <= self.size[1] )
+
+    def pointsInside( self, points ):
+        '''Reports if the given points are inside the domain.
+
+        @param      points      An Nx2 numpy array of floats.  The x- and y-values
+                                of the N points in world space.
+        @returns    A numpy array of boolean.  True if the corresponding point lies
+                    inside (including on the boundary) False, otherwise.
+        '''
+        localX = points[:,0] - self.minCorner[0]
+        localY = points[:,1] - self.minCorner[1]
+        return ( localX >= 0 ) & ( localY >= 0 ) & ( localX <= self.size[0] ) & ( localY <= self.size[1] )
 
     def reflectPoint( self, point ):
         '''Given a point INSIDE the domain, returns four points.  The reflection of the point over
