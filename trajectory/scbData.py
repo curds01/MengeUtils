@@ -13,7 +13,53 @@ class SCBError( Exception ):
 #   the index when accessed.  (i.e. ids[i] returns i
 class IDMap:
     '''Maps the frame index to the full simulation index'''
+    def __init__( self, agentCount ):
+        '''Constructor for the IDMap.  Serves as a read-only, dictionary-like
+        object for pinging back the agent identifiers.
+
+        @param      agentCount      An int.  The number of agents in the set.
+        '''
+        self.agtCount = agentCount
+        self.currAgent = 0
+
+    def __iter__( self ):
+        '''Treats this as its own iterator.
+
+        Resets the map to the beginning of the set (i.e. -1) and returns
+        itself.
+        '''
+        self.currAgent = -1
+        return self
+
+    def next( self ):
+        '''Returns the next agent id in the set.
+
+        @returns        An int.  The id of the next agent.pos
+        @raises     StopIteration when it has been called self.agtCount times.
+        '''
+        self.currAgent += 1
+        if ( self.currAgent >= self.agtCount ):
+            raise StopIteration
+        return self.currAgent
+    
     def __getitem__( self, i ):
+        '''The id map echoes the index of the position back as the id.  This assumes
+        that every frame has data for every agent.pos
+
+        @param      i       An overloaded type.  It represents a selector
+                            
+        @returns    An int.  The id of the agent.  In this case, it's the same.
+        '''
+        if ( isinstance( i, np.ndarray ) ):
+            if ( i.dtype == np.bool ):
+                if ( i.size <= self.agtCount ):
+                    return np.where( i )
+                else:
+                    raise ValueError, "Selection boolean array is too large - given %d elements for %d agents" % ( i.size, self.agtCount )
+            else:
+                raise ValueError, "Only arrays of bool type can index into an IDMap"
+        if ( isinstance(i, int ) and ( i >= self.agtCount ) ):
+            return KeyError, "Invalid agent index: %s" % str( i )
         return i
     
 class Agent:
