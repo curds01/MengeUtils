@@ -205,7 +205,6 @@ class FrameSet:
         f = open( fileName, 'rb' )
         data = f.read( 4 )
         version = data[:-1]
-        print version
         valid = version in ( '1.0', '2.0', '2.1', '2.2', '3.0' ) and data[-1] == '\x00'
         f.close()
         return valid
