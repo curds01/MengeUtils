@@ -1,10 +1,11 @@
 # Script for visualizing a grid file sequence
-
-from Grid import DataGrid
+import GridFileSequence as GFS
 import numpy as np
 import os
 import pygame
 from primitives import Vector2
+import ColorMap
+from trajectory import loadTrajectory
 
 def drawSites( sites, surface, grid, radius=3 ):
     '''Draws dots at the site locations onto the provided surface.
@@ -90,11 +91,33 @@ def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, sites=Non
         pygame.image.save( s, '{0}{1:0{2}d}.{3}'.format( outFileBase, gridID, digits, imgFormat ) )
     pygame.image.save( cMap.lastMapBar(7), '%sbar.png' % ( outFileBase ) )
         
-        
+def visualizeGFSName( gfsFileName, outFileBase, imgFormat='png', cMap=ColorMap.BlackBodyMap(), mapRange=1.0, sitesName=None, obstacles=None ):
+    '''Visualizes a grid file sequence with the given color map.
+
+    @param      gfsFileName     A string.  The name of the GridFileSequence to visualize.
+    @param      outFileBase     A string.  The basic name of the images to be output.
+                                For each grid in the sequence, it outputs outFileBase_###.imgFormat.
+                                The path must already exist.
+    @param      imgFormat       A string.  The output image format (png, jpg, or bmp )
+    @param      cMap            An instance of ColorMap.  Indicates how the visualization works.
+    @param      mapRange        A float.  Determines what fraction of the data range maps to the color
+                                range.  For example, if mapRange is 0.75, then the value that is
+                                75% of the way between the min and max value achieves the maximum
+                                color value.
+    @param      sitesName       A string.  The path to a set of trajectory sites
+    @param      obstacles       An instance of ObstacleSet (optional).  If obstacle are provided,
+                                Then they will be drawn over the top of the data.
+    '''
+    reader = GFS.GridFileSequenceReader( gfsFileName )
+    reader.setNext( 0 )
+    try:
+        sites = loadTrajectory( sitesName )
+    except:
+        sites = None
+    visualizeGFS( reader, cMap, outFileBase, imgFormat, mapRange, sites, obstacles )
 
 if __name__ == '__main__':
     def main():
-        from GridFileSequence import GridFileSequenceReader
         import optparse
         import ColorMap
         import sys, os
@@ -144,7 +167,7 @@ if __name__ == '__main__':
             if ( not os.path.exists( folder ) ):
                 os.makedirs( folder )
 
-        reader = GridFileSequenceReader( options.input )
+        reader = GFS.GridFileSequenceReader( options.input )
         reader.setNext( 0 )    
 
         obstacles = None
