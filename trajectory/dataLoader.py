@@ -2,6 +2,7 @@
 
 import scbData
 import julichData
+import os
 
 def loadTrajectory( fileName ):
     '''Loads a trajectory file - actual data or simulated data.
@@ -23,3 +24,23 @@ def loadTrajectory( fileName ):
         except:
             raise ValueError, "Unrecognized trajectory data"
     return data
+
+def isTrajectory( fileName ):
+    '''Determines if the given file is a trajectory file.
+
+    @param      fileName        A string.  The path to a file to test.
+    @returns    A boolean.  True if the file is a valid trajectory,
+                False otherwise.
+    '''
+    if ( not os.path.isfile( fileName ) ):
+        return False
+    try:
+        data = scbData.NPFrameSet( fileName )
+        return True
+    except scbData.SCBError:
+        try:
+            data = julichData.JulichData( 1/ 16.0 )
+            data.readFile( fileName )
+            return True
+        except:
+            return False
