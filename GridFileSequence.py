@@ -25,7 +25,8 @@ def threadOutput( outFile, buffer, bufferLock, startTime, gfs ):
             i = buffer.index( nextGrid )
             bg = buffer.pop( i )
             bufferLock.release()
-            print "\t\tWriting buffer %d at time %f s" % ( nextGrid, time.clock() - startTime )
+            if ( nextGrid & 0xFF == 0 ):
+                print "\t\tWriting buffer %d at time %f s" % ( nextGrid, time.clock() - startTime )
             outFile.write( bg.grid.binaryString() )
             nextGrid += 1
         except ValueError:
