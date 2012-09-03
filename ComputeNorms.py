@@ -18,6 +18,8 @@ from primitives import Vector2
 HEADER_SIZE = 20
 TOP_DIR = r'\Users\ksuvee\Documents'
 
+# TODO: THis needs to be updated based on new functionality
+
 def computeLPNorm( densityFileName0, densityFileName1, outPath, outputName, LPNormType ):
     """ Compute difference between two given density fields using
     one of three types of LP-Norm: L1, L2, L-Infinity.

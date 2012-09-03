@@ -6,7 +6,7 @@
 from Grid import DataGrid
 from primitives import Vector2
 
-class Grid( DataGrid ):
+class RasterGrid( DataGrid ):
     """Class to discretize scalar field computation"""
     def __init__( self, minCorner, size, resolution,
                   initVal=0.0 ):
@@ -15,7 +15,7 @@ class Grid( DataGrid ):
         domainX is a Vector2 storing range of value x from user.
         domainX[0] stores min value and domainX[1] stores max value.
         domainY is a similar to domainX but in y-axis"""
-        AbstractGrid.__init__( self, minCorner, size, resolution )
+        DataGrid.__init__( self, minCorner, size, resolution )
         self.initVal = initVal
         self.clear( np.float32 )
 

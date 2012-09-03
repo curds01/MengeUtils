@@ -7,7 +7,7 @@ import time
 import multiprocessing
 
 from Grid import *
-from RasterGrid import Grid
+from RasterGrid import RasterGrid
 from primitives import Vector2
 from ThreadRasterization import *
 
@@ -397,7 +397,7 @@ class GridFileSequence:
                 frame, index = frameSet.next()
             except StopIteration:
                 break
-            grid = Grid( minCorner, size, resolution, 0.0 )
+            grid = RasterGrid( minCorner, size, resolution, 0.0 )
             
             grid.rasterizePosition( frame, dFunc, maxRad )
             outFile.write( grid.binaryString() )
@@ -429,17 +429,17 @@ class GridFileSequence:
         distFunc = lambda x, y: np.exp( -( (x * x + y *y) / ( maxRad * maxRad ) ) )
         print "Speedy type:", speedType
         if ( speedType == GridFileSequence.BLIT_SPEED ):
-            speedFunc = Grid.rasterizeSpeedBlit
+            speedFunc = RasterGrid.rasterizeSpeedBlit
             kernel = None
-            gridFunc = lambda: Grid( minCorner, size, resolution, -1.0 )
+            gridFunc = lambda: RasterGrid( minCorner, size, resolution, -1.0 )
         elif ( speedType == GridFileSequence.NORM_SPEED ):
-            speedFunc = Grid.rasterizeSpeedGauss
+            speedFunc = RasterGrid.rasterizeSpeedGauss
             kernel = Kernel( maxRad, distFunc, cellSize )
-            gridFunc = lambda: Grid( minCorner, size, resolution )
+            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
         elif ( speedType == GridFileSequence.UNNORM_SPEED ):
-            speedFunc = Grid.rasterizeSpeedGauss
+            speedFunc = RasterGrid.rasterizeSpeedGauss
             kernel = Kernel( maxRad, distFunc, cellSize )
-            gridFunc = lambda: Grid( minCorner, size, resolution )
+            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
         elif ( speedType == GridFileSequence.NORM_DENSE_SPEED ):
 ##            try:
 ##                denseFile = open( self.outFileName + ".density", "rb" )
@@ -449,20 +449,20 @@ class GridFileSequence:
 ##            else:
 ##                w, h, count, minVal, maxVal = struct.unpack( 'iiiff', denseFile.read( self.headerSize ) )
 ##                assert( w == resolution[0] and h == resolution[1] )
-##            speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeDenseSpeed( g, denseFile, k, f2, f1, dist, rad, step )
+##            speedFunc = lambda g, k, f2, f1, dist, rad, step: RasterGrid.rasterizeDenseSpeed( g, denseFile, k, f2, f1, dist, rad, step )
 ##            kernel = Kernel( maxRad, distFunc, cellSize )
-##            gridFunc = lambda: Grid( minCorner, size, resolution )
+##            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
             raise ValueError, "This currently unsupported."
         elif ( speedType == GridFileSequence.NORM_CONTRIB_SPEED ):
-            speedFunc = Grid.rasterizeContribSpeed
+            speedFunc = RasterGrid.rasterizeContribSpeed
             kernel = Kernel( maxRad, distFunc, cellSize )
-            gridFunc = lambda: Grid( minCorner, size, resolution )
+            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
         elif ( speedType == GridFileSequence.LAPLACE_SPEED ):
             distFunc = lambda x, y: 1.0 / ( np.pi * maxRad * maxRad ) * ((x * x + y * y - maxRad * maxRad) / (0.25 * maxRad ** 4 ) ) * np.exp( -( (x * x + y *y) / ( maxRad * maxRad ) ) )
-            gridFunc = lambda: Grid( minCorner, size, resolution )
+            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
             X = np.zeros( resolution, dtype=np.float32 )
             Y = np.zeros( resolution, dtype=np.float32 )
-            speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeVelocity( g, X, Y, k, f2, f1, dist, rad, step )
+            speedFunc = lambda g, k, f2, f1, dist, rad, step: RasterGrid.rasterizeVelocity( g, X, Y, k, f2, f1, dist, rad, step )
             kernel = Kernel( maxRad, distFunc, cellSize )
 
         # TODO: This will probably break for some other speed vis method
@@ -531,7 +531,7 @@ class GridFileSequence:
             print '.',
             f1, i1 = data.pop(0)
             f2, i2 = data[ -1 ]
-            g = Grid( minCorner, size, resolution, 100.0 ) 
+            g = RasterGrid( minCorner, size, resolution, 100.0 ) 
             g.rasterizeProgress( f2, initFrame, progress, excludeStates, stats )
 
             m = g.minVal()
@@ -575,19 +575,19 @@ class GridFileSequence:
         distFunc = lambda x, y: np.exp( -( (x * x + y *y) / ( maxRad * maxRad ) ) )
         print "Speedy type:", speedType
         if ( speedType == GridFileSequence.BLIT_SPEED ):
-            speedFunc = Grid.rasterizeOmegaBlit
+            speedFunc = RasterGrid.rasterizeOmegaBlit
             kernel = None
-            gridFunc = lambda: Grid( minCorner, size, resolution, 720.0 )
+            gridFunc = lambda: RasterGrid( minCorner, size, resolution, 720.0 )
         elif ( speedType == GridFileSequence.NORM_SPEED ):
             raise ValueError, "Compute Angular speed doesn't support normalized angular speed"
-##            speedFunc = Grid.rasterizeSpeedGauss
+##            speedFunc = RasterGrid.rasterizeSpeedGauss
 ##            kernel = Kernel( maxRad, distFunc, cellSize )
-##            gridFunc = lambda: Grid( minCorner, size, resolution )
+##            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
         elif ( speedType == GridFileSequence.UNNORM_SPEED ):
             raise ValueError, "Compute Angular speed doesn't support unnormalized angular speed"
-##            speedFunc = Grid.rasterizeSpeedGauss
+##            speedFunc = RasterGrid.rasterizeSpeedGauss
 ##            kernel = Kernel( maxRad, distFunc, cellSize )
-##            gridFunc = lambda: Grid( minCorner, size, resolution )
+##            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
         elif ( speedType == GridFileSequence.NORM_DENSE_SPEED ):
             raise ValueError, "Compute Angular speed doesn't support normalized density angular speed"
 ##            try:
@@ -598,21 +598,21 @@ class GridFileSequence:
 ##            else:
 ##                w, h, count, minVal, maxVal = struct.unpack( 'iiiff', denseFile.read( self.headerSize ) )
 ##                assert( w == resolution[0] and h == resolution[1] )
-##            speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeDenseSpeed( g, denseFile, k, f2, f1, dist, rad, step )
+##            speedFunc = lambda g, k, f2, f1, dist, rad, step: RasterGrid.rasterizeDenseSpeed( g, denseFile, k, f2, f1, dist, rad, step )
 ##            kernel = Kernel( maxRad, distFunc, cellSize )
-##            gridFunc = lambda: Grid( minCorner, size, resolution )
+##            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
         elif ( speedType == GridFileSequence.NORM_CONTRIB_SPEED ):
             raise ValueError, "Compute Angular speed doesn't support normalized contribution angular speed"
-##            speedFunc = Grid.rasterizeContribSpeed
+##            speedFunc = RasterGrid.rasterizeContribSpeed
 ##            kernel = Kernel( maxRad, distFunc, cellSize )
-##            gridFunc = lambda: Grid( minCorner, size, resolution )
+##            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
         elif ( speedType == GridFileSequence.LAPLACE_SPEED ):
             raise ValueError, "Compute Angular speed doesn't support laplacian angular speed"
 ##            distFunc = lambda x, y: 1.0 / ( np.pi * maxRad * maxRad ) * ((x * x + y * y - maxRad * maxRad) / (0.25 * maxRad ** 4 ) ) * np.exp( -( (x * x + y *y) / ( maxRad * maxRad ) ) )
-##            gridFunc = lambda: Grid( minCorner, size, resolution )
+##            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
 ##            X = np.zeros( resolution, dtype=np.float32 )
 ##            Y = np.zeros( resolution, dtype=np.float32 )
-##            speedFunc = lambda g, k, f2, f1, dist, rad, step: Grid.rasterizeVelocity( g, X, Y, k, f2, f1, dist, rad, step )
+##            speedFunc = lambda g, k, f2, f1, dist, rad, step: RasterGrid.rasterizeVelocity( g, X, Y, k, f2, f1, dist, rad, step )
 ##            kernel = Kernel( maxRad, distFunc, cellSize )
 
         stats = StatRecord( frameSet.agentCount() )            
@@ -673,7 +673,7 @@ class GridFileSequence:
         gridCount = 0
         gridSize = resolution[0] * resolution[1]
         while ( True ):
-            g = Grid( minCorner, size, resolution )
+            g = RasterGrid( minCorner, size, resolution )
             g.rasterizeValue( f, distFunc, kernelSize )
             M = g.maxVal()
             if ( M > maxVal ):
@@ -714,7 +714,6 @@ class GridFileSequence:
         
 if __name__ == '__main__':
     def test():
-        from Grid import AbstractGrid
         from trajectory import loadTrajectory
         import os
 ##        obstPath = r'/projects/crowd/fund_diag/paper/pre_density/experiment/Inputs/Corridor_oneway/c240_obstacles.xml'
