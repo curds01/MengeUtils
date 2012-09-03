@@ -7,6 +7,32 @@ import copy
 
 GRID_EPS = 0.00001
 
+def makeDomain( domainX, domainY, cellSize=None ):
+    '''Defines a rectangular domain from the given specifications.
+
+    If cellSize is not specified, the domain is a RectDomain, otherwise, it
+    is an Abstract Grid.
+
+    @param      domainX         A two-tuple like object of floats.  The range of the
+                                test region on the x-axis as [minX, maxX]
+    @param      domainY         A two-tuple like object of floats.  The range of the
+                                test region on the y-axis as [minY, maxY]
+    @param      cellSize        A float.  The size of the cells for the discretized
+                                domain.
+    @returns    An instance of RectDomain or AbstractGrid, depending on cellSize.
+                If cellSize is not defined, then a RectDomain is constructed, otherwise
+                an AbstractGrid.
+    '''
+    minCorner = Vector2( domainX[0], domainY[0] )
+    size = Vector2( domainX[1] - domainX[0], domainY[1] - domainY[0] )
+    if ( cellSize is None ):
+        return RectDomain( minCorner, size )
+    else:
+        rX = int( np.floor( size[0] / cellSize ) ) # explicit truncation
+        rY = int( np.floor( size[1] / cellSize ) ) # explicit truncation
+        size = Vector2( rX * cellSize, rY * cellSize )
+        return AbstractGrid( minCorner, size, (rX, rY) )
+
 class AbstractGrid( RectDomain ):
     '''A class to index into an abstract grid'''
     def __init__( self, minCorner=Vector2(0.0, 0.0), size=Vector2(1.0, 1.0), resolution=(1, 1), cellSize=None ):
