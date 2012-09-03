@@ -5,6 +5,7 @@ import struct
 import threading
 import time
 import multiprocessing
+import os
 
 from Grid import *
 from RasterGrid import RasterGrid
@@ -246,7 +247,7 @@ class GridFileSequence:
         """
         renderTraces( minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase )
 
-    def convolveSignal( self, gridDomain, kernel, signal, frameSet  ):
+    def convolveSignal( self, gridDomain, kernel, signal, frameSet, overwrite=True ):
         '''Creates a binary file representing the density scalar fields of each frame of the
             pedestrian data.
 
@@ -259,6 +260,10 @@ class GridFileSequence:
                                     by the data in frameSet.
         @param      frameSet        An instance of a pedestrian data sequence (could be simulated
                                     or real data.  It could be a sequence of voronoi diagrams.
+        @param      overwrite       A boolean.  Indicates whether files should be created even if they
+                                    already exist or computed from scratch.  If True, they are always created,
+                                    if False, pre-existing files are used.
+        @returns    A string.  The name of the output file.
         '''
         print "Convolve signal"
         print "\t", gridDomain
@@ -268,10 +273,9 @@ class GridFileSequence:
         
         frameSet.setNext( 0 )
         argsFunc = lambda: ( signal.copyEmpty(), frameSet, gridDomain, kernel )
-        self._threadWork( 'density', threadConvolve, argsFunc, gridDomain )
-        
+        return self._threadWork( 'density', threadConvolve, argsFunc, gridDomain, overwrite )
 
-    def computeVoronoiDensity( self, gridDomain, frameSet, obstacles=None, limit=-1  ):
+    def computeVoronoiDensity( self, gridDomain, frameSet, obstacles=None, limit=-1 ):
         '''Computes a density field for the frameset based on the voronoi diagram.
         The density of each voronoi region is the inverse of the area of that region.
 
@@ -283,13 +287,14 @@ class GridFileSequence:
                                     based on obstacles.
         @param      limit           A float.  The maximum distance a point can be and still lie
                                     in a voronoi region.
+        @returns    A string.  The name of the output file.
         '''
         print "computeVoronoiDensity"
         print "\t", gridDomain
         print "\t", frameSet
         frameSet.setNext( 0 )
         argsFunc = lambda: ( frameSet, gridDomain, obstacles, limit )
-        self._threadWork( 'voronoiDensity', threadVoronoiDensity, argsFunc, gridDomain )
+        return self._threadWork( 'voronoiDensity', threadVoronoiDensity, argsFunc, gridDomain )
         
 
     def computeVoronoi( self, gridDomain, frameSet, obstacles=None, limit=-1 ):
@@ -304,16 +309,17 @@ class GridFileSequence:
                                     based on obstacles.
         @param      limit           A float.  The maximum distance a point can be and still lie
                                     in a voronoi region.
+        @returns    A string.  The name of the output file.
         '''
         print "computeVoronoi"
         print "\t", gridDomain
         print "\t", frameSet
         frameSet.setNext( 0 )
         argsFunc = lambda: ( frameSet, gridDomain, obstacles, limit )
-        self._threadWork( 'voronoi', threadVoronoi, argsFunc, gridDomain )
+        return self._threadWork( 'voronoi', threadVoronoi, argsFunc, gridDomain )
         
 
-    def _threadWork( self, fileExt, function, funcArgs, gridDomain ):
+    def _threadWork( self, fileExt, function, funcArgs, gridDomain, overwrite=True ):
         '''Sets up threaded work.
 
         @param      fileExt         A string.  The extension applied to the GFS file.
@@ -330,9 +336,17 @@ class GridFileSequence:
                                     with each thread.  This interface allows that.
         @param      gridDomain      An instance of AbstractGrid, specifying the grid domain
                                     and resolution over which the density field is calculated.
+        @param      overwrite       A boolean.  Indicates whether files should be created even if they
+                                    already exist or computed from scratch.  If True, they are always created,
+                                    if False, pre-existing files are used.
+        @returns    A string.  The name of the output file.
         '''
         # file output
-        outFile = open( '%s.%s' % ( self.outFileName, fileExt ), 'wb' )
+        fileName = '%s.%s' % ( self.outFileName, fileExt )
+        if ( not overwrite ):
+            if ( os.path.exists( fileName ) ):
+                return fileName
+        outFile = open( fileName, 'wb' )
         outFile.write( self.header( gridDomain.minCorner, gridDomain.size, gridDomain.resolution ) )
         buffer = []
         bufferLock = threading.Lock()
@@ -370,6 +384,7 @@ class GridFileSequence:
         # add the additional information about grid count and maximum values
         self.fillInHeader( outFile, gridCount, minVal, maxVal )
         outFile.close()
+        return fileName
         
     def splatAgents( self, minCorner, size, resolution, radius, frameSet ):
         '''Simply splats the agents onto the grid'''
