@@ -32,7 +32,7 @@ def threadOutput( outFile, buffer, bufferLock, startTime, gfs ):
         except ValueError:
             bufferLock.release()
             time.sleep( 1.0 )
-
+    print "\t\tLast grid %d at time %f s" % ( nextGrid - 1, time.clock() - startTime )
 class RasterReport:
     """Simple class to return the results of rasterization"""
     def __init__( self ):
