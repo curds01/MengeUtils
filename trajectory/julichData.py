@@ -141,6 +141,7 @@ class JulichData:
             if ( self.toMeters ):
                 x *= 0.01
                 y *= 0.01
+                z *= 0.01
             # this assumes that the first frame seen serves as an appropriate origin
             #   if the agents were not reported in increasing start times, later agents
             #   could have start times before this. 
@@ -164,17 +165,19 @@ class JulichData:
         # normalize all start times
         #   produce numpy arrays of each trajectory
         #   Determine duration of sequence
-        for ped in self.pedestrians:
+        for i, ped in enumerate( self.pedestrians ):
+            ped.id = i
             ped.start = (ped.start - startFrame) / self.frameStep
             ped.finalize()
             end = ped.start + ped.traj.shape[0]
             if ( end > self.duration ):
                 self.duration = end
-            # create a frame that is the size of all the agents (the biggest possible frame)
-            #   during calls to next, windows of this data will be returned
-            self.currFrame = np.empty( ( len( self.pedestrians ), 2 ), dtype=np.float32 )
-            self.currIDs = np.empty( len( self.pedestrians ), dtype=np.int )
         f.close()
+        # create a frame that is the size of all the agents (the biggest possible frame)
+        #   during calls to next, windows of this data will be returned
+        self.currFrame = np.empty( ( len( self.pedestrians ), 2 ), dtype=np.float32 )
+        self.currIDs = np.empty( len( self.pedestrians ), dtype=np.int )
+        self.setNext( 0 )
         # handle limits
 ##        if ( self.maxFrames > 0 ):
 ##            self.duration = min( self.maxFrames, self.duration )
