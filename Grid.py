@@ -7,6 +7,12 @@ import copy
 
 GRID_EPS = 0.00001
 
+# Enumerations to indicate whether something is inside or outside the domain
+#   Used by the DataGrid.getValue method to report if the evaluatio point
+#   was inside or outside of the domain
+INSIDE = 1
+OUTSIDE = 2
+
 def makeDomain( domainX, domainY, cellSize=None ):
     '''Defines a rectangular domain from the given specifications.
 
@@ -300,8 +306,136 @@ class DataGrid( AbstractGrid) :
         """Creates a pygame surface"""
         return map.colorOnSurface( (minVal, maxVal ), self.cells )
 
-    
+    def getValue( self, pos, fast=True ):
+        '''Retrieves the value in the grid located at position.
 
+        The grid has values at cell centers.  The value retrieved can either
+        be the value at the center of the cell in which pos lies, or it can be the
+        bilinear interpolation of several cell centers -- it depends on the fast argument.
+
+        If pos lies outside the domain, then the value returned depends on the nearest
+        cells.
+
+        @param      pos     A 2-tuple-like object.  The x- and y-values of the point
+                            in world space.
+        @param      fast    A boolean.  If True, simply returns the value of the closest
+                            center.  If false, uses bi-linear interpolation.
+        @returns    A 2-tuple (int, value). The int is the enumeration INSIDE|OUTSIDE and the
+                    second value (based on grid data type) is the value of the grid.  The caller
+                    can interpret the INSIDE/OUTSIDE flag as it wishes.
+        '''
+        p = Vector2( pos[0], pos[1] )
+        if ( fast ):
+            return self.getValueFast( p )
+        else:
+            return self.getValueBilinear( p )
+
+    def getValueFast( self, pos ):
+        '''Retrieves the value in the grid located at cell center closest to pos.
+
+        If pos lies outside the domain, then the value returned is the value of the
+        nearest cell.
+
+        @param      pos         A 2-tuple-like object.  The x- and y-values of the point
+                                in world space.
+        @returns    A 2-tuple (int, value). The int is the enumeration INSIDE|OUTSIDE and the
+                    second value (based on grid data type) is the value of the grid.  The caller
+                    can interpret the INSIDE/OUTSIDE flag as it wishes.
+        '''
+        state = INSIDE
+        center = list( self.getCenter( pos ) )
+        if ( center[0] < 0 ):
+            state = OUTSIDE
+            center[0] = 0
+        elif ( center[0] >= self.resolution[0] ):
+            state = OUTSIDE
+            center[0] = self.resolution[0] - 1
+        if ( center[1] < 0 ):
+            state = OUTSIDE
+            center[1] = 0
+        elif ( center[1] >= self.resolution[1] ):
+            state = OUTSIDE
+            center[1] = self.resolution[1] - 1
+        return state, self.cells[ center[0], center[1] ]
+
+    def getValueBilinear( self, pos ):
+        '''Retrieves the value in the grid located pos based on bilinear interpolation of
+        the four nearest cell values.
+
+        If pos lies outside the domain, then the value returned depends on the cells
+        nearest pos.
+
+        @param      pos         A 2-tuple-like object.  The x- and y-values of the point
+                                in world space.
+        @returns    A 2-tuple (int, value). The int is the enumeration INSIDE|OUTSIDE and the
+                    second value (based on grid data type) is the value of the grid.  The caller
+                    can interpret the INSIDE/OUTSIDE flag as it wishes.
+        '''
+        #
+        #  Evaluates the point as follows
+        #    |        |        |
+        #   ---------------------
+        #    |        |        |
+        #    |   C    |   D    |
+        #    |        | P      |
+        #   ------------.-b------
+        #    |        | .      |
+        #    |   A....|.. B    |
+        #    |      a |        |
+        #   ---------------------
+        #    |        |        |
+        #
+        #   P is the test point.  A, B, C, and D are the positions of the CENTERS of their corresponding
+        #   cells.  We define the function f(P) as a bilinear weight
+        #   Generally f(P) = b * ( a * D + (1-a) * C ) +
+        #                   (1-b) * ( a * A + (1-a) * B )
+        #
+        #   There are special cases if A, B, C, or D are not well defined because P lies outside the domain
+        #   spanned by the grid's CENTERS (which is slightly inset of the actual domain).
+        #
+        #   If P is to the left of the grid centers, then only centers DB are used, on the right only AC
+        #   If P is above the grid centers, CD are used, if below AB
+        #   If off in both directions, then only one of the corners is used.
+        
+        # Determine which cells contribute
+        minCenter = self.minCorner + ( self.cellSize * 0.5 )
+        Sx = ( pos[0] - minCenter[0] ) / self.cellSize[0]
+        xBlend = None
+        if ( Sx <= 0.0 ):  # point is on the left side of the centers domain
+            Ax = 0
+            xBlend = lambda left, right: left
+        elif ( Sx >= self.resolution[0] - 1 ):   # point is on the RIGHT side of the centers domain
+            Ax = self.resolution[0] - 2
+            xBlend = lambda left, right: right
+        else:       # point is nicely inside the well-behaved domain (on the x-axis)
+            Ax = int( np.floor( Sx ) )
+            alpha = Sx - Ax
+            xBlend = lambda left, right: alpha * left + ( 1 - alpha ) * right
+
+        Sy = ( pos[1] - minCenter[1] ) / self.cellSize[1]
+        yBlend = None
+        if ( Sy <= 0.0 ):  # point is on the left side of the centers domain
+            Ay = 0
+            yBlend = lambda bottom, top: bottom
+        elif ( Sy >= self.resolution[1] - 1 ):   # point is on the RIGHT side of the centers domain
+            Ay = self.resolution[1] - 2
+            yBlend = lambda bottom, top: top
+        else:       # point is nicely inside the well-behaved domain (on the x-axis)
+            Ay = int( np.floor( Sy ) )
+            beta = Sy - Ay
+            yBlend = lambda bottom, top: beta * top + ( 1 - beta ) * bottom
+
+        fA = self.cells[ Ax, Ay ]
+        fB = self.cells[ Ax + 1, Ay ]
+        bottom = xBlend( fA, fB )   # blend( A, B )
+        fC = self.cells[ Ax, Ay + 1 ]
+        fD = self.cells[ Ax + 1, Ay + 1 ]
+        top = xBlend( fC, fD )   # blend( C, D )
+        result = yBlend( bottom, top )
+        state = INSIDE
+        if ( Sx < -0.5 or Sx > self.resolution[0] - 0.5 or Sy < -0.5 or Sy > self.resolution[0] - 0.5 ):
+            state = OUTSIDE
+        return state, result
 
 if __name__ == '__main__':
     def testIntersection():
@@ -327,6 +461,69 @@ if __name__ == '__main__':
                 print "\t\t%s n %s" % ( g, gTest )
                 print "\t\tEXPECTED:\n\t\t", expInter
                 print "\t\tGOT:    \n\t\t", result
-                
 
-    testIntersection()                
+    def testValue():
+        print 'Tests the value look-up of the grid'
+        g = DataGrid( Vector2( -1, -1 ), Vector2( 2, 2 ), ( 2, 2 ) )
+        data = np.array( ( ( 3, 1), (4, 2) ), dtype=np.float32 )
+        g.cells[ :, : ] = data
+
+        testPoints = (  (Vector2( -0.5, -0.5 ), 3, INSIDE ),
+                        (Vector2( -0.5, 0.5 ), 1, INSIDE ),
+                        (Vector2( 0.5, -0.5 ), 4, INSIDE ),
+                        (Vector2( 0.5, 0.5 ), 2, INSIDE ),
+                        (Vector2( -0.999, -0.999 ), 3, INSIDE ),
+                        (Vector2( -1.1, -1.1 ), 3, OUTSIDE ),
+                        (Vector2( -0.999, 0.999 ), 1, INSIDE ),
+                        (Vector2( -1.1, 1.1 ), 1, OUTSIDE ),
+                        (Vector2( 0.999, -0.999 ), 4, INSIDE ),
+                        (Vector2( 1.1, -1.1 ), 4, OUTSIDE ),
+                        (Vector2( 0.999, 0.999 ), 2, INSIDE ),
+                        (Vector2( 1.1, 1.1 ), 2, OUTSIDE ),
+                        )
+
+        print "\tFast queries"
+        for pt, soln, expState in testPoints:
+            state, result = g.getValue( pt )
+            if ( state != expState ):
+                if ( state == INSIDE ):
+                    print "\t\tFailed!  Misreported point %s inside the domain" % pt
+                else:
+                    print "\t\tFailed!  Misreported point %s outside the domain" % pt
+            if ( soln != result ):
+                print "\t\tFailed reading fast value at %s: Got %f, expected %f" % ( pt, result, soln )
+            else:
+                print "\t\tPassed: %s - %f" % ( pt, result )
+
+        newTest = ( ( Vector2( 0, 0 ), 2.5, INSIDE ),
+                    ( Vector2( 0, -0.6 ), 3.5, INSIDE ),
+                    ( Vector2( 0, -1 ), 3.5, INSIDE ),
+                    ( Vector2( 0, -1.1 ), 3.5, OUTSIDE ),
+                    ( Vector2( 0, 0.6 ), 1.5, INSIDE ),
+                    ( Vector2( 0, 1 ), 1.5, INSIDE ),
+                    ( Vector2( 0, 1.1 ), 1.5, OUTSIDE ),
+                    ( Vector2( 0.6, 0 ), 3, INSIDE ),
+                    ( Vector2( 1, 0 ), 3, INSIDE ),
+                    ( Vector2( 1.1, 0 ), 3, OUTSIDE ),
+                    ( Vector2( -0.6, 0 ), 2, INSIDE ),
+                    ( Vector2( -1, 0 ), 2, INSIDE ),
+                    ( Vector2( -1.1, 0 ), 2, OUTSIDE ),
+                    )
+        testPoints = testPoints + newTest
+        print "\tBilinearly interpolated queries"
+        for pt, soln, expState in testPoints:
+            state, result = g.getValue( pt, False )
+            if ( state != expState ):
+                if ( state == INSIDE ):
+                    print "\t\tFailed!  Misreported point %s inside the domain" % pt
+                else:
+                    print "\t\tFailed!  Misreported point %s outside the domain" % pt
+            if ( soln != result ):
+                print "\t\tFailed reading fast value at %s: Got %f, expected %f" % ( pt, result, soln )
+            else:
+                print "\t\tPassed: %s - %f" % ( pt, result )
+        
+                
+    testValue()
+##    testIntersection()
+    
