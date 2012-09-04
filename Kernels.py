@@ -126,6 +126,15 @@ class KernelBase( object ):
             s += " (NO reflection)"
         return s
 
+    @classmethod
+    def smoothCharacteristic( self ):
+        '''The smoothing parameter charcteristic for this kernel.  It is
+        used to compute equivalent smoothing parameters across kernels.
+
+        @returns        A float.  The smoothing characteristc of the kernel.
+        '''
+        raise KernelError, "Each implementable kernel must define its smooth characteristic"
+        
     def needsInitOutput( self, signal ):
         '''This function reports if the output grid needs to be initialized.
 
@@ -546,6 +555,17 @@ class UniformCircleKernel( InseparableKernel ):
     def getSupport( self ):
         '''The circle kernel's support is twice the smoothing parameter'''
         return 2 * self._smoothParam
+
+    @classmethod
+    def smoothCharacteristic( self ):
+        '''The smoothing parameter charcteristic for this kernel.  It is
+        used to compute equivalent smoothing parameters across kernels.
+
+        @returns        A float.  The smoothing characteristc of the kernel.
+        '''
+        # TODO: Determine the TRUE answer for this
+        return 1 / np.sqrt( 3.0 )
+        
     
 class UniformKernel( SeparableKernel ):
     '''A simple uniform kernel'''
@@ -555,6 +575,15 @@ class UniformKernel( SeparableKernel ):
     def __init__( self, smoothParam, cellSize, reflect=True, fastDirac=True ):
         SeparableKernel.__init__( self, smoothParam, cellSize, reflect, fastDirac )
 
+    @classmethod
+    def smoothCharacteristic( self ):
+        '''The smoothing parameter charcteristic for this kernel.  It is
+        used to compute equivalent smoothing parameters across kernels.
+
+        @returns        A float.  The smoothing characteristc of the kernel.
+        '''
+        return 1 / np.sqrt( 3.0 )
+        
     def getSupport( self ):
         '''The uniform kernel's support is equal to the smooth parameter'''
         return self._smoothParam
@@ -585,6 +614,15 @@ class BiweightKernel( SeparableKernel ):
     
     def __init__( self, smoothParam, cellSize, reflect=True, fastDirac=True ):
         SeparableKernel.__init__( self, smoothParam, cellSize, reflect, fastDirac )
+        
+    @classmethod
+    def smoothCharacteristic( self ):
+        '''The smoothing parameter charcteristic for this kernel.  It is
+        used to compute equivalent smoothing parameters across kernels.
+
+        @returns        A float.  The smoothing characteristc of the kernel.
+        '''
+        return 1 / np.sqrt( 7.0 )
         
     def getSupport( self ):
         '''The circle kernel's support is twice the smoothing parameter'''
@@ -618,6 +656,15 @@ class TriangleKernel( SeparableKernel ):
     
     def __init__( self, smoothParam, cellSize, reflect=True, fastDirac=True ):
         SeparableKernel.__init__( self, smoothParam, cellSize, reflect, fastDirac )
+        
+    @classmethod
+    def smoothCharacteristic( self ):
+        '''The smoothing parameter charcteristic for this kernel.  It is
+        used to compute equivalent smoothing parameters across kernels.
+
+        @returns        A float.  The smoothing characteristc of the kernel.
+        '''
+        return 1 / np.sqrt( 6.0 )
         
     def getSupport( self ):
         '''The circle kernel's support is twice the smoothing parameter'''
@@ -655,6 +702,17 @@ class GaussianKernel( SeparableKernel ):
         '''The uniform kernel's support is equal to the smooth parameter'''
         return 6 * self._smoothParam
 
+    @classmethod
+    def smoothCharacteristic( self ):
+        '''The smoothing parameter charcteristic for this kernel.  It is
+        used to compute equivalent smoothing parameters across kernels.
+
+        @returns        A float.  The smoothing characteristc of the kernel.
+        '''
+        return 1.0
+        
+        
+
 class Plaue11Kernel( KernelBase ):
     '''This is the adaptive kernel mechamism proposed by Plaue et al. (2011).conjugate
     It changes the smoothing parameter based on nearest neighbor information per agent.'''
@@ -672,6 +730,15 @@ class Plaue11Kernel( KernelBase ):
         self.obstacles = obstacles
         
         KernelBase.__init__( self, smoothParam, cellSize, reflect, fastDirac )
+
+    @classmethod
+    def smoothCharacteristic( self ):
+        '''The smoothing parameter charcteristic for this kernel.  It is
+        used to compute equivalent smoothing parameters across kernels.
+
+        @returns        A float.  The smoothing characteristc of the kernel.
+        '''
+        return 1.0
         
     def getSupport( self ):
         '''The uniform kernel's support is equal to the smooth parameter'''
