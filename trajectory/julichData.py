@@ -178,9 +178,6 @@ class JulichData:
         self.currFrame = np.empty( ( len( self.pedestrians ), 2 ), dtype=np.float32 )
         self.currIDs = np.empty( len( self.pedestrians ), dtype=np.int )
         self.setNext( 0 )
-        # handle limits
-##        if ( self.maxFrames > 0 ):
-##            self.duration = min( self.maxFrames, self.duration )
 
     def summary( self ):
         '''Creates a simple summary of the trajectory data'''
@@ -251,7 +248,7 @@ class JulichData:
         f.close()
 
     def writeAgent( self, output, agentID ):
-        '''Writes a single agent to an output file.close
+        '''Writes a single agent to an output file.
 
         @param  output      A string.  The name of the file.
         @param  agentID     An int.  The id of the agent to write.
@@ -298,10 +295,11 @@ if __name__ == '__main__':
         while( True ):
             try:
                 frame, index = reader.next()
+                ids = reader.getFrameIds()
             except StopIteration:
                 break
             else:
-                print "Frame %d has %d agents" % ( index, frame.shape[0] )
+                print "Frame %d has %d agents" % ( index, frame.shape[0] ), ids
 
     main()            
 
