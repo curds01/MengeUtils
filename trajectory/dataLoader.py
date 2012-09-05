@@ -34,13 +34,7 @@ def isTrajectory( fileName ):
     '''
     if ( not os.path.isfile( fileName ) ):
         return False
-    try:
-        data = scbData.NPFrameSet( fileName )
-        return True
-    except scbData.SCBError:
-        try:
-            data = julichData.JulichData( 1/ 16.0 )
-            data.readFile( fileName )
-            return True
-        except:
-            return False
+    valid = scbData.NPFrameSet.isValid( fileName )
+    if ( not valid ):
+        return julichData.JulichData.isValid( fileName )
+    return valid
