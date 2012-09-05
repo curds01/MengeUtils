@@ -195,8 +195,9 @@ class FrameSet:
         self.currFrame = None
         self.setNext( 0 )
 
-    def isValid( self, fileName ):
-        '''Reports if the given file is an scb file.close
+    @staticmethod
+    def isValid( fileName ):
+        '''Reports if the given file is an scb file.
 
         @param      fileName        A string.  The name of the file to check.
         @returns    A boolean.  True if the first four bytes of the file conform to a

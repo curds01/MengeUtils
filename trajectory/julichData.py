@@ -101,6 +101,46 @@ class JulichData:
     def __str__( self ):
         return self.summary()
 
+    @staticmethod
+    def isValid( fileName ):
+        '''Reports if the given file is a julich data file.
+
+        @param      fileName        A string.  The name of the file to check.
+        @returns    A boolean.  True if the data adheres to julich data file format
+        '''
+        LINES_TO_READ = 10
+        f = open( fileName, 'r' )
+        num = 0
+        valid = True
+        for line in f.xreadlines():
+            if ( line == '' ):
+                continue
+            
+            # Test by looking at the format at LINES_TO_READ number of lines
+
+            LINES_TO_READ -= 1
+            tokens = line.strip().split()
+            if ( len( tokens ) < 4 ):
+                valid = False
+                break
+            try:
+                pedID = int( tokens[0] )
+                frameNum = int( tokens[1] )
+                x = float( tokens[2] )
+                y = float( tokens[3] )
+                try:
+                    z = float( tokens[4] )
+                except IndexError:
+                    z = 0.0
+            except ValueError:
+                valid = False
+                break
+            
+            if ( LINES_TO_READ <= 0 ):
+                break
+            
+        return valid
+    
     # This property is an alias for timeStep -- it is because the NPFrameSet provides
     #   this (badly named) property and I want them to be equivalent in this manner
     simStepSize = property( lambda self: self.timeStep, lambda self, ts: self._setTimeStep( ts ) )
