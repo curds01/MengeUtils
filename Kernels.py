@@ -23,27 +23,14 @@ class KernelDomainError( KernelError ):
 KERNEL_EPS = 0.00001
 
 IDENTITY_FUNCTION = lambda x, sigma: x
-IDENTITY_FUNCTION_2D = lambda x, y, sigma: (x + y) * sigma
+
 UNIFORM_FUNCTION = lambda x, sigma: np.zeros_like( x ) + (1.0 / sigma)
-UNIFORM_FUNCTION_2D = lambda x, y, sigma: np.zeros_like( x ) + ( 1.0 / ( sigma * sigma ) )
+
 GAUSSIAN_FUNCTION = lambda x, sigma: np.exp( -( x * x ) / ( 2 * sigma * sigma ) ) / ( np.sqrt( 2.0 * np.pi ) * sigma )
-GAUSSIAN_FUNCTION_2D = lambda x, y, sigma: np.exp( -( x * x + y * y) / ( 2 * sigma * sigma ) ) / ( 2.0 * np.pi * sigma * sigma )
-CIRCLE_FUNC = UNIFORM_FUNCTION
+
 def CIRCLE_FUNC_2D( x, y, sigma ):
     s2 = sigma * sigma
     return ( 1 / (np.pi * s2 ) ) * (( x * x + y * y) <= s2)
-
-def POLAR_BIWEIGHT_FUNC_2D( x, y, sigma ):
-    '''Defines a 2D biweight function f(x,y): 225/226s^2 * ( 1-x^2/s^2) * (1-y^2/s^2)
-    in polar coordinates with CIRCULAR compact support with radius = sigma.'''
-    d2 = x * x + y * y
-    s2 = sigma * sigma
-    value = ( 1 - d2 / s2 )
-    value *= value
-    # This normalization factor is not correct!  It's close, but not quite right.
-    #   I've done the math several times and still can't get a different, better answer.
-    norm = 15.0 / (16.0 * s2 )
-    return norm * value * ( d2 <= s2 )  # zero out the regions outside the circle
 
 def BIWEIGHT_FUNC( x, sigma ):
     '''Defines the classic 1D biweight function f(x): 15/16s * ( 1-x^2/s^2).
@@ -56,52 +43,13 @@ def BIWEIGHT_FUNC( x, sigma ):
     t1 *= t1
     return ( 15.0 / ( sigma * 16.0 ) ) * t1
 
-def BIWEIGHT_FUNC_INT( x0, x1, sigma ):
-    '''Defines the integral of the biweight function over the interval [x0, x1].
-    (It assumes that x0, x1 lies within the range [-sigma, sigma], otherwise the
-    integral value will not have any resonable interpretation.'''
-    def intFunc( x, sigma ):
-        '''The indefinite integral of the biweight evaluated at x0.
-        @param  x      A numpy array or float.  The point at which to evaluate the integral.
-        @param  sig2    The smoothing parameter of the biweight.
-        '''
-        x2 = x * x
-        x3 = x * x2
-        x5 = x2 * x3
-        s2 = sigma * sigma
-        s4 = s2 * s2
-        return ((15.0/16.0) / sigma ) * ( x - (2.0/3.0) * x3 / s2 + x5 / ( 5.0 * s4 ) )
-    return intFunc( x1, sigma ) - intFunc( x0, sigma )
-
 TRIANGLE_FUNC = lambda x, sigma: ( 1 - np.abs( x ) / sigma ) / sigma
-TRIANGLE_FUNC_2D = lambda x, y, sigma: (1.0 - np.abs(y) / sigma ) * ( 1 - np.abs( x ) / sigma ) / sigma / sigma
-
-def TRIANGLE_FUNC_INT( x0, x1, sigma ):
-    '''Defines the integral of the triangle function over the interval [x0, x1].
-    For simplificaiton, it assumes x0, x1 >= 0 and x0 < x1.'''
-    def intFunc( x, sigma ):
-        '''The indefinite integral of the triangular function evaluatd at x'''
-        x2 = x * x
-        invSigma = 1 / sigma
-        return invSigma * ( x - 0.5 * x2 * invSigma )
-    return intFunc( x1, sigma ) - intFunc( x0, sigma )
-
-def BIWEIGHT_FUNC_2D( x, y, sigma ):
-    '''Defines the classic biweight function f(x,y): 225/226s^2 * ( 1-x^2/s^2) * (1-y^2/s^2)
-    in rectangular coordinates.'''
-    s2 = sigma * sigma
-    x2 = x * x / s2
-    y2 = y * y / s2
-    t1 = ( 1 - x2 )
-    t1 *= t1
-    t2 = ( 1 - y2 )
-    t2 *= t2
-    return ( 225.0 / ( s2 * 256.0 ) ) * t1 * t2 * ( x2 + y2 <= s2 )
 
 class KernelBase( object ):
     '''The base class of a discrete convolution kernel.  It assumes uniform, square discretization of the domain'''
-    FUNC_1D = staticmethod( IDENTITY_FUNCTION )
-    FUNC_2D = staticmethod( IDENTITY_FUNCTION_2D )
+    # This is the class-wide function which defines the kernel.  Each instantiable sub-class must define a function
+    #   The function may be 1D or 2D depending on whether it is separable or insperable
+    FUNC = None
     
     def __init__( self, smoothParam, cellSize, reflect=True ):
         '''Initializes the kernel with the smoothing parameter and boundary behavior.
@@ -375,7 +323,7 @@ class SeparableKernel( KernelBase ):
             hCount += 1
         x = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
         
-        self.data1D = self.FUNC_1D( x, self._smoothParam ) #* self._cellSize
+        self.data1D = self.FUNC( x, self._smoothParam ) #* self._cellSize
         temp = np.reshape( self.data1D, (-1, 1 ) )
         self.data = temp * temp.T
         self.data1D *= self._cellSize
@@ -413,7 +361,7 @@ class InseparableKernel( KernelBase ):
         o = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
         X, Y = np.meshgrid( o, o )
 
-        self.data = self.FUNC_2D( X, Y, self._smoothParam ) #* ( self._cellSize * self._cellSize )
+        self.data = self.FUNC( X, Y, self._smoothParam ) #* ( self._cellSize * self._cellSize )
         self.normData = self.data * ( self._cellSize * self._cellSize )
 
     def convolveField( self, signal, grid ):
@@ -430,8 +378,7 @@ class InseparableKernel( KernelBase ):
 class UniformCircleKernel( InseparableKernel ):
     '''A uniform kernel with circular support.  The smoothing parameter is the RADIUS of
     the circle.'''
-    FUNC_1D = staticmethod( CIRCLE_FUNC )
-    FUNC_2D = staticmethod( CIRCLE_FUNC_2D )
+    FUNC = staticmethod( CIRCLE_FUNC_2D )
     
     def __init__( self, smoothParam, cellSize, reflect=True ):
         InseparableKernel.__init__( self, smoothParam, cellSize, reflect )
@@ -453,8 +400,7 @@ class UniformCircleKernel( InseparableKernel ):
     
 class UniformKernel( SeparableKernel ):
     '''A simple uniform kernel'''
-    FUNC_1D = staticmethod( UNIFORM_FUNCTION )
-    FUNC_2D = staticmethod( UNIFORM_FUNCTION_2D )
+    FUNC = staticmethod( UNIFORM_FUNCTION )
     
     def __init__( self, smoothParam, cellSize, reflect=True ):
         SeparableKernel.__init__( self, smoothParam, cellSize, reflect )
@@ -523,8 +469,7 @@ class UniformKernel( SeparableKernel ):
 class BiweightKernel( SeparableKernel ):
     '''A 2D biweight kernel with square support.  The smoothing parameter is the HALF width of
     the square of support.'''
-    FUNC_1D = staticmethod( BIWEIGHT_FUNC )
-    FUNC_2D = staticmethod( BIWEIGHT_FUNC_2D )
+    FUNC = staticmethod( BIWEIGHT_FUNC )
     
     def __init__( self, smoothParam, cellSize, reflect=True ):
         SeparableKernel.__init__( self, smoothParam, cellSize, reflect )
@@ -545,8 +490,7 @@ class BiweightKernel( SeparableKernel ):
 class TriangleKernel( SeparableKernel ):
     '''A 2D triangle kernel with square support.  The smoothing parameter is the HALF width of
     the square of support.'''
-    FUNC_1D = staticmethod( TRIANGLE_FUNC )
-    FUNC_2D = staticmethod( TRIANGLE_FUNC_2D )
+    FUNC = staticmethod( TRIANGLE_FUNC )
     
     def __init__( self, smoothParam, cellSize, reflect=True ):
         SeparableKernel.__init__( self, smoothParam, cellSize, reflect )
@@ -566,8 +510,7 @@ class TriangleKernel( SeparableKernel ):
 
 class GaussianKernel( SeparableKernel ):
     '''A simple gaussian kernel - it implies a compact support of 6*sigma'''
-    FUNC_1D = staticmethod( GAUSSIAN_FUNCTION )
-    FUNC_2D = staticmethod( GAUSSIAN_FUNCTION_2D )
+    FUNC = staticmethod( GAUSSIAN_FUNCTION )
     
     def __init__( self, smoothParam, cellSize, reflect=True ):
         SeparableKernel.__init__( self, smoothParam, cellSize, reflect )
@@ -596,8 +539,7 @@ class Plaue11Kernel( KernelBase ):
     # lower bound on the sigma value
     DIST_BOUND = 0.1
     
-    FUNC_1D = staticmethod( GAUSSIAN_FUNCTION )
-    FUNC_2D = staticmethod( GAUSSIAN_FUNCTION_2D )
+    FUNC = staticmethod( GAUSSIAN_FUNCTION )
     
     def __init__( self, smoothParam, cellSize, reflect, obstacles=None ):
         # TODO: Needs obstacles, needs the full set of data
@@ -663,7 +605,7 @@ class Plaue11Kernel( KernelBase ):
             hCount += 1
         x = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
         
-        data1D = self.FUNC_1D( x, gaussSigma ) #* self._cellSize
+        data1D = self.FUNC( x, gaussSigma ) #* self._cellSize
         temp = np.reshape( data1D, (-1, 1 ) )
         self.data = temp * temp.T
         
