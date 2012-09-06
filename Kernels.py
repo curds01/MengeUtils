@@ -20,6 +20,10 @@ class KernelDomainError( KernelError ):
     '''Error indicating that the kernel has alignment problems in the domain'''
     pass
 
+class KernelSizeError( KernelError ):
+    '''Error indicating that the kernel is too large - support domain * cellSize is too large'''
+    pass
+
 KERNEL_EPS = 0.00001
 
 IDENTITY_FUNCTION = lambda x, sigma: x
@@ -50,6 +54,11 @@ class KernelBase( object ):
     # This is the class-wide function which defines the kernel.  Each instantiable sub-class must define a function
     #   The function may be 1D or 2D depending on whether it is separable or insperable
     FUNC = None
+
+    # Maximum allowable kernel width - in cells
+    # with a cell size of 1 cm, this allows a compact support of 50 m
+    #   For pedestrian analysis, this seems a reasonable limit
+    MAX_KERNEL_WIDTH = 5000     
     
     def __init__( self, smoothParam, cellSize, reflect=True ):
         '''Initializes the kernel with the smoothing parameter and boundary behavior.
@@ -321,6 +330,9 @@ class SeparableKernel( KernelBase ):
         
         if ( hCount % 2 == 0 ):  # make sure cell has an odd-number of samples
             hCount += 1
+        if ( hCount >= self.MAX_KERNEL_WIDTH ):
+            raise KernelSizeError
+        
         x = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
         
         self.data1D = self.FUNC( x, self._smoothParam ) #* self._cellSize
@@ -358,6 +370,10 @@ class InseparableKernel( KernelBase ):
             
         if ( hCount % 2 == 0 ):  # make sure cell has an odd-number of samples
             hCount += 1
+
+        if ( hCount >= self.MAX_KERNEL_WIDTH ):
+            raise KernelSizeError
+        
         o = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
         X, Y = np.meshgrid( o, o )
 
@@ -527,8 +543,6 @@ class GaussianKernel( SeparableKernel ):
         @returns        A float.  The smoothing characteristc of the kernel.
         '''
         return 1.0
-        
-        
 
 class Plaue11Kernel( KernelBase ):
     '''This is the adaptive kernel mechamism proposed by Plaue et al. (2011).conjugate
@@ -536,8 +550,11 @@ class Plaue11Kernel( KernelBase ):
     # A coarse approximation of infinity
     INFTY = 10000.0
 
-    # lower bound on the sigma value
-    DIST_BOUND = 0.1
+    # Bounds on the distances used in the computation of the kernel
+    #   The lower bound prevents impossibly small but high-valued kernels
+    #   The upper bound prevents incredibly diffuse and huge kernels
+    MIN_PLAUE_DIST = 0.1    # meters
+    MAX_PLAUE_DIST = 20.0   # meters
     
     FUNC = staticmethod( GAUSSIAN_FUNCTION )
     
@@ -603,6 +620,10 @@ class Plaue11Kernel( KernelBase ):
             hCount += 1
         if ( hCount % 2 == 0 ):  # make sure cell has an odd-number of samples
             hCount += 1
+            
+        if ( hCount >= self.MAX_KERNEL_WIDTH ):
+            raise KernelSizeError
+        
         x = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
         
         data1D = self.FUNC( x, gaussSigma ) #* self._cellSize
@@ -627,10 +648,9 @@ class Plaue11Kernel( KernelBase ):
         #distance to closest neighbor
         distNei = self.distanceToNearestNeighbor( idx, impulse, signal )
         # minRadius is the smallest distance to either obstacle or neighbor
-        if ( distNei < minDist ):
-            minDist = distNei
-        if ( minDist < self.DIST_BOUND ):
-            minDist = self.DIST_BOUND
+        minDist = min( distNei, minDist )
+        minDist = max( minDist, self.MIN_PLAUE_DIST )
+        minDist = min( minDist, self.MAX_PLAUE_DIST )
         self.computeSamples( minDist )
         return self.data
     
