@@ -333,11 +333,12 @@ class SeparableKernel( KernelBase ):
         if ( hCount >= self.MAX_KERNEL_WIDTH ):
             raise KernelSizeError
         
-        x = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
+        x = np.arange( -(hCount/2), hCount/2 + 1, dtype=np.float32) * self._cellSize
         
         self.data1D = self.FUNC( x, self._smoothParam ) #* self._cellSize
         temp = np.reshape( self.data1D, (-1, 1 ) )
-        self.data = temp * temp.T
+        self.data = np.empty( ( x.size, x.size ), dtype=np.float32 )
+        np.dot( temp, temp.T, out=self.data )
         self.data1D *= self._cellSize
 
 class InseparableKernel( KernelBase ):
