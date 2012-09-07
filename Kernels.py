@@ -591,54 +591,93 @@ class Plaue11Kernel( KernelBase ):
                             changed as a result of this operation.
         '''
         for i, pos in enumerate( signal.impulses ):
-            k = self.getImpulseKernel( i, signal, grid )
-            w, h = k.shape
-            halfW = w / 2
-            halfH = h / 2
-            self.splatKernel( pos, halfW, halfH, k, grid )
+            k, sigma = self.getImpulseKernel( i, signal, grid )
+            halfK = k / 2
+            try:
+                self.splatTruncatedKernel( pos, grid, halfK, sigma )
+            except KernelDomainError:
+                pass
             if ( self.reflectBoundaries ):
-                w *= self._cellSize
-                h *= self._cellSize
-                corner = Vector2( grid.minCorner[0] - w * 0.5, grid.minCorner[1] - h * 0.5 )
-                size = Vector2( grid.size[0] + w, grid.size[1] + h )
+                
+                # compute domain in which the reflection matters
+                w = ( halfK + 0.5 ) * self._cellSize
+                corner = Vector2( grid.minCorner[0] - w, grid.minCorner[1] - w )
+                size = Vector2( grid.size[0] + 2 * w, grid.size[1] + 2 * w )
                 tgtDomain = domains.RectDomain( corner, size )
+                
+                # compute reflection
                 reflection = signal.reflectPoint( pos ) 
-                # left point
                 for p in reflection:
                     if ( tgtDomain.pointInside( p ) ):
-                        self.splatKernel( p, halfW, halfH, k, grid )
+                        self.splatTruncatedKernel( p, grid, halfK, sigma )
 
-    def computeSamples( self, minDist=1.0 ):
+
+    def splatTruncatedKernel( self, pos, grid, halfK, smoothParm ):
+        '''Splats the kernel onto the domain -- computing only that portion of it
+        required to fit onto the domain.
+
+        @param      pos         An 2-tuple-like object of floats.  The x,y position
+                                of the signal in world space.
+        @param      grid        An instance of DataGrid.  The kernel will be added 
+                                into this kernel.
+        @param      halfK       An int.  The kernel half size (where the kernel
+                                is 2k + 1 cells wide.
+        @param      smoothParam     A float.  The smoothing parameter used in the
+                                    kernel function.
+        '''
+        center = grid.getCenter( Vector2( pos[0], pos[1] ) )
+        l = center[0] - halfK
+        r = center[0] + halfK + 1
+        b = center[1] - halfK
+        t = center[1] + halfK + 1
+        gW = int( grid.resolution[0] )
+        gH = int( grid.resolution[1] )
+
+        if ( l > gW or r < 0 or b > gH or t < 0 ):
+            raise KernelDomainError
+                  
+        kl = 0
+        kb = 0
+        kr = kt = 2 * halfK + 1
+        if ( l < 0 ):
+            kl -= l
+            l = 0
+        if ( b < 0 ):
+            kb -= b
+            b = 0
+        if ( r >= gW ):
+            kr -= r - gW
+            r = gW
+        if ( t >= gH ):
+            kt -= t - gH
+            t = gH
+
+        # compute the minimum 1D kernel section
+        rangeMin = min( kl, kb )
+        rangeMax = max( kr, kt )
+
+        x = np.arange( rangeMin - halfK, rangeMax - halfK, dtype=np.float32 ) * self._cellSize
+        data1D = self.FUNC( x, smoothParm )
+        X = data1D[ kl-rangeMin:kr-rangeMin ]
+        X.shape = (-1, 1)
+        Y = data1D[ kb-rangeMin:kt-rangeMin ]
+        Y.shape = (1, -1 )
+        kernel = np.dot( X, Y )
+        grid.cells[ l:r, b:t ] += kernel
+        
+    def computeSamples( self ):
         '''Based on the nature of the kernel, pre-compute the discrete kernel for given parameters.'''
-        # do work
-        # In the variable kernel the standard deviation of the underlying gaussian is the
-        #   product of the minimum distance and a smoothing parameter (\lambda in the paper)
-        gaussSigma = self._smoothParam * minDist 
-        width = 6 * gaussSigma
-        ratio = width / self._cellSize
-        hCount = int( ratio )
-        if ( ratio - hCount > KERNEL_EPS ):
-            hCount += 1
-        if ( hCount % 2 == 0 ):  # make sure cell has an odd-number of samples
-            hCount += 1
-            
-        if ( hCount >= self.MAX_KERNEL_WIDTH ):
-            raise KernelSizeError
-        
-        x = np.arange( -(hCount/2), hCount/2 + 1) * self._cellSize
-        
-        data1D = self.FUNC( x, gaussSigma ) #* self._cellSize
-        temp = np.reshape( data1D, (-1, 1 ) )
-        self.data = temp * temp.T
+        pass
         
     def getImpulseKernel( self, idx, signal, grid ):
-        '''Returns the kernel appropriate for this impulse.
+        '''Returns the kernel size appropriate for this signal - size is in cells.
 
         @param      idx         An int.  The index of the impulse in the signal for which
                                 we are computing the kernel.
         @param      signal      A DiracSignal instance.  The full set of impulses.
         @param      grid        An instance of DataGrid.  The grid spans the computation domain.
-        @returns    A kxk numpy array representing the discrete kernel.  k is odd.
+        @returns    A 2-tuple (int, float)  The int is the width of the kernel (in cells);
+                    k is odd.  The float is the smoothing parameter used in the function.
         '''
         impulse = signal[ idx ]
         minDist = self.INFTY
@@ -652,8 +691,20 @@ class Plaue11Kernel( KernelBase ):
         minDist = min( distNei, minDist )
         minDist = max( minDist, self.MIN_PLAUE_DIST )
         minDist = min( minDist, self.MAX_PLAUE_DIST )
-        self.computeSamples( minDist )
-        return self.data
+        
+        gaussSigma = self._smoothParam * minDist 
+        width = 6 * gaussSigma
+        ratio = width / self._cellSize
+        hCount = int( ratio )
+        if ( ratio - hCount > KERNEL_EPS ):
+            hCount += 1
+        if ( hCount % 2 == 0 ):  # make sure cell has an odd-number of samples
+            hCount += 1
+            
+##        if ( hCount >= self.MAX_KERNEL_WIDTH ):
+##            raise KernelSizeError
+        
+        return hCount, gaussSigma
     
     def distanceToNearestNeighbor( self, idx, impulse, signal ):
         '''Find the minimum distance between the impulse with the given index/value and its
@@ -675,7 +726,7 @@ class Plaue11Kernel( KernelBase ):
             localMin = np.sum( diff * diff, axis=0 )
             if ( localMin < minDist ):
                 minDist = localMin
-        return np.sqrt( minDist )
+        return np.sqrt( minDist )    
 
 class Kernel:
     """Distance function kernel"""
