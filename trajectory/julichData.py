@@ -111,6 +111,7 @@ class JulichData:
         LINES_TO_READ = 10
         f = open( fileName, 'r' )
         num = 0
+
         valid = True
         for line in f.xreadlines():
             if ( line == '' ):
@@ -138,7 +139,6 @@ class JulichData:
             
             if ( LINES_TO_READ <= 0 ):
                 break
-            
         return valid
     
     # This property is an alias for timeStep -- it is because the NPFrameSet provides
