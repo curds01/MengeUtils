@@ -12,7 +12,7 @@ from RasterGrid import RasterGrid
 from primitives import Vector2
 from ThreadRasterization import *
 
-THREAD_COUNT = multiprocessing.cpu_count()
+THREAD_COUNT = 1#max( 1, multiprocessing.cpu_count() / 2 )
         
 # the thread that does the file output
 def threadOutput( outFile, buffer, bufferLock, startTime, gfs ):
@@ -33,6 +33,7 @@ def threadOutput( outFile, buffer, bufferLock, startTime, gfs ):
             bufferLock.release()
             time.sleep( 1.0 )
     print "\t\tLast grid %d at time %f s" % ( nextGrid - 1, time.clock() - startTime )
+    
 class RasterReport:
     """Simple class to return the results of rasterization"""
     def __init__( self ):
