@@ -46,6 +46,25 @@ def drawObstacles( obstacles, surface, grid ):
                 p1 = grid.getCenter( Vector2( seg.p2[0], seg.p2[1] ) )
                 pygame.draw.line( surface, OBST_COLOR, (p0[0],p0[1]), (p1[0], p1[1]), OBST_WIDTH )
     
+def visualizeGrid( grid, cMap, outFileName, minVal, maxVal, sites=None, obstacles=None ):
+    '''Visualizes a grid file sequence with the given color map.
+
+    @param      grid            An instance of a DataGrid.  A single grid to visualize.
+    @param      cMap            An instance of ColorMap.  Indicates how the visualization works.
+    @param      outFileName     A string.  The name of the file to save the image as.  The path to the
+                                file must already exist.
+    @param      minVal          A float.  The minimum value used for the color map
+    @param      maxVal          A float.  The maximum value used for the color map
+    @param      sites           An Nx2 numpy array of locations in world coordinates.
+    @param      obstacles       An instance of ObstacleSet (optional).  If obstacle are provided,
+                                Then they will be drawn over the top of the data.
+    '''
+    s = grid.surface( cMap, minVal, maxVal )
+    if ( not sites is None ):
+        drawSites( sites, s, grid )
+    if ( not obstacles is None ):
+        drawObstacles( obstacles, s, grid )
+    pygame.image.save( s, outFileName )
 
 def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, sites=None, obstacles=None ):
     '''Visualizes a grid file sequence with the given color map.
@@ -60,7 +79,8 @@ def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, sites=Non
                                 range.  For example, if mapRange is 0.75, then the value that is
                                 75% of the way between the min and max value achieves the maximum
                                 color value.
-    @param      sites           An Nx2 numpy array of locations in world coordinates.
+    @param      sites           An instance of pedestrian trajectory.  It should have as many frames
+                                of data as there are grids in the sequence.
     @param      obstacles       An instance of ObstacleSet (optional).  If obstacle are provided,
                                 Then they will be drawn over the top of the data.
     '''
@@ -79,16 +99,14 @@ def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, sites=Non
     
     for grid, gridID in gfsFile:
         try:
-            s = grid.surface( cMap, minVal, maxVal )
+            frame = None
+            if ( sites is not None ):
+                frame, frameID = sites.next()
+            fileName = '{0}{1:0{2}d}.{3}'.format( outFileBase, gridID, digits, imgFormat )
+            visualizeGrid( grid, cMap, fileName, minVal, maxVal, frame, obstacles )
         except MemoryError:
-            print "Error on frame", i
+            print "Error on frame", gridID
             raise
-        if ( sites ):
-            frame, frameID = sites.next()
-            drawSites( frame, s, grid )
-        if ( not obstacles is None ):
-            drawObstacles( obstacles, s, grid )
-        pygame.image.save( s, '{0}{1:0{2}d}.{3}'.format( outFileBase, gridID, digits, imgFormat ) )
     pygame.image.save( cMap.lastMapBar(7), '%sbar.png' % ( outFileBase ) )
         
 def visualizeGFSName( gfsFileName, outFileBase, imgFormat='png', cMap=ColorMap.BlackBodyMap(), mapRange=1.0, sitesName=None, obstacles=None ):
