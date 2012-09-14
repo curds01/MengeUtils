@@ -66,6 +66,53 @@ def visualizeGrid( grid, cMap, outFileName, minVal, maxVal, sites=None, obstacle
         drawObstacles( obstacles, s, grid )
     pygame.image.save( s, outFileName )
 
+def visualizeMultiGFS( gfsFiles, cMap, outFileBases, imgFormat, mapRange=1.0, sites=None, obstacles=None ):
+    '''Visualizes multiple grid file sequence with the given color map (including a single, commmon range).
+
+    @param      gfsFile         A list of GridFileSequenceReader instances.  The grids to visualize.
+    @param      cMap            An instance of ColorMap.  Indicates how the visualization works.
+    @param      outFileBases    A list of strings.  The basic names of the images to be output.
+                                For each grid in the sequence, it outputs outFileBase_###.imgFormat.
+                                The path must already exist.  One path has to exist for gfsFile
+    @param      imgFormat       A string.  The output image format (png, jpg, or bmp )
+    @param      mapRange        A float.  Determines what fraction of the data range maps to the color
+                                range.  For example, if mapRange is 0.75, then the value that is
+                                75% of the way between the min and max value achieves the maximum
+                                color value.
+    @param      sites           An instance of pedestrian trajectory.  It should have as many frames
+                                of data as there are grids in the sequence.
+    @param      obstacles       An instance of ObstacleSet (optional).  If obstacle are provided,
+                                Then they will be drawn over the top of the data.
+    '''
+    pygame.init()
+
+    # make sure the path exists
+    for outFileBase in outFileBases:
+        path, name = os.path.split( outFileBase )
+        if ( not os.path.exists( path ) ):
+            os.makedirs( path )
+    
+    
+    digits = map( lambda x: int( np.ceil( np.log10( x.gridCount() ) ) ), gfsFiles )
+    minVal = min( map( lambda x: x.range[0], gfsFiles ) )
+    maxVal = max( map( lambda x: x.range[1], gfsFiles ) )
+    maxVal = ( maxVal - minVal ) * mapRange + minVal
+
+    for i, gfsFile in enumerate( gfsFiles ):
+        print gfsFile.summary()
+        outFileBase = outFileBases[ i ]
+        for grid, gridID in gfsFile:
+            try:
+                frame = None
+                if ( sites is not None ):
+                    frame, frameID = sites.next()
+                fileName = '{0}{1:0{2}d}.{3}'.format( outFileBase, gridID, digits[i], imgFormat )
+                visualizeGrid( grid, cMap, fileName, minVal, maxVal, frame, obstacles )
+            except MemoryError:
+                print "Error on frame", gridID
+                raise
+        pygame.image.save( cMap.lastMapBar(7), '%s_bar.png' % ( outFileBase ) )
+    
 def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, sites=None, obstacles=None ):
     '''Visualizes a grid file sequence with the given color map.
 
