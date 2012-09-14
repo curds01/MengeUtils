@@ -249,6 +249,44 @@ class GridFileSequence:
         """
         renderTraces( minCorner, size, resolution, frameSet, preWindow, postWindow, fileBase )
 
+    def computeDifference( self, reader1, reader2 ):
+        '''Computes the per-frame difference between two grid file sequences and saves it.
+
+        @param      reader1     An instance of a GridFileSequenceReader.
+        @param      reader2     An instance of a GridFileSequenceReader.
+
+        @returns    A string.  The name of the file created.        
+        '''
+        assert( reader1.w == reader2.w )
+        assert( reader1.h == reader2.h )
+        assert( reader1.count == reader2.count )
+        assert( reader1.corner == reader2.corner )
+        assert( reader1.size == reader2.size )
+
+        fileName = self.outFileName + '.error'
+        outFile = open( fileName, 'wb' )
+        outFile.write( self.header( reader1.corner, reader1.size, ( reader1.w, reader1.h ) ) )
+        reader1.setNext( 0 )
+        reader2.setNext( 0 )
+
+        maxError = 0
+        while( True ):
+            try:
+                frame1, frameID1 = reader1.next()
+                frame2, frameID2 = reader2.next()
+            except StopIteration:
+                break
+            
+            err = np.abs( frame1.cells - frame2.cells )
+            outFile.write( err.tostring() )
+            ERR = err.max()
+            if ( ERR > maxError ):
+                maxError = ERR
+            
+        self.fillInHeader( outFile, reader1.count, 0.0, maxError )
+        outFile.close()
+        return fileName
+        
     def convolveSignal( self, gridDomain, kernel, signal, frameSet, overwrite=True ):
         '''Creates a binary file representing the density scalar fields of each frame of the
             pedestrian data.
