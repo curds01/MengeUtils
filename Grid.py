@@ -209,6 +209,16 @@ class AbstractGrid( RectDomain ):
         '''
         return self.cellSize[0] * self.cellSize[1]
 
+    @property
+    def rectDomain( self ):
+        '''Returns the RectDomain data for this AbstractGrid.
+
+        @returns        An instance of a RectDomain including this grid's minimum corner
+                        position and world size.
+        '''
+        return RectDomain( self.minCorner, self.size )
+        
+
 class GridTransform:
     '''A class for transforming from the coordinates of one AbstractGrid to the coordinates of
     another.'''
