@@ -175,6 +175,14 @@ class GridFileSequenceReader:
         if ( self.gridStride ):
             self.file.seek( self.gridStride, 1 )    # 1 = seek offset from current position
         return self.currGrid, self.currGridID
+
+    @property
+    def domain( self ):
+        '''Returns the domain of the GridFileSequence data.
+
+        @returns        An instance of Grid.AbstractGrid.
+        '''
+        return AbstractGrid( self.corner, self.size, ( self.w, self.h ) )
     
 class GridFileSequence:
     """Creates a grid sequence from a frame file and streams the resulting grids to
