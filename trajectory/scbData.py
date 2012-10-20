@@ -285,6 +285,7 @@ class FrameSet:
         self.readHeader2_0( scbFile )
         self.agentByteSize = 32
 
+    #TODO: this shouldn't be a new version (because it's the same header, it should be version 2.3)
     def readHeader3_0( self, scbFile ):
         '''The 3.0 changes orientation representation.
         Instead of an angle, it's a normalized direction vector.
@@ -553,7 +554,10 @@ class NPFrameSet( FrameSet ):
         return IDMap()
     
 def writeNPSCB( fileName, array, frameSet, version='1.0' ):
-    """Given an N X 3 X K array, writes out an scb file with the given data"""
+    """Given an N X M X K array, writes out an scb file with the given data.agentByteSize
+    There are N agents over K frames.  M defines the number of data points per agent.
+    Each version requires a certain number of floats.  If the indicated version doesn't
+    isn't satisifed by M, an exception (ValueError) is raised."""
     print "Writing %s with %d agents and %d frames" % ( fileName, array.shape[0], array.shape[2] )
     print "Writing version %s" % ( version )
     if ( version == '1.0' ):
@@ -562,22 +566,31 @@ def writeNPSCB( fileName, array, frameSet, version='1.0' ):
         _writeNPSCB_2_0( fileName, array, frameSet )
     elif ( version == '2.1' ):
         _writeNPSCB_2_1( fileName, array, frameSet )
+    elif ( version == '2.2' ):
+        _writeNPSCB_2_2( fileName, array, frameSet )
+    elif ( version == '3.0' ):
+        raise NotImplementedError
+##        _writeNPSCB_3_0( fileName, array, frameSet )
     else:
         raise Exception, "Invalid write version for data: %s" % ( version )
     
 
 def _writeNPSCB_1_0( fileName, array ):
     """Given an N X 3 X K array, writes out a version 1.0 scb file with the given data"""
+    if ( array.shape[1] < 3 ):
+        raise ValueError, "Version 1.0 requires three floats per agent"
     f = open( fileName, 'wb' )
     f.write( '1.0\x00' )
     f.write( struct.pack( 'i', array.shape[0] ) )
     for frame in range( array.shape[2] ):
-        f.write( array[:,:,frame].tostring() )
+        f.write( array[:,:3,frame].tostring() )
     f.close()
 
-def _writeNPSCB_2( fileName, array, frameSet, version ):
+def _writeNPSCB_2( fileName, array, frameSet, version, fieldCount ):
     """Given an N X 3 X K array, writes out a version 2.* scb file with the given data.
     It is assumed that all file versions with the same major version have the same header"""
+    if ( array.shape[1] < fieldCount ):
+        raise ValueError, "Version %s requires %d floats per agent" % ( version, fieldCount )
     f = open( fileName, 'wb' )
     f.write( version )
     agtCount = array.shape[0]
@@ -602,16 +615,20 @@ def _writeNPSCB_2( fileName, array, frameSet, version ):
             
     # now write the data
     for frame in range( array.shape[2] ):
-        f.write( array[:,:,frame].tostring() )
+        f.write( array[:,:fieldCount,frame].tostring() )
     f.close()
 
 def _writeNPSCB_2_0( fileName, array, frameSet ):
     """Given an N X 3 X K array, writes out a version 1.0 scb file with the given data"""
-    _writeNPSCB_2( fileName, array, frameSet, '2.0\x00' )
+    _writeNPSCB_2( fileName, array, frameSet, '2.0\x00', 3 )
   
 def _writeNPSCB_2_1( fileName, array, frameSet ):
-    """Given an N X 3 X K array, writes out a version 1.0 scb file with the given data"""
-    _writeNPSCB_2( fileName, array, frameSet, '2.1\x00' )
+    """Given an N X 4 X K array, writes out a version 1.0 scb file with the given data"""
+    _writeNPSCB_2( fileName, array, frameSet, '2.1\x00', 4 )
+
+def _writeNPSCB_2_2( fileName, array, frameSet ):
+    """Given an N X 8 X K array, writes out a version 1.0 scb file with the given data"""
+    _writeNPSCB_2( fileName, array, frameSet, '2.2\x00', 8 )
 
     
 def testNP():
