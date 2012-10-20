@@ -1,7 +1,7 @@
 ## Reads SCB data
 try:
     from primitives import Vector
-except ImportError
+except ImportError:
     import sys
     OBJ_READER_PATH = '../.'
     if ( not OBJ_READER_PATH in sys.path ):
