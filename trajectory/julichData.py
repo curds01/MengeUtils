@@ -54,7 +54,7 @@ class Pedestrian:
         
 class JulichData:
     '''Class for reading the trajectory data stored in Seyfried's data'''
-    def __init__( self, timeStep=0.1, convertToMeters=True, startFrame=0, maxFrames=-1, frameStep=1, maxAgents=-1 ):
+    def __init__( self, timeStep=1.0/16.0, convertToMeters=True, startFrame=0, maxFrames=-1, frameStep=1, maxAgents=-1 ):
         '''Initialize the trajectory reader.  Responsible for reading the trajectory data in
         the Julich format and give access, through an iterator-like interface, each frames' data.
 
