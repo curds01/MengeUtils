@@ -30,7 +30,21 @@ class RectDomain:
         @param  other       An instance of RectDomain.
         @returns        A boolean.  True if they are equivalent, false otherwise.
         '''
+        if ( other == None ):
+            return False
         return self.minCorner == other.minCorner and self.size == other.size
+
+    def __neq__( self, other ):
+        '''Reports if the two domains are different.
+
+        Equivalency implied by covering the same domain.
+
+        @param      other       An instance of RectDomain.
+        @returns    A boolean.  True if they are NOT equivalent, false otherwise.
+        '''
+        if ( other == None ):
+            return False
+        return self.minCorner != other.minCorner or self.size != other.size
         
     def intersects( self, domain ):
         '''Reports if this domain intersects the given domain.
