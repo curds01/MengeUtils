@@ -10,6 +10,19 @@ except ImportError
 import struct
 import numpy as np
 
+class SCBVersion:
+    V1 = '1.0'
+    V2_0 = '2.0'
+    V2_1 = '2.1'
+    V2_2 = '2.2'
+    V3_0 = '3.0'
+    VERSIONS = [ V1, V2_0, V2_1, V2_2, V3_0 ]
+
+    @staticmethod
+    def versionList():
+        '''Return a list of valid versions'''
+        return ', '.join( SCBVersion.VERSIONS )
+    
 class SCBError( Exception ):
     pass
 
