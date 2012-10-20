@@ -3,6 +3,14 @@
 from julichData import JulichData
 import scbData
 import numpy as np
+try:
+    import fakeRotation
+except ImportError:
+    import sys
+    sys.path.insert( 0, '../.' )
+    import fakeRotation
+from bound import AABB2D
+from primitives import Vector2
 
 # default location for undefined agents
 DEF_X = -1000.0
@@ -16,7 +24,7 @@ class DummyFrameSet:
         self.simStepSize = timeStep
         self.ids = ids
         
-def convert( inputName, outputName, undefined, version ):
+def convert( inputName, outputName, undefined, version, maxAngVel, angleVelWindow ):
     '''Converts scb file to a corresponding julich trajectory file.
 
     @param      inputName       A string.  The name of the input julich file to convert.
@@ -25,6 +33,10 @@ def convert( inputName, outputName, undefined, version ):
     @param      undefined       A 2-tuple of floats.  The location to place agents with undetermined
                                 location.
     @param      version         A string.  The version of the scb file.
+    @param      maxAngVel       A float.  The maximum allowed angular velocity.
+    @param      angleVelWindow  An int.  The size of the window (in frames) over which angular velocity
+                                is computed.
+    @raises     OSError if the input file cannot be opened.
     '''
     print "Converting:"
     print "\t", inputName
@@ -40,10 +52,29 @@ def convert( inputName, outputName, undefined, version ):
         return
     print data.summary()
     
+    # determine the start and end positions for each agent.
+    starts = []
+    ends = []
+    for ped in data.pedestrians:
+        starts.append( ped.traj[0, :2] )
+        ends.append( ped.traj[-1, :2] )
+
+    starts = np.array( starts )
+    ends = np.array( ends )
+    disp = ends - starts
+    dists = np.sqrt( np.sum( disp * disp, axis=1 ) )
+    dists.shape = (-1, 1)
+    disp /= dists
+    starts -= disp * 1000
+    ends += disp * 1000
+        
+    # now build data
     agtCount = data.agentCount()
     frameCount = data.totalFrames()
     outData = np.empty( ( agtCount, 3, frameCount ), dtype=np.float32 )
     data.setNext( 0 )
+
+    hasEntered = np.zeros( agtCount, dtype=np.bool )
     
     while ( True ):
         try:
@@ -51,12 +82,18 @@ def convert( inputName, outputName, undefined, version ):
         except StopIteration:
             break
         frameIDs = data.getFrameIds()
-        outData[ :, 0, frameID ] = X
-        outData[ :, 1, frameID ] = Y
+        # default position depends on whether it has entered the domain yet
+        outData[ hasEntered, :2, frameID ] = ends[ hasEntered, : ]
+        outData[ ~hasEntered, :2, frameID ] = starts[ ~hasEntered, : ]
         outData[ :, 2, frameID ] = 0.0 # orientation
+        hasEntered[ frameIDs ] = True
         for i, id in enumerate( frameIDs ):
             outData[ id, :2, frameID ] = frame[ i, :2 ]
 
+    # add orientation
+    fakeRotation.addOrientation( outData, data.simStepSize * maxAngVel * angleVelWindow, angleVelWindow )
+    
+    # output file
     frameSet = DummyFrameSet( data.simStepSize )
     try:
         scbData.writeNPSCB( outputName, outData, frameSet, version )
@@ -77,6 +114,10 @@ if __name__ == '__main__':
                        nargs=2, action='store', type='float', dest='undefined', default=( DEF_X, DEF_Y ) )
     parser.add_option( '-v', '--version', help='The version of the scb file.  Valid values are: %s.  Default is %s' % ( scbData.SCBVersion.versionList(), scbData.SCBVersion.V2_0 ),
                        action='store', dest='version', default=scbData.SCBVersion.V2_1 )
+    parser.add_option( '-a', '--angularVelocity', help='The maximum angular velocity for introducing orientation.  Default is %f' % fakeRotation.DEF_VEL_LIMIT,
+                       action='store', type='float', dest='maxOmega', default=fakeRotation.DEF_VEL_LIMIT )
+    parser.add_option( '-w', '--window', help='Number of frames overwhich to compute angular velocity.  This smooths the signal (default is 1)',
+                       action='store', dest='window', type='int', default=1 )
     options, args = parser.parse_args()
 
     if ( options.inputName == '' ):
@@ -89,5 +130,5 @@ if __name__ == '__main__':
         print '\n *** You must specify an output file.'
         sys.exit(1)
 
-    convert( options.inputName, options.outputName, options.undefined, options.version )
+    convert( options.inputName, options.outputName, options.undefined, options.version, options.maxOmega, options.window )
     

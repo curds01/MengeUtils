@@ -22,18 +22,18 @@ def addOrientation( data, maxThetaDelta, window=1 ):
     @param window: an int.  The size of the window used to compute the finite differences.  I.e., the
             angular change at frame i is the difference of the direction of velocity at i and i + window.
     '''
-    print maxThetaDelta
     TWO_PI = 2.0 * np.pi
     # compute the original orientation based on the first two time steps
     disp = data[ :, :2, window ] - data[ :, :2, 0 ]
     dist = np.sqrt( np.sum( disp * disp, axis=1 ) )
-    while ( np.sum( dist < MOVE_THRESH ) > 0 ):
-        window += 1
+    k = window
+    while ( np.sum( dist < MOVE_THRESH ) > 0 and k < data.shape[2] ):
         disp = data[ :, :2, k ] - data[ :, :2, 0 ]
         dist = np.sqrt( np.sum( disp * disp, axis=1 ) )
-
+        k += 1
+    
     # make sure I have meaningful displacements for EVERYONE
-    print "Initial direction computed from frame %d" % window 
+    print "Initial direction computed from frame %d" % k 
         
     angles = np.arctan2( disp[:,1], disp[:,0] )
     angles[ angles < 0 ] += TWO_PI
