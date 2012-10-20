@@ -1,5 +1,12 @@
 ## Reads SCB data
-from primitives import Vector2
+try:
+    from primitives import Vector
+except ImportError
+    import sys
+    OBJ_READER_PATH = '../.'
+    if ( not OBJ_READER_PATH in sys.path ):
+        sys.path.insert( 0, OBJ_READER_PATH )
+    from primitives import Vector2
 import struct
 import numpy as np
 
