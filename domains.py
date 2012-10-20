@@ -25,15 +25,15 @@ class RectDomain:
     def __eq__( self, other ):
         '''Reports if the two domains are equivalent.
 
-        Equivalency implied by covering the same domain.minCorner
+        Equivalency implied by covering the same domain.
 
-        @param  other       An instance of RectDomain.copyDomain
+        @param  other       An instance of RectDomain.
         @returns        A boolean.  True if they are equivalent, false otherwise.
         '''
         return self.minCorner == other.minCorner and self.size == other.size
         
     def intersects( self, domain ):
-        '''Reports if this domain intersects the given domain.minCorner
+        '''Reports if this domain intersects the given domain.
 
         @param      domain      An instance of RectDomain.
         @returns    A boolean.  True if the two domains intersect, False
