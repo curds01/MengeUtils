@@ -272,7 +272,7 @@ class FrameSet:
             1. float: x position
             2. float: y position
             3. float: orientation x
-            4. float: orientatino y
+            4. float: orientation y
             
             The header information is exactly the same.
         '''
