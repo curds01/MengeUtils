@@ -15,8 +15,8 @@ class SCBVersion:
     V2_0 = '2.0'
     V2_1 = '2.1'
     V2_2 = '2.2'
-    V3_0 = '3.0'
-    VERSIONS = [ V1, V2_0, V2_1, V2_2, V3_0 ]
+    V2_3 = '2.3'
+    VERSIONS = [ V1, V2_0, V2_1, V2_2, V2_3 ]
 
     @staticmethod
     def versionList():
@@ -183,8 +183,8 @@ class FrameSet:
             self.readHeader2_1( scbFile )
         elif ( self.version == '2.2' ):
             self.readHeader2_2( scbFile )
-        elif ( self.version == '3.0' ):
-            self.readHeader3_0( scbFile )
+        elif ( self.version == '2.3' ):
+            self.readHeader2_3( scbFile )
         else:
             raise AttributeError, "Unrecognized scb version: %s" % ( version )
 
@@ -285,9 +285,9 @@ class FrameSet:
         self.readHeader2_0( scbFile )
         self.agentByteSize = 32
 
-    #TODO: this shouldn't be a new version (because it's the same header, it should be version 2.3)
-    def readHeader3_0( self, scbFile ):
-        '''The 3.0 changes orientation representation.
+    
+    def readHeader2_3( self, scbFile ):
+        '''The 2.3 changes orientation representation.
         Instead of an angle, it's a normalized direction vector.
         The per-agent data consists of FOUR values:
             1. float: x position
@@ -568,9 +568,8 @@ def writeNPSCB( fileName, array, frameSet, version='1.0' ):
         _writeNPSCB_2_1( fileName, array, frameSet )
     elif ( version == '2.2' ):
         _writeNPSCB_2_2( fileName, array, frameSet )
-    elif ( version == '3.0' ):
-        raise NotImplementedError
-##        _writeNPSCB_3_0( fileName, array, frameSet )
+    elif ( version == '2.3' ):
+        _writeNPSCB_2_3( fileName, array, frameSet )
     else:
         raise Exception, "Invalid write version for data: %s" % ( version )
     
@@ -629,6 +628,10 @@ def _writeNPSCB_2_1( fileName, array, frameSet ):
 def _writeNPSCB_2_2( fileName, array, frameSet ):
     """Given an N X 8 X K array, writes out a version 1.0 scb file with the given data"""
     _writeNPSCB_2( fileName, array, frameSet, '2.2\x00', 8 )
+
+def _writeNPSCB_2_3( fileName, array, frameSet ):
+    """Given an N X 4 X K array, writes out a version 1.0 scb file with the given data"""
+    _writeNPSCB_2( fileName, array, frameSet, '2.3\x00', 4 )
 
     
 def testNP():
