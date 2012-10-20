@@ -13,6 +13,9 @@ class Vector2:
     def __eq__( self, v ):
         return self.x == v.x and self.y == v.y
 
+    def __neq__( self, v ):
+        return self.x != v.x or self.y != v.y
+
     def __sub__( self, v ):
         return Vector2( self.x - v.x, self.y - v.y )
 
