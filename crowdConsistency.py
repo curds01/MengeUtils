@@ -42,7 +42,7 @@ VPREF_Y = 5
 VEL_X = 6
 VEL_Y = 7
 
-from scbData import NPFrameSet
+from trajectory.scbData import NPFrameSet
 import numpy as np
 import os
 import struct

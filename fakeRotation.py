@@ -5,7 +5,7 @@
 #    limit
 
 import numpy as np
-from scbData import NPFrameSet, writeNPSCB
+from trajectory.scbData import NPFrameSet, writeNPSCB
 
 DEF_VEL_LIMIT = 10.0 * np.pi / 180.0  # 10 degrees per sec
 

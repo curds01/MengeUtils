@@ -3,7 +3,7 @@
 import time
 from PyQt4 import QtGui, QtCore
 from primitives import Vector2, Segment, segmentsFromString
-from scbData import FrameSet, NPFrameSet
+from trajectory.scbData import FrameSet, NPFrameSet
 from ColorMap import *
 import Crowd
 import os, sys

@@ -29,7 +29,7 @@ from GridFileSequence import *
 from qtcontext import GLLine
 from flow import *
 from primitives import Vector2
-from scbData import FrameSet
+from trajectory.scbData import FrameSet
 from trace import renderTraces
 import pylab as plt
 from ObjSlice import Polygon

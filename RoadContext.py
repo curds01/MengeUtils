@@ -5,7 +5,7 @@ import pygame
 from fieldTools import *
 import numpy as np
 from OpenGL.GL import *
-import scbData
+import trajectory.scbData as scbData
 from primitives import Vector2
 import paths
 try:

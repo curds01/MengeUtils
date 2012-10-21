@@ -3,7 +3,7 @@
 #   Has to do some clever work to smooth the orientation
 #       Also correct orientation so that it starts in the direction of motion
 
-import scbData
+import trajectory.scbData as scbData
 import numpy as np
 import pylab as plt
 

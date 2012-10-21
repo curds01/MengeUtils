@@ -1,6 +1,6 @@
 # Measure various quantities in an scb file.close
 
-import scbData
+import trajectory.scbData as scbData
 import numpy as np
 import pylab as plt
 
