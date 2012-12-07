@@ -134,7 +134,6 @@ class View:
         self.vLeft = x - ( center[0] / float( self.wWidth) * self.vWidth )
         self.vBottom = y - ( 1.0 - center[1] / float( self.wHeight) ) * self.vHeight
         self._setOrtho()
-        x1, y1 = self.screenToWorld( center )
 
     def zoomOut( self, center, pct = 0.10 ):
         """Zooms the view out around the center (in screen coords)"""
@@ -171,6 +170,37 @@ class View:
             self.vWidth = rect.width()
             self.vBottom = rect.bottom
             self.vHeight = rect.height()
+        self._setOrtho()
+
+    def startZoom( self, pos ):
+        '''Prepares the view for zoom -- given the screen space position of the beginning of the zoom'''
+        self.vLeftOld = self.vLeft
+        self.vBottomOld = self.vBottom
+        self.pixelSizeOld = self.pixelSize
+        self.vWidthOld = self.vWidth
+        self.vHeightOld = self.vHeight
+        self.zoomCenter = pos
+        self.zoomCenterWorld = self.screenToWorld( pos )
+
+    def zoom( self, dY ):
+        '''Zooms in the view -- change in mouse y-position'''
+        scale = dY / float(self.wHeight + 1)
+        self.pixelSize = self.pixelSizeOld * ( scale + 1 )
+        viewScale = 1.0 - scale
+        self.vWidth = self.vWidthOld * viewScale
+        self.vHeight = self.vHeightOld * viewScale
+        self.vLeft = self.zoomCenterWorld[0] - ( self.zoomCenter[0] / float( self.wWidth ) * self.vWidth )
+        val = self.zoomCenterWorld[1] - ( 1 - self.zoomCenter[1] / float( self.wHeight ) ) * self.vHeight
+        self.vBottom = val
+        self._setOrtho()
+
+    def cancelZoom( self ):
+        '''Cancels the zoom'''
+        self.vLeft = self.vLeftOld
+        self.vBottom = self.vBottomOld
+        self.pixelSize = self.pixelSizeOld
+        self.vWidth = self.vWidthOld
+        self.vHeight = self.vHeightOld
         self._setOrtho()
 
     def startPan( self ):

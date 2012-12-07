@@ -77,7 +77,8 @@ RECT = 1
 PAN = 2
 EDGE = 3
 MOVE = 4
-TEST = 5    # state to test various crap
+ZOOM = 5
+TEST = 6    # state to test various crap
 
 # mouse buttons
 LEFT = 1
@@ -106,6 +107,10 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
             dX, dY = view.screenToWorld( ( downX, downY ) )
             pX, pY = view.screenToWorld( event.pos )
             view.pan( (dX - pX, dY - pY) )
+            result.setNeedsRedraw( True )
+        elif ( dragging == ZOOM ):
+            dy = downY - event.pos[1]
+            view.zoom( dy )
             result.setNeedsRedraw( True )
         elif ( dragging == EDGE ):
             pX, pY = event.pos 
@@ -196,6 +201,9 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
             if ( hasCtrl ):
                 view.startPan()
                 dragging = PAN
+            elif ( hasShift ):
+                view.startZoom( event.pos )
+                dragging = ZOOM
             else:
                 if ( editState == GRAPH_EDIT ):
                     if ( graph.fromID != None ):
@@ -241,6 +249,10 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
                 result.setNeedsRedraw( True )
             elif ( dragging == PAN ):
                 view.cancelPan()
+                result.setNeedsRedraw( True )
+            elif ( dragging == ZOOM ):
+                view.cancelZoom()
+                result.setNeedsRedraw( True )
             elif ( dragging == EDGE ):
                 graph.fromID = graph.toID = None
                 graph.testEdge.clear()
@@ -386,7 +398,8 @@ def main():
     view.HELP_TEXT = 'View controls:' + \
                      '\n\tpan - Ctrl + left mouse button' + \
                      '\n\tzoom in - mouse wheel up' + \
-                     '\n\tzoom out - mouse wheel down'
+                     '\n\tzoom out - mouse wheel down' + \
+                     '\n\tzoom - Shift + left mouse button (up and down)'
     view.initWindow( 'Create roadmap' )
     pygame.key.set_repeat( 250, 10 )
     view.initGL()
