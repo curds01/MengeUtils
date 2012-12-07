@@ -62,6 +62,8 @@ def handleKey( event, context, view, graph, obstacles, agents, field ):
                     graph.deleteEdge( graph.activeEdge )
                     graph.activeEdge = None
                     result.setNeedsRedraw( True )
+        elif ( hasAlt and event.key == pygame.K_F4 ):
+            raise Exception
     return result
 
 ## data for handling mouse events
@@ -428,8 +430,11 @@ def main():
                 result = handleMouse( event, context, view, graph, obstacles, agents, field )
                 redraw |= result.needsRedraw()
             elif ( event.type == pygame.KEYDOWN or event.type == pygame.KEYUP ):
-                result = handleKey( event, context, view, graph, obstacles, agents, field  )
-                redraw |= result.needsRedraw()
+                try:
+                    result = handleKey( event, context, view, graph, obstacles, agents, field  )
+                    redraw |= result.needsRedraw()
+                except Exception:
+                    running = False
             elif ( event.type == pygame.VIDEORESIZE ):
                 view.resizeGL( event.size )
                 if ( field ):
