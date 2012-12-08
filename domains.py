@@ -1,3 +1,4 @@
+
 # Classes for specifying domains
 
 from primitives import Vector2
@@ -32,7 +33,11 @@ class RectDomain:
         '''
         if ( other == None ):
             return False
-        return self.minCorner == other.minCorner and self.size == other.size
+        try:
+            return self.minCorner == other.minCorner and self.size == other.size
+        except AttributeError as e:
+            print "Tried to compare domains, received:", type( other ), str( other )
+            raise e
 
     def __neq__( self, other ):
         '''Reports if the two domains are different.
@@ -134,7 +139,8 @@ class RectDomain:
         Y.sort()
         minCorner = Vector2( X[1], Y[1] )
         maxCorner = Vector2( X[2], Y[2] )
-        return RectDomain( minCorner, maxCorner - minCorner )        
+        
+        return RectDomain( minCorner, maxCorner - minCorner )
     
 
 if __name__ == '__main__':
