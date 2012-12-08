@@ -7,12 +7,16 @@ import time
 import multiprocessing
 import os
 
+from Crowd import StatRecord
 from Grid import *
 from RasterGrid import RasterGrid
 from primitives import Vector2
 from ThreadRasterization import *
+import Kernels
+import Signals
 
 THREAD_COUNT = 1#max( 1, multiprocessing.cpu_count() / 2 )
+##THREAD_COUNT = multiprocessing.cpu_count() - 1
         
 # the thread that does the file output
 def threadOutput( outFile, buffer, bufferLock, startTime, gfs ):
@@ -434,59 +438,61 @@ class GridFileSequence:
         outFile.close()
         return fileName
         
-    def splatAgents( self, minCorner, size, resolution, radius, frameSet ):
-        '''Simply splats the agents onto the grid'''
-        print "Splatting agents:"
-        print "\tminCorner:  ", minCorner
-        print "\tsize:       ", size
-        print "\tresolution: ", resolution
-        print "\tradius:     ", radius
-        outFile = open( self.outFileName + '.splat', 'wb' )
-        outFile.write( self.header( minCorner, size, resolution ) )
-        
-        frameSet.setNext( 0 )
+    def splatAgents( self, gridDomain, radius, pedData, overwrite=True ):
+        '''Splats the agents onto a grid based on position and the given radius
 
-        # all of this together should make a function which draws filled-in circles
-        #   at APPROXIMATELY the center of the agents.
-        maxRad = radius / 3.0   # this makes it work with the kernel generation
-        def inCircle( dispX, dispY, rSqd ):
-            dispSqd = ( dispX * dispX + dispY * dispY )
-            return ( dispSqd <= rSqd ) * 1.0
-        dFunc = lambda x, y: inCircle( x, y, radius * radius )
-
-        gridCount = 0        
-        while ( True ):
-            try:
-                frame, index = frameSet.next()
-            except StopIteration:
-                break
-            grid = RasterGrid( minCorner, size, resolution, 0.0 )
-            
-            grid.rasterizePosition( frame, dFunc, maxRad )
-            outFile.write( grid.binaryString() )
-            gridCount += 1
-            
-        self.fillInHeader( outFile, gridCount, 0.0, 1.0 )
-        outFile.close()
+        @param      gridDomain      An instance of AbstractGrid, specifying the grid domain
+                                    and resolution over which the density field is calculated.
+        @param      radius          The size (in world units) of the agent's visualization radius.
+        @param      pedData         The pedestrian data to splat (the product of a call to trajectory.loadTrajectory).
+        @param      overwrite       A boolean.  Indicates whether files should be created even if they
+                                    already exist or computed from scratch.  If True, they are always created,
+                                    if False, pre-existing files are used.
+        @returns    A string.  The name of the output file.
+        '''        
+        kernel = Kernels.UniformCircleKernel( radius, gridDomain.cellSize[0], False ) # False on reflect
+        signal = Signals.PedestrianSignal( gridDomain.rectDomain )
+        return self.convolveSignal( gridDomain, kernel, signal, pedData, overwrite )
         
-    def computeSpeeds( self, minCorner, size, resolution, maxRad, frameSet, timeStep, excludeStates, speedType=NORM_CONTRIB_SPEED, timeWindow=1 ):
-        """Computes the displacements from one cell to the next"""
+    def computeSpeeds( self, gridDomain, pedData, timeStep, excludeStates=(), speedType=BLIT_SPEED, timeWindow=1, overwrite=True ):
+        '''Splats the agents onto a grid based on position and the given radius
+
+        @param      gridDomain      An instance of AbstractGrid, specifying the grid domain
+                                    and resolution over which the density field is calculated.
+        @param      timeStep        The duration of a single frame of data in the pedData.
+        @param      pedData         The pedestrian data to splat (the product of a call to trajectory.loadTrajectory).
+        @param      excludeStates   The state of agents to occlude.  This only applies if the data has state information.
+        @param      speedType       The exact visualization type.
+        @param      timeWindow      The number of windows overwhich speed is computed - default is one frame, instantaneous speed.
+        @param      overwrite       A boolean.  Indicates whether files should be created even if they
+                                    already exist or computed from scratch.  If True, they are always created,
+                                    if False, pre-existing files are used.
+        @returns    A 2-tuple (StatRecord instance, string).  The former is a record of the per-frame statistics
+                    of the speed.  The latter is the name of the output file.
+        '''
         print "Computing speeds:"
-        print "\tminCorner:  ", minCorner
-        print "\tsize:       ", size
-        print "\tresolution: ", resolution
-        print "\tmaxRad:     ", maxRad
+        print "\tminCorner:  ", gridDomain.minCorner
+        print "\tsize:       ", gridDomain.size
+        print "\tresolution: ", gridDomain.resolution
         print "\ttime step:  ", timeStep
         print "\ttime window:", timeWindow
-        outFile = open( self.outFileName + '.speed', 'wb' )
-        outFile.write( self.header( minCorner, size, resolution ) )
+
+        fileName = self.outFileName + '.speed'
+        outFile = open( fileName, 'wb' )
+        outFile.write( self.header( gridDomain.minCorner, gridDomain.size, gridDomain.resolution ) )
+        
         maxVal = -1e6
         minVal = 1e6
         gridCount = 0
-        gridSize = resolution[0] * resolution[1]
-        cellSize = Vector2( size.x / float( resolution[0] ), size.y / float( resolution[1] ) )
-        frameSet.setNext( 0 )        
-        data = [ frameSet.next() for i in range( timeWindow + 1 ) ]
+        gridSize = gridDomain.resolution[0] * gridDomain.resolution[1]
+        cellSize = gridDomain.cellSize
+        pedData.setNext( 0 )
+        data = []
+        try:
+            data = [ pedData.next()[0].copy() for i in range( timeWindow + 1 ) ]
+        except StopIteration:
+            print "Unable to compute speed!  Insufficient frames of data for the given window!"
+            return
         # continue while the index of the last frame on the queue is greater than the index of the first frame
 
         distFunc = lambda x, y: np.exp( -( (x * x + y *y) / ( maxRad * maxRad ) ) )
@@ -494,15 +500,15 @@ class GridFileSequence:
         if ( speedType == GridFileSequence.BLIT_SPEED ):
             speedFunc = RasterGrid.rasterizeSpeedBlit
             kernel = None
-            gridFunc = lambda: RasterGrid( minCorner, size, resolution, -1.0 )
+            gridFunc = lambda: RasterGrid( gridDomain.minCorner, gridDomain.size, gridDomain.resolution, -1.0 )
         elif ( speedType == GridFileSequence.NORM_SPEED ):
             speedFunc = RasterGrid.rasterizeSpeedGauss
             kernel = Kernel( maxRad, distFunc, cellSize )
-            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
+            gridFunc = lambda: RasterGrid( gridDomain.minCorner, gridDomain.size, gridDomain.resolution )
         elif ( speedType == GridFileSequence.UNNORM_SPEED ):
             speedFunc = RasterGrid.rasterizeSpeedGauss
             kernel = Kernel( maxRad, distFunc, cellSize )
-            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
+            gridFunc = lambda: RasterGrid( gridDomain.minCorner, gridDomain.size, gridDomain.resolution )
         elif ( speedType == GridFileSequence.NORM_DENSE_SPEED ):
 ##            try:
 ##                denseFile = open( self.outFileName + ".density", "rb" )
@@ -514,25 +520,26 @@ class GridFileSequence:
 ##                assert( w == resolution[0] and h == resolution[1] )
 ##            speedFunc = lambda g, k, f2, f1, dist, rad, step: RasterGrid.rasterizeDenseSpeed( g, denseFile, k, f2, f1, dist, rad, step )
 ##            kernel = Kernel( maxRad, distFunc, cellSize )
-##            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
+##            gridFunc = lambda: RasterGrid( gridDomain.minCorner, gridDomain.size, gridDomain.resolution )
             raise ValueError, "This currently unsupported."
         elif ( speedType == GridFileSequence.NORM_CONTRIB_SPEED ):
             speedFunc = RasterGrid.rasterizeContribSpeed
             kernel = Kernel( maxRad, distFunc, cellSize )
-            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
+            gridFunc = lambda: RasterGrid( gridDomain.minCorner, gridDomain.size, gridDomain.resolution )
         elif ( speedType == GridFileSequence.LAPLACE_SPEED ):
             distFunc = lambda x, y: 1.0 / ( np.pi * maxRad * maxRad ) * ((x * x + y * y - maxRad * maxRad) / (0.25 * maxRad ** 4 ) ) * np.exp( -( (x * x + y *y) / ( maxRad * maxRad ) ) )
-            gridFunc = lambda: RasterGrid( minCorner, size, resolution )
+            gridFunc = lambda: RasterGrid( gridDomain.minCorner, gridDomain.size, gridDomain.resolution )
             X = np.zeros( resolution, dtype=np.float32 )
             Y = np.zeros( resolution, dtype=np.float32 )
             speedFunc = lambda g, k, f2, f1, dist, rad, step: RasterGrid.rasterizeVelocity( g, X, Y, k, f2, f1, dist, rad, step )
             kernel = Kernel( maxRad, distFunc, cellSize )
 
+        maxRad = None
         # TODO: This will probably break for some other speed vis method
-        stats = StatRecord( frameSet.agentCount() )              
-        while ( data[ -1 ][0] != None ):
-            f1, i1 = data.pop(0)
-            f2, i2 = data[ -1 ]
+        stats = StatRecord( pedData.agentCount() )              
+        while ( True ):
+            f1 = data.pop(0)
+            f2 = data[ -1 ]
             g = gridFunc() 
             speedFunc( g, kernel, f2, f1, distFunc, maxRad, timeStep * timeWindow, excludeStates, stats )
             M = g.maxVal()
@@ -543,7 +550,10 @@ class GridFileSequence:
                 minVal = m
             outFile.write( g.binaryString() )
             gridCount += 1
-            data.append( frameSet.next() )
+            try:
+                data.append( pedData.next()[0].copy() )
+            except StopIteration:
+                break
             stats.nextFrame()
 
         if ( speedType != GridFileSequence.LAPLACE_SPEED ):
@@ -551,9 +561,8 @@ class GridFileSequence:
         # add the additional information about grid count and maximum values            
         self.fillInHeader( outFile, gridCount, minVal, maxVal )
         outFile.close()
-        return stats
-
-
+        return stats, fileName
+        
     def initProgress( self, frame ):
         '''A helper function for the progress compuation.  Creates an N x 3 array.ArrayType
         Columns 0 & 1 are normalized vectors pointing to the direction of the agents and

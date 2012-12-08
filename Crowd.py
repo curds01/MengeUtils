@@ -57,7 +57,10 @@ class StatRecord:
 
     def nextFrame( self ):
         '''Prepares the data for the next frame'''
-        self.frameData.append( ( self.agentData[:self.currAgent].mean(), self.agentData[:self.currAgent].std(), self.agentData[:self.currAgent].min(), self.agentData[:self.currAgent].max(), self.currAgent ) )
+        if ( self.currAgent ):
+            self.frameData.append( ( self.agentData[:self.currAgent].mean(), self.agentData[:self.currAgent].std(), self.agentData[:self.currAgent].min(), self.agentData[:self.currAgent].max(), self.currAgent ) )
+        else:
+            self.frameData.append( ( 0.0, 0.0, 0.0, 0.0, 0 ) )
         self.currAgent = 0
 
     def write( self, fileName ):

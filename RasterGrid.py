@@ -5,11 +5,11 @@
 
 from Grid import DataGrid
 from primitives import Vector2
+import numpy as np
 
 class RasterGrid( DataGrid ):
     """Class to discretize scalar field computation"""
-    def __init__( self, minCorner, size, resolution,
-                  initVal=0.0 ):
+    def __init__( self, minCorner, size, resolution, initVal=0.0 ):
         """Initializes the grid to span the space starting at minCorner,
         extending size amount in each direction with resolution cells
         domainX is a Vector2 storing range of value x from user.
@@ -575,14 +575,15 @@ class RasterGrid( DataGrid ):
     def rasterizeSpeedBlit( self, kernel, f2, f1, distFunc, maxRad, timeStep, excludeStates=(), callBack=None ):
         """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
         invDT = 1.0 / timeStep
-        for i in range( len ( f2.agents ) ):
-            ag2 = f2.agents[ i ]
-            if ( ag2.state in excludeStates ): continue
-            ag1 = f1.agents[ i ]
-            disp = ( ag2.pos - ag1.pos ).magnitude()
-            disp *= invDT
-            if ( disp > 3.0 ): continue
-            center = self.getCenter( ag2.pos )
+        # compute speeds
+        disp = f2[:, :2] - f1[:,:2]
+        speed = np.sqrt( np.sum( disp * disp, axis = 1 ) ) * invDT
+        for i in xrange( f2.shape[0] ):
+            if ( excludeStates ):
+                pass
+
+            p = Vector2( f2[i, 0], f2[i, 1] )
+            center = self.getCenter( p )
 
             INFLATE = True # causes the agents to inflate more than a single cell
             if ( INFLATE ):
@@ -595,7 +596,12 @@ class RasterGrid( DataGrid ):
                 r = l + 1
                 b = center[1]
                 t = b + 1
-            
+
+            # outside
+            if ( l >= self.resolution[0] or r < 0 or
+                 b >= self.resolution[1] or t < 0 ):
+                continue
+            # clip            
             if ( l < 0 ):
                 l = 0
             if ( b < 0 ):
@@ -604,9 +610,9 @@ class RasterGrid( DataGrid ):
                 r = self.resolution[0]
             if ( t >= self.resolution[1] ):
                 t = self.resolution[1]
-            self.cells[ l:r, b:t ] =  disp
+            self.cells[ l:r, b:t ] =  speed[i]
             if ( callBack ):
-                callBack( disp )
+                callBack( speed[i] )
 
     def rasterizeOmegaBlit( self, kernel, f2, f1, distFunc, maxRad, timeStep, excludeStates=(), callBack=None ):
         """Given two frames of agents, computes per-agent angular speed and rasterizes the whole frame"""
