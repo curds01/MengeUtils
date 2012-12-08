@@ -466,10 +466,13 @@ class FrameSet:
         f.write( self.getHeader( 1 ) )
         prevIdx = -1
         frame, idx = self.next()
-        while ( idx != prevIdx and frame != None ):
+        while ( True ):
             self.writeFrame( frame, f, agentID )
             prevIdx = idx
-            frame, idx = self.next()
+            try:
+                frame, idx = self.next()
+            except StopIteration:
+                break
         f.close()
 
     def writeFrame( self, frame, file, agent=-1 ):
