@@ -7,7 +7,7 @@ import time
 import multiprocessing
 import os
 
-from Crowd import StatRecord
+from stats import StatRecord
 from Grid import *
 from RasterGrid import RasterGrid
 from primitives import Vector2
