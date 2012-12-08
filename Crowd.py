@@ -23,7 +23,6 @@ import numpy as np
 import threading
 import time
 from ColorMap import *
-from Kernels import Kernel
 from Grid import *
 from GridFileSequence import *
 from qtcontext import GLLine
