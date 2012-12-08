@@ -185,7 +185,7 @@ class SCBContext( PGContext ):
                 '\n\tleft arrow - step frame backward' + \
                 '\n\t\t* Holding Ctrl, Alt, Shift will speed up the playback step' + \
                 '\n\t\t* Each adds a factor of 10 to the playback' + \
-                '\n\to - toggle whether or not the frames are output'
+                '\n\tCtrl-o - toggle whether or not the frames are output'
     COLORS = ( (0.7, 0.0, 0.0 ),  # red
 ##               (0.7, 0.35, 0.0 ), # orange
                (0.7, 0.7, 0.0 ),  # yellow
