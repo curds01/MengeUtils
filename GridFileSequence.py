@@ -452,7 +452,9 @@ class GridFileSequence:
         '''        
         kernel = Kernels.UniformCircleKernel( radius, gridDomain.cellSize[0], False ) # False on reflect
         signal = Signals.PedestrianSignal( gridDomain.rectDomain )
-        return self.convolveSignal( gridDomain, kernel, signal, pedData, overwrite )
+        pedData.setNext( 0 )
+        argsFunc = lambda: ( signal.copyEmpty(), pedData, gridDomain, kernel )
+        return self._threadWork( 'splat', threadConvolve, argsFunc, gridDomain, overwrite )
         
     def computeSpeeds( self, gridDomain, pedData, timeStep, excludeStates=(), speedType=BLIT_SPEED, timeWindow=1, overwrite=True ):
         '''Splats the agents onto a grid based on position and the given radius
