@@ -66,7 +66,7 @@ def visualizeGrid( grid, cMap, outFileName, minVal, maxVal, sites=None, obstacle
         drawObstacles( obstacles, s, grid )
     pygame.image.save( s, outFileName )
 
-def visualizeMultiGFS( gfsFiles, cMap, outFileBases, imgFormat, mapRange=1.0, sites=None, obstacles=None ):
+def visualizeMultiGFS( gfsFiles, cMap, outFileBases, imgFormat, mapRange=1.0, mapLimits=None, sites=None, obstacles=None ):
     '''Visualizes multiple grid file sequence with the given color map (including a single, commmon range).
 
     @param      gfsFile         A list of GridFileSequenceReader instances.  The grids to visualize.
@@ -78,7 +78,10 @@ def visualizeMultiGFS( gfsFiles, cMap, outFileBases, imgFormat, mapRange=1.0, si
     @param      mapRange        A float.  Determines what fraction of the data range maps to the color
                                 range.  For example, if mapRange is 0.75, then the value that is
                                 75% of the way between the min and max value achieves the maximum
-                                color value.
+                                color value.  Ignored if mapLimits is not None.
+    @param      mapLimits       A tuple which defines the map range independent of the real values in
+                                the data (minVal, maxVal).  If the tuple has two values, that defines the range.
+                                If either is None, then the corresponding value from the data is used.
     @param      sites           An instance of pedestrian trajectory.  It should have as many frames
                                 of data as there are grids in the sequence.
     @param      obstacles       An instance of ObstacleSet (optional).  If obstacle are provided,
@@ -98,6 +101,16 @@ def visualizeMultiGFS( gfsFiles, cMap, outFileBases, imgFormat, mapRange=1.0, si
     maxVal = max( map( lambda x: x.range[1], gfsFiles ) )
     maxVal = ( maxVal - minVal ) * mapRange + minVal
 
+    if ( not mapLimits is None ):
+        if ( not isinstance( mapLimits, tuple ) ):
+            raise ValueError, "The parameter mapLimits must be a tuple"
+        elif ( len( mapLimits ) != 2 ):
+            raise ValueError, "The parameter mapLimits must have two values"
+        if ( not mapLimits[0] is None ):
+            minVal = mapLimits[0]
+        if ( not mapLimits[1] is None ):
+            maxVal = mapLimits[1]    
+
     for i, gfsFile in enumerate( gfsFiles ):
         print gfsFile.summary()
         outFileBase = outFileBases[ i ]
@@ -113,7 +126,7 @@ def visualizeMultiGFS( gfsFiles, cMap, outFileBases, imgFormat, mapRange=1.0, si
                 raise
         pygame.image.save( cMap.lastMapBar(7), '%s_bar.png' % ( outFileBase ) )
     
-def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, sites=None, obstacles=None ):
+def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, mapLimits=None, sites=None, obstacles=None ):
     '''Visualizes a grid file sequence with the given color map.
 
     @param      gfsFile         An instance of a GridFileSequenceReader.  The grids to visualize.
@@ -125,7 +138,10 @@ def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, sites=Non
     @param      mapRange        A float.  Determines what fraction of the data range maps to the color
                                 range.  For example, if mapRange is 0.75, then the value that is
                                 75% of the way between the min and max value achieves the maximum
-                                color value.
+                                color value.  Ignored if mapLimits is not None.
+    @param      mapLimits       A tuple which defines the map range independent of the real values in
+                                the data (minVal, maxVal).  If the tuple has two values, that defines the range.
+                                If either is None, then the corresponding value from the data is used.
     @param      sites           An instance of pedestrian trajectory.  It should have as many frames
                                 of data as there are grids in the sequence.
     @param      obstacles       An instance of ObstacleSet (optional).  If obstacle are provided,
@@ -140,9 +156,21 @@ def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, sites=Non
     
     print gfsFile.summary()
     digits = int( np.ceil( np.log10( gfsFile.gridCount() ) ) )
-    minVal = gfsFile.range[0]
-    maxVal = gfsFile.range[1]
-    maxVal = ( maxVal - minVal ) * mapRange + minVal
+    if ( not mapLimits is None ):
+        if ( not isinstance( mapLimits, tuple ) ):
+            raise ValueError, "The parmeter mapLimits must be a tuple"
+        elif ( len( mapLimits ) != 2 ):
+            raise ValueError, "The parameter mapLimits must have two values"
+        minVal = gfsFile.range[0]
+        if ( not mapLimits[0] is None ):
+            minVal = mapLimits[0]
+        maxVal = gfsFile.range[1]
+        if ( not mapLimits[1] is None ):
+            maxVal = mapLimits[1]
+    else:
+        minVal = gfsFile.range[0]
+        maxVal = gfsFile.range[1]
+        maxVal = ( maxVal - minVal ) * mapRange + minVal
     
     for grid, gridID in gfsFile:
         try:
@@ -156,7 +184,7 @@ def visualizeGFS( gfsFile, cMap, outFileBase, imgFormat, mapRange=1.0, sites=Non
             raise
     pygame.image.save( cMap.lastMapBar(7), '%sbar.png' % ( outFileBase ) )
         
-def visualizeGFSName( gfsFileName, outFileBase, imgFormat='png', cMap=ColorMap.BlackBodyMap(), mapRange=1.0, sitesName=None, obstacles=None ):
+def visualizeGFSName( gfsFileName, outFileBase, imgFormat='png', cMap=ColorMap.BlackBodyMap(), mapRange=1.0, mapLimits=None, sitesName=None, obstacles=None ):
     '''Visualizes a grid file sequence with the given color map.
 
     @param      gfsFileName     A string.  The name of the GridFileSequence to visualize.
@@ -168,7 +196,10 @@ def visualizeGFSName( gfsFileName, outFileBase, imgFormat='png', cMap=ColorMap.B
     @param      mapRange        A float.  Determines what fraction of the data range maps to the color
                                 range.  For example, if mapRange is 0.75, then the value that is
                                 75% of the way between the min and max value achieves the maximum
-                                color value.
+                                color value.  Ignored if mapLimits is not None.
+    @param      mapLimits       A tuple which defines the map range independent of the real values in
+                                the data (minVal, maxVal).  If the tuple has two values, that defines the range.
+                                If either is None, then the corresponding value from the data is used.
     @param      sitesName       A string.  The path to a set of trajectory sites
     @param      obstacles       An instance of ObstacleSet (optional).  If obstacle are provided,
                                 Then they will be drawn over the top of the data.
@@ -179,7 +210,7 @@ def visualizeGFSName( gfsFileName, outFileBase, imgFormat='png', cMap=ColorMap.B
         sites = loadTrajectory( sitesName )
     except:
         sites = None
-    visualizeGFS( reader, cMap, outFileBase, imgFormat, mapRange, sites, obstacles )
+    visualizeGFS( reader, cMap, outFileBase, imgFormat, mapRange, mapLimits, sites, obstacles )
 
 if __name__ == '__main__':
     def main():
