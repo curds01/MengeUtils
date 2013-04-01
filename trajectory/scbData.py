@@ -554,7 +554,7 @@ class NPFrameSet( FrameSet ):
     def getFrameIds( self ):
         '''Returns a mapping from index in the frame to global identifier'''
         # For this data set, it's tautological
-        return IDMap()
+        return IDMap( self.agentCount() )
     
 def writeNPSCB( fileName, array, frameSet, version='1.0' ):
     """Given an N X M X K array, writes out an scb file with the given data.agentByteSize
