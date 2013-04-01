@@ -11,6 +11,8 @@ except ImportError:
     import fakeRotation
 from bound import AABB2D
 from primitives import Vector2
+import imp
+import os
 
 # default location for undefined agents
 DEF_X = -1000.0
@@ -24,18 +26,20 @@ class DummyFrameSet:
         self.simStepSize = timeStep
         self.ids = ids
         
-def convert( inputName, outputName, undefined, version, maxAngVel, angleVelWindow ):
-    '''Converts scb file to a corresponding julich trajectory file.
+def convert( inputName, outputName, undefined, maxAngVel, angleVelWindow, classFunc=None ):
+    '''Converts julich trajectory file to a corresponding v2.0 scb file.
 
     @param      inputName       A string.  The name of the input julich file to convert.
     @param      outputName      A string.  The name of the output SCB
                                 file to write to.
     @param      undefined       A 2-tuple of floats.  The location to place agents with undetermined
                                 location.
-    @param      version         A string.  The version of the scb file.
     @param      maxAngVel       A float.  The maximum allowed angular velocity.
     @param      angleVelWindow  An int.  The size of the window (in frames) over which angular velocity
                                 is computed.
+    @param      classFunc       A callable.  If provided, it defines the per-pedestrian classification
+                                based on arbitrary arguments.  It should take a single argument:
+                                an instance of julichData.
     @raises     OSError if the input file cannot be opened.
     '''
     print "Converting:"
@@ -94,9 +98,12 @@ def convert( inputName, outputName, undefined, version, maxAngVel, angleVelWindo
     fakeRotation.addOrientation( outData, data.simStepSize * maxAngVel * angleVelWindow, angleVelWindow )
     
     # output file
-    frameSet = DummyFrameSet( data.simStepSize )
+    ids = []
+    if ( classFunc ):
+        ids = classFunc( data )
+    frameSet = DummyFrameSet( data.simStepSize, ids )
     try:
-        scbData.writeNPSCB( outputName, outData, frameSet, version )
+        scbData.writeNPSCB( outputName, outData, frameSet, scbData.SCBVersion.V2_0 )
     except ValueError as e:
         print "\n*** FILE NOT WRITTEN! ", e, '***'
 
@@ -112,12 +119,14 @@ if __name__ == '__main__':
                        action='store', dest='outputName', default='' )
     parser.add_option( '-u', '--undefinedPos', help='The location to place agents when the position is undefined.  Defaults to <%.f, %.f>' % ( DEF_X, DEF_Y ),
                        nargs=2, action='store', type='float', dest='undefined', default=( DEF_X, DEF_Y ) )
-    parser.add_option( '-v', '--version', help='The version of the scb file.  Valid values are: %s.  Default is %s' % ( scbData.SCBVersion.versionList(), scbData.SCBVersion.V2_0 ),
-                       action='store', dest='version', default=scbData.SCBVersion.V2_1 )
     parser.add_option( '-a', '--angularVelocity', help='The maximum angular velocity for introducing orientation.  Default is %f' % fakeRotation.DEF_VEL_LIMIT,
                        action='store', type='float', dest='maxOmega', default=fakeRotation.DEF_VEL_LIMIT )
     parser.add_option( '-w', '--window', help='Number of frames overwhich to compute angular velocity.  This smooths the signal (default is 1)',
                        action='store', dest='window', type='int', default=1 )
+    parser.add_option( '-m', '--module', help='The name of the classification module.  It contains the classifier to use.',
+                       action='store', dest='modName', type='str', default=None )
+    parser.add_option( '-c', '--classifier', help='The name of the classification function (a callable).  If module is defined and classifier is not, the name of the callable is assumed to be "classifier".',
+                       action='store', dest='classifier', type='str', default=None )
     options, args = parser.parse_args()
 
     if ( options.inputName == '' ):
@@ -130,5 +139,31 @@ if __name__ == '__main__':
         print '\n *** You must specify an output file.'
         sys.exit(1)
 
-    convert( options.inputName, options.outputName, options.undefined, options.version, options.maxOmega, options.window )
+    # try to load the classifier
+    classifier = None
+    if ( not options.modName is None ):
+        if ( options.classifier is None ):
+            className = 'classifier'
+        else:
+            className = options.classifier
+        try:
+            if ( not os.path.exists( options.modName ) ):
+                print
+                print '*******'
+                print "Module doesn't exist: %s" % ( options.modName )
+                print "Default classifier used"
+                print '*******\n'
+                classifier = None
+            else:
+                module = imp.load_source( 'classifierMod', options.modName )
+                classifier = eval( 'module.%s' % ( className ) )
+        except ImportError:
+            print
+            print '*******'
+            print "Error importing the module %s" % ( options.modName )
+            print "Default classifier used"
+            print '*******\n'
+            classifier = None
+
+    convert( options.inputName, options.outputName, options.undefined, options.maxOmega, options.window, classifier )
     
