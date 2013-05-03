@@ -42,15 +42,16 @@ class Pedestrian:
         '''Returns the trajectory formatted in a numpy format'''
         return self.traj
 
-    def format( self ):
+    def format( self, scale ):
         '''Creates a string from this trajectory data.  The string format is the same
         as read from the trajectory file.close
 
+        @param      scale       A float.  Scales the position by this value.
         @returns    A string.  The pedestrian data formatted.
         '''
         P = []
         for i, point in enumerate( self.traj ):
-            P.append( '%d %d %f %f %f' % ( self.id, i + self.start, point[0], point[1], point[2] ) )
+            P.append( '%d %d %f %f %f' % ( self.id, i + self.start, point[0] * scale, point[1] * scale, point[2] * scale ) )
         return '\n'.join( P )
         
 class JulichData:
@@ -290,9 +291,14 @@ class JulichData:
 
         @param  output      A string.  The name of the file.
         '''
+        multiplier = 1.0
+        if ( self.toMeters ):
+            # Undo scaling that was done upon loading -
+            #   Julich should always be stored in cm, for consistency.
+            multiplier = 100.0
         f = open( output, 'w' )
         for ped in self.pedestrians:
-            f.write( ped.format() + '\n' )
+            f.write( ped.format( multiplier ) + '\n' )
         f.close()
 
     def writeAgent( self, output, agentID ):
