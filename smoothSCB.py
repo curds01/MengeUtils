@@ -31,6 +31,12 @@ def filterPosition( frames, kernel, window ):
     smoothData = np.empty( rawData.shape, dtype=np.float32 )
     kFFT = np.abs( np.fft.rfft( kernel ) )
     kFFT.shape = (1,-1)
+    print "\tKernel:"
+##    print "\t\tSigma:", sigma
+    print "\t\tKernel shape:", kernel.shape
+    print "\t\tkFFT shape:", kFFT.shape
+    print "\tData:"
+    print "\t\tData shape:", rawData.shape
     # x position
     for i in range( 2 ):
         dataFFT = np.fft.rfft( rawData[:,i,:], axis=1 )
