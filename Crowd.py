@@ -24,6 +24,8 @@ import threading
 import time
 from ColorMap import *
 from Grid import *
+import Signals
+import Kernels
 from GridFileSequence import *
 from qtcontext import GLLine
 from flow import *
@@ -35,8 +37,6 @@ from ObjSlice import Polygon
 from obstacles import *
 import pylab as plt
 from GFSVis import visualizeGFS
-import Signals
-import Kernels
 from stats import StatRecord
 
         
