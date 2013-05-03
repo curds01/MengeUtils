@@ -9,6 +9,7 @@ except ImportError:
     from primitives import Vector2
 import struct
 import numpy as np
+import commonData
 
 class SCBVersion:
     V1 = '1.0'
@@ -215,6 +216,13 @@ class FrameSet:
         self.currFrame = None
         self.setNext( 0 )
 
+    def getType( self ):
+        '''Returns the identifier for this type of trajectory data.
+
+        @returns        An enumeration representing the Julichd ata.
+        '''
+        return commonData.SCB_DATA
+    
     @staticmethod
     def isValid( fileName ):
         '''Reports if the given file is an scb file.

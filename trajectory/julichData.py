@@ -3,6 +3,7 @@
 
 import os
 import numpy as np
+import commonData
 
 class FormatError( Exception ):
     '''There is a format problem with the trajectory file'''
@@ -95,6 +96,13 @@ class JulichData:
         self.frameStep = frameStep
         self.maxAgents = maxAgents
 
+    def getType( self ):
+        '''Returns the identifier for this type of trajectory data.
+
+        @returns        An enumeration representing the Julichd ata.
+        '''
+        return commonData.JULICH_DATA
+    
     def _setTimeStep( self, ts ):
         self.timeStep = ts
 
