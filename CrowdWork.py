@@ -10,6 +10,7 @@ import os, sys
 from GFSVis import visualizeGFS
 import Kernels
 import Signals
+from Grid import makeDomain
 
 # TODO: Switch everything to NPFrameSet
 
@@ -24,6 +25,9 @@ class CrowdAnalyzeThread( QtCore.QThread ):
         cellSize = float( self.data[ 'cellSize' ] )
         domainSize = Vector2( float(self.data[ 'sizeX' ] ), float( self.data[ 'sizeY' ] ) )
         domainMin = Vector2( float( self.data[ 'minPtX' ] ), float( self.data[ 'minPtY' ] ) )
+        domainMax = domainMin + domainSize
+        domainX = Vector2( domainMin[0], domainMax[0] )
+        domainY = Vector2( domainMin[1], domainMax[1] )
         res = (int( domainSize.x / cellSize ), int( domainSize.y / cellSize ) )
         scbFile = self.data[ 'SCB' ]
 
@@ -34,7 +38,7 @@ class CrowdAnalyzeThread( QtCore.QThread ):
             os.makedirs( outPath )
         tempFile = os.path.join( self.data[ 'tempDir' ], self.data[ 'tempName' ] )
         grids = Crowd.GridFileSequence( tempFile )
-        colorMap = COLOR_MAPS[ self.data[ 'colorMap' ] ]()
+        colorMap = COLOR_MAPS[ self.data[ 'colorMap' ] ]
 
         R = self.data[ 'kernelSize' ]
 
@@ -50,7 +54,8 @@ class CrowdAnalyzeThread( QtCore.QThread ):
         if ( densityAction == 1 or densityAction == 3 ):
             print 'Computing densities...'
             s = time.clock()
-            kernel = Kernels.GaussianKernel( R, CELL_SIZE, False )
+            kernel = Kernels.GaussianKernel( R, cellSize, False )
+            domain = makeDomain( domainX, domainY, cellSize )
             signal = Signals.PedestrianSignal( domain ) # signal domain is the same as convolution domain
             grids.convolveSignal( domain, kernel, signal, frameSet )
             print '    done in %.2f seconds' % ( time.clock() - s )
