@@ -8,7 +8,7 @@ import numpy as np
 import pylab as plt
 
 # special kernel.  Given the standard deviation (and assuming zero mean) it
-# produces a discrete gaussian kernel a number of kernels equal to:
+# produces a discrete gaussian kernel a number of samples equal to:
 #   max( ceil( 6 * sigma / cellSize ), kWidth )
 def gaussian1D( sigma, cellSize, kWidth ):
     """Returns a discrete gaussian with standard deviation sigma and mean zero discretized
@@ -23,6 +23,34 @@ def gaussian1D( sigma, cellSize, kWidth ):
     k = np.exp( -(x*x)/(sigma*sigma) )
     k *= 1.0 / k.sum()
     return k
+
+def filterPosition( frames, kernel, window ):
+    """Given a filter, filters the position of all the agents"""
+    print "Filter position"
+    rawData = frames.fullData()
+    smoothData = np.empty( rawData.shape, dtype=np.float32 )
+    kFFT = np.abs( np.fft.rfft( kernel ) )
+    kFFT.shape = (1,-1)
+    # x position
+    for i in range( 2 ):
+        dataFFT = np.fft.rfft( rawData[:,i,:], axis=1 )
+        smoothFFT = dataFFT * kFFT
+        smoothData[ :, i, : ] = np.fft.irfft( smoothFFT, smoothData.shape[2], axis=1 )
+    # orientation data
+    smoothData[:, 2:, : ] = rawData[:, 2:, : ]
+    
+    if ( False ):
+        SAMPLE = 10
+        plt.figure()
+        for i in range( rawData.shape[0] ):
+            plt.plot( rawData[i, 0, window:-window:SAMPLE ], rawData[i, 1, window:-window:SAMPLE], 'b' )
+        plt.title( 'raw trajectory' )
+        plt.figure()
+        for i in range( rawData.shape[0] ):
+            plt.plot( smoothData[i, 0, window:-window:SAMPLE ], smoothData[i, 1, window:-window:SAMPLE],'r' )
+        plt.title( 'Smoothed trajectory' )
+        plt.show()
+    return smoothData
 
 def main():
     import sys
@@ -49,7 +77,7 @@ def main():
     print
     
     try:
-        frames = scbData.NPFrameSet( options.scbName, maxFrames=10 )
+        frames = scbData.NPFrameSet( options.scbName )#, maxFrames=10 )
         frameCount = frames.totalFrames()
         print "\tFrameCount:", frameCount
         kernel = gaussian1D( options.range, 1.0, frameCount )
@@ -61,31 +89,6 @@ def main():
         print "\nError trying to open %s:" % ( options.scbName ), e
         sys.exit(1)
             
-def filterPosition( frames, kernel, window ):
-    """Given a filter, filters the position of all the agents"""
-    rawData = frames.fullData()
-    smoothData = np.empty( rawData.shape, dtype=np.float32 )
-    kFFT = np.abs( np.fft.rfft( kernel ) )
-    kFFT.shape = (1,-1)
-    # x position
-    for i in range( 2 ):
-        dataFFT = np.fft.rfft( rawData[:,i,:], axis=1 )
-        smoothFFT = dataFFT * kFFT
-        smoothData[ :, i, : ] = np.fft.irfft( smoothFFT, smoothData.shape[2], axis=1 )
-    # orientation data
-    smoothData[:, 2, : ] = rawData[:, 2, : ]
-    SAMPLE = 10
-    if ( True ):
-        plt.figure()
-        for i in range( rawData.shape[0] ):
-            plt.plot( rawData[i, 0, window:-window:SAMPLE ], rawData[i, 1, window:-window:SAMPLE], 'o' )
-        plt.title( 'raw trajectory' )
-        plt.figure()
-        for i in range( rawData.shape[0] ):
-            plt.plot( smoothData[i, 0, window:-window:SAMPLE ], smoothData[i, 1, window:-window:SAMPLE],'o' )
-        plt.title( 'Smoothed trajectory' )
-        plt.show()
-    return smoothData
-    
+
 if __name__ == '__main__':
     main()
