@@ -557,9 +557,9 @@ class NPFrameSet( FrameSet ):
         return IDMap( self.agentCount() )
     
 def writeNPSCB( fileName, array, frameSet, version='1.0' ):
-    """Given an N X M X K array, writes out an scb file with the given data.agentByteSize
+    """Given an N X M X K array, writes out an scb file with the given data.
     There are N agents over K frames.  M defines the number of data points per agent.
-    Each version requires a certain number of floats.  If the indicated version doesn't
+    Each version requires a certain number of floats.  If the indicated version 
     isn't satisifed by M, an exception (ValueError) is raised."""
     print "Writing %s with %d agents and %d frames" % ( fileName, array.shape[0], array.shape[2] )
     print "Writing version %s" % ( version )
@@ -670,13 +670,11 @@ def main():
     print "SCB file loaded"
     print "\tVersion:", data.version
     print "\tAgents: ", data.agentCount()
+    classes = data.getClasses()
+    print "\t%d classes:" % ( len( classes ) ), classes.keys()
     print "\tTime step:", data.simStepSize
     print "\tDuration (frames):", data.totalFrames()
     print "\tInitial positions:"
-##    data.setNext( 0 )
-##    f, i = data.next()
-##    for r, row in enumerate( f ):
-##        print "\t\tAgent %d:" % r, row[0], row[1]
     
 if __name__ == '__main__':
     main()
