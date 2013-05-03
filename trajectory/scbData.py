@@ -543,6 +543,8 @@ class NPFrameSet( FrameSet ):
     def fullData( self ):
         """Returns an N X M X K array consisting of all trajectory info for the frame set, for
         N agents, M floats per agent and K time steps"""
+        # TODO: This should return an instance of SCBDataMemory
+        #   The end result should support the normal "SCBData" oeprations.
         M = self.agentByteSize / 4
         frameCount = self.totalFrames()
         data = np.empty( ( self.readAgtCount, M, frameCount ), dtype=np.float32 )
@@ -563,7 +565,76 @@ class NPFrameSet( FrameSet ):
         '''Returns a mapping from index in the frame to global identifier'''
         # For this data set, it's tautological
         return IDMap( self.agentCount() )
+
+class SCBDataMemory:
+    '''A version of SCBData that has the full data set loaded into memory as a numpy array.'''
+    def __init__( self ):
+        '''Constructor.'''
+        self.version = None
+        self.simStepSize = None
+        self.data = None
+        self.ids = None
+        self.nextFrame = -1
+
+    def setData( self, data, version, timeStep, ids=None ):
+        '''Sets the data for the SCBData
+
+        @param      data        A numpy array of floats of shape (N, M, K ) with N agents,
+                                M floats per agent, over K frames.
+        @param      version     A string.  The version of the underlying data representation.
+        @param      timeStep    A float.  The duration of each frame of data.
+        @param      ids         An optional tuple-like object of ints.  Its length must be N.
+        '''
+        self.data = data
+        self.version = version
+        self.simStepSize = timeStep
+        self.ids = None
+        self.nextFrame = 0
+        if ( not self.ids is None ):
+            if ( len( self.ids ) != data.shape[0] ):
+                raise AttributeError, "The agent class id list doesn't match the number of agents in the data.  Data has %d, ids has %d" % ( len( self.ids ), data.shape[0] )
+
+    def setNext( self, frameIdx ):
+        '''Sets the next frame to be retrieved to the given index.
+
+        @param      frameIdx        An int.  The next frame to return when calling "next".
+        @raises     AttributeError if the data hasn't been set yet.
+        @raises     ValueError if the frameIdx isn't "valid".
+        '''
+        # TODO: TEST THIS!
+        if ( self.data is None ):
+            raise AttributeError, "Can't set next frame; no data has been set"
+        self.nextFrame = frameIdx
+        if ( self.nextFrame < 0 ):
+            self.nextFrame += self.data.shape[2]
+        if ( self.nextFrame < 0 or frameIdx > self.data.shape[2] ):
+            raise ValueError, 'The index %d is outside of the feasible range: [%d, %d]' % ( -self.data.shape[2], self.data.shape[2] )
+
+    def next( self ):
+        '''Returns the next frame in the data.agentCount
+
+        @return     A 2-tuple (data, index)
+                        data:   A numpy array of data of shape (N, M), for N agents and M floats
+                                per agent, based on the version of the data.
+                        index:  The index of the next frame to return. TODO: Confirm this.
+        '''
+        # TODO: TEST THIS!
+        if ( self.nextFrame >= self.data.shape[ 2 ] ):
+            raise StopIteration
+        data = self.data[ :, :, self.nextFrame ]
+        self.nextFrame += 1
+        return data
     
+    def write( self, output ):
+        '''Writes the associated data out to a file.
+
+        @param      output      A string.  The name of the file to write the data to.
+        @raises     AttributeError if there is no data contained.
+        '''
+        if ( self.data is None ):
+            raise AttributeError, "Cannot write scb data - none defined"
+        writeNPSCB( output, self.data, self, self.version )
+        
 def writeNPSCB( fileName, array, frameSet, version='1.0' ):
     """Given an N X M X K array, writes out an scb file with the given data.
     There are N agents over K frames.  M defines the number of data points per agent.
