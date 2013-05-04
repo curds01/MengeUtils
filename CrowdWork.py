@@ -2,7 +2,8 @@
 
 import time
 from PyQt4 import QtGui, QtCore
-from primitives import Vector2, Segment, segmentsFromString
+from primitives import Vector2, Segment
+import flowUtils
 from trajectory.scbData import FrameSet, NPFrameSet
 from ColorMap import *
 import Crowd
@@ -90,16 +91,18 @@ class CrowdAnalyzeThread( QtCore.QThread ):
         frameSet = NPFrameSet( scbFile )
         flowAction = self.data[ 'FLOW_ACTION' ]
         if ( flowAction == 1 or flowAction == 3 ):
-            segments = segmentsFromString( self.data[ 'flowLines' ], Segment )
+            names, segments = flowUtils.flowLinesFromString( self.data[ 'flowLines' ], Segment )
             print 'Computing flow across %d segments' % len(segments) 
             s = time.clock()
-            Crowd.computeFlow( frameSet, segments, tempFile )
+            Crowd.computeFlow( frameSet, segments, tempFile, names )
             print '    done in %.2f seconds' % ( time.clock() - s ) 
         if ( flowAction >= 2 ):
             print 'Computing flow plots...' 
             s=time.clock()
             # plot the beasts
-            Crowd.plotFlow( tempFile, frameSet.simStepSize )
+            names, segments = flowUtils.flowLinesFromString( self.data[ 'flowLines' ], Segment )
+            # this gives the ability to change the pre-computed names
+            Crowd.plotFlow( tempFile, frameSet.simStepSize, legendStr=names )
             print '    done in %.2f seconds' % ( time.clock() - s ) 
         
         print 'FINISHED'

@@ -209,6 +209,12 @@ class CrowdWindow( QtGui.QMainWindow):
         fLayout.addWidget( self.delFlowLineBtn, 4, 3, 1, 1 )
         fLayout.addWidget( self.editFlowLineBtn, 5, 2, 1, 1 )
         fLayout.addWidget( self.flipFlowLineBtn, 5, 3, 1, 1 )
+        fLayout.addWidget( QtGui.QLabel("Line Name"), 6, 1, 1, 1, QtCore.Qt.AlignRight )
+        self.flowNameGUI = QtGui.QLineEdit()
+        self.flowNameGUI.setEnabled( False )
+        QtCore.QObject.connect( self.flowNameGUI, QtCore.SIGNAL('editingFinished()'), self.flowLineNameChangeCB )
+        # TODO: Call back on editing the box
+        fLayout.addWidget( self.flowNameGUI, 6, 2, 1, 2 )
         
         self.flowLineCtx = LineContext( self.cancelAddFlowLine )
         vLayout.addWidget( box, 0 )
@@ -310,6 +316,7 @@ class CrowdWindow( QtGui.QMainWindow):
         """When the flow computation state changes, update gui state"""
         active = self.doFlowGUI.currentIndex() != 0
         self.linesGUI.setEnabled( active )
+        self.flowNameGUI.setEnabled( active )
         self.addFlowLineBtn.setEnabled( active )
         lineSelected = self.linesGUI.currentIndex() >= 0
         self.delFlowLineBtn.setEnabled( active and lineSelected )
@@ -323,6 +330,12 @@ class CrowdWindow( QtGui.QMainWindow):
             self.glWindow.setUserContext( None )
         self.glWindow.updateGL()
 
+    def flowLineNameChangeCB( self ):
+        '''Called when the name of a flow line is edited.'''
+        idx = self.linesGUI.currentIndex()
+        if ( idx > -1 ):
+            self.flowLineCtx.setLineName( idx, str( self.flowNameGUI.text() ) )
+            
     def lineChangedCB( self ):
         '''Called when the line number changes'''
         idx = self.linesGUI.currentIndex()
@@ -330,7 +343,8 @@ class CrowdWindow( QtGui.QMainWindow):
         self.delFlowLineBtn.setEnabled( active )
         self.editFlowLineBtn.setEnabled( active )
         self.flipFlowLineBtn.setEnabled( active )
-        # TODO: context should highlight line
+        if ( active ):
+            self.flowNameGUI.setText( self.flowLineCtx.getName( idx ) )
         self.flowLineCtx.setActive( idx )
         self.glWindow.updateGL()
         if ( not active ):

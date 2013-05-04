@@ -186,7 +186,12 @@ def plotFlow( outFileName, timeStep, titlePrefix='', legendStr=None, newFig=Fals
         fig = plt.gcf()
     
     dataFile = outFileName + ".flow"
-    data = np.loadtxt( dataFile )
+    dFile = open( dataFile, 'r' )
+    nameLine = dFile.readline()[2:]
+    if ( legendStr is None ):
+        legendStr = nameLine.split('~')
+    
+    data = np.loadtxt( dFile )
     data[:,0] *= timeStep
     smoothFlows = np.empty_like( data[:, 1:] )
     for col in xrange( data.shape[1] - 1 ):
@@ -195,7 +200,7 @@ def plotFlow( outFileName, timeStep, titlePrefix='', legendStr=None, newFig=Fals
     ax.set_title( '%s - Flow' % titlePrefix )
 ##    plt.plot( data[:,0], data[:, 1:], linewidth=0.25 )
     plt.plot( data[:,0], smoothFlows )
-    if ( legendStr == None ):
+    if ( legendStr == None or len( legendStr ) != data.shape[1] - 1 ):
         legendStr = [ 'Line %d' % i for i in range( data.shape[1] - 1 ) ]
     plt.legend( legendStr, loc='upper left' )
 ##    plt.xlabel( 'Simulation time (s)' )
@@ -213,11 +218,21 @@ def plotFlow( outFileName, timeStep, titlePrefix='', legendStr=None, newFig=Fals
     plt.savefig( outFileName + ".flow.png" )
     plt.savefig( outFileName + ".flow.eps" )
 
-def computeFlow( frameSet, segments, outFileName ):
+def computeFlow( frameSet, segments, outFileName, names=None ):
     '''Compute the flow of agents past the indicated line segments.
     Output is an NxM array where there are N time steps and M segments.
     Each segment has direction and every agent will only be counted at most once w.r.t.
-    each segment.'''
+    each segment.
+
+    @param  frameSet        An instance of trajectory data (currently scb data)
+    @param  segments        A list of Segment instances.
+    @param  outFileName     The name of the file to write the flow results to.
+    @param  names           An optional list of strings.  If provided, there must be
+                            one string for each Segment (in segments).  If none are
+                            provided, line names will be generated.
+    '''
+    if ( names is None ):
+        names = [ 'Line %d' % i for i in xrange( len( segments ) ) ]
     # In this scenario, there are N agents and M segments
 
     # compute parameters for each segment
@@ -246,6 +261,8 @@ def computeFlow( frameSet, segments, outFileName ):
         
     outFile = open( outFileName + '.flow', 'w' )
 
+    # write names
+    outFile.write( '# %s\n' % '~'.join( names ) )
     frameSet.setNext( 0 )
     # the number of agents who have crossed each segment
     crossed = np.zeros( segCount, dtype=np.int )

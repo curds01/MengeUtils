@@ -1,7 +1,8 @@
 from PyQt4 import QtCore, QtGui, QtOpenGL
-from primitives import Vector2, Segment, segmentsFromString
+from primitives import Vector2, Segment
 from OpenGL.GL import *
 from Context import *
+import flowUtils
 
 class GLLine( Segment):
     """Simple line object"""
@@ -60,6 +61,7 @@ class LineContext( BaseContext ):
     def __init__( self, cancelCB, lineClass=None ):
         BaseContext.__init__( self )
         self.lines = []
+        self.names = []
 
         self.activeID = -1  # the line currently affected by modifications
         self.editState = self.NO_EDIT
@@ -74,11 +76,20 @@ class LineContext( BaseContext ):
         else:
             self.Line = GLFlowLine
 
+    def getName( self, id ):
+        '''Returns the name associated with the line index, id.
+
+        @param      id      An integer.  The index into the stored set of lines.
+        @return     A string.  The stored name.
+        '''
+        return self.names[ id ]
+    
     def addLine( self ):
         '''Causes the context to go into new line mode'''
         self.canDraw = True
         self.editState = self.ADD
         self.activeID = -1
+        self.names.append( 'Line %d' % len( self.names ) )
 
     def editLine( self, idx ):
         '''Edits the indicated line'''
@@ -92,10 +103,15 @@ class LineContext( BaseContext ):
             self.canDraw = True
             self.activeID = idx
 
+    def setLineName( self, idx, name ):
+        '''Sets the name for the line with the given index'''
+        self.names[ idx ] = name
+
     def deleteLine( self, idx ):
         '''Removes a line from the set'''
         assert( idx >= 0 and idx < len( self.lines ) )
         self.lines.pop( idx )
+        self.names.pop( idx )
         self.activeID = -1
 
     def flipLine( self, idx ):
@@ -119,7 +135,14 @@ class LineContext( BaseContext ):
     def toConfigString( self ):
         """Creates a parseable config string so that the context can be reconsituted"""
         s = ''
-        for line in self.lines:
+        # TODO: This is fragile, it assumes that a comma never appears in the names
+        #   I should add a validator to the line editor to guarantee no commas are allowed.
+        names = self.names
+        while ( len( names ) > len( self.lines ) ):
+            assert( self.editState == self.ADD )
+            names = names[:-1]
+        s = ','.join( names ) + "~"
+        for i, line in enumerate( self.lines ):
             s += ' %.5f %.5f %.5f %.5f' % ( line.p1.x, line.p1.y, line.p2.x, line.p2.y )
         return s
 
@@ -128,7 +151,7 @@ class LineContext( BaseContext ):
         self.lines = []
         self.activeID = -1
         self.editState = self.NO_EDIT
-        self.lines = segmentsFromString( s, self.Line )
+        self.names, self.lines = flowUtils.flowLinesFromString( s, self.Line )
 
     def handleMouse ( self, event, view ):
         """Detects click, drag, release and creates a line"""
