@@ -6,19 +6,19 @@ import numpy as np
 import commonData
 from scbData import SCBDataMemory
 import pylab as plt
+from copy import deepcopy
 
-def gaussian1D( sigma, cellSize, kWidth ):
+def gaussian1D( sigma, cellSize ):
     """Computes a discrete gaussian kernel with standard deviation sigma and mean zero discretized
     to the given cellSize.  The kernel spans a width of 6 * sigma and is normalized to sum to one.
 
     @param      sigma       A float.  The standard deviation of the gaussian distribution.
     @param      cellSize    A float.  The size of the discrete cell.
-    @param      kWidth      An int.  The minimum size of the required kernel.
     @return     A numpy array of floats of shape ( k, ), where k is the smallest odd number 
                 such that k * cellSize >= 6 * sigma.  The values are the normalized evaluations
                 of the Gaussian function: e(x) = e^(-x^2/2sigma^2)
     """
-    kernelSize = max( int( np.ceil( 6 * sigma / cellSize ) ), kWidth )
+    kernelSize = int( np.ceil( 6 * sigma / cellSize ) )
     if ( kernelSize % 2 == 0 ):     # make sure the kernel size is odd numbered
         kernelSize += 1
         range = ( kernelSize / 2 ) * cellSize
@@ -28,6 +28,69 @@ def gaussian1D( sigma, cellSize, kWidth ):
     k = np.exp( -( x * x )/( 2.0 * sigma * sigma ) )
     k *= 1.0 / k.sum()
     return k
+
+def findIntervals( path, threshSqd=1.0 ):
+    '''Find the continuous intervals in the given path.
+
+    @param      path        A numpy array of floats with shape (N, 2).  The path is a
+                            sequence of N positions in R^2.  The first column is the x-position.
+                            The second is the y-position.
+    @param      thresh      The maximum SQUARED displacement between two subsequent positions
+                            that is considered to be continuous.
+    @returns    A list of 2-tuples.  Each 2-tuple is a pair of ints: ( start, end ), such that a
+                continuous path can be accessed by the slice [start:end].  If the full path is
+                continuous, then a single 2-tuple is returned in the list.
+    '''
+    delta = np.diff( path, axis=0 )
+    dSqd = np.sum( delta * delta, axis=1 )
+    breaks = np.where( dSqd > threshSqd )[0]
+    start = 0
+    intervals = []
+    if ( breaks.size > 0 ):
+        # there are intervals to be created
+        for t in breaks:
+            intervals.append( ( start, t + 1 ) )
+            start = t + 1
+    intervals.append( ( start, path.shape[0] ) )
+    return intervals
+
+def smooth( path, kernel ):
+    '''Use convolution to smooth the given path with the given kernel.  The end result will be
+    the same length as path.  
+
+    @param      path        A numpy array of floats with shape (N, 2).  The path is a
+                            sequence of N positions in R^2.  The first column is the x-position.
+                            The second is the y-position.
+    @param      kernel      A numpy array of floats with shape (K, ).  A kernel with K samples.
+    @return     A NEW numpy array of floats with shape (N, 2) which represents the convolution of
+                path with kernel.  Typically, if we assume N > K, then the first and last K/2 entries
+                in the smooth data will be "garbage".  In this case, the amount of change applied
+                to index K/2 and -K/2 is proportionately applied to the end values so that there is
+                a "smooth"(ish) change across the entire domain.
+    '''
+    newData = np.empty_like( path )
+    newData[ :, 2: ] = path[ :, 2: ]
+    if ( path.shape[0] > kernel.size ):
+        halfK = kernel.size / 2
+        newData[ halfK:-halfK, 0 ] = np.convolve( path[:, 0], kernel, 'valid' )
+        newData[ halfK:-halfK, 1 ] = np.convolve( path[:, 1], kernel, 'valid' )
+        # linearly interpolate the first half and the last half
+        # leading set
+        delta = newData[ halfK, :2 ] - path[ halfK, :2 ]
+        weights = np.linspace( 0.0, 1.0, halfK + 1 )[:-1]
+        weights.shape = (-1, 1 )
+        delta = delta * weights
+        newData[ :halfK, :2 ] = delta + path[ :halfK, :2 ]
+        # trailing set
+        delta = newData[ -(halfK+1), :2 ] - path[ -(halfK+1), :2 ]
+        weights = np.linspace( 1.0, 0.0, halfK + 1 )[1:]
+        weights.shape = (-1, 1 )
+        delta = delta * weights
+        newData[ -halfK:, :2 ] = delta + path[ -halfK:, :2 ]
+    else:
+        # TODO: Do something "smart" here - currently leaving the data unfiltered
+        newData[:, :2 ] = path [:, :2 ]
+    return newData
 
 def smoothSCB( data, sigma ):
     '''Smooths the trajectories in the given SCB data using a gaussian kernel with
@@ -39,49 +102,19 @@ def smoothSCB( data, sigma ):
                 two trajectories is the same.
     @raises:    ValueError if the data is not of a recognizable format.
     '''
-    print "smoothSCB"
-    window = int( sigma * 3 )
     rawData = data.fullData()
     smoothData = np.empty( rawData.shape, dtype=np.float32 )
-    kernel = gaussian1D( sigma, 1.0, rawData.shape[2] )
-    kFFT = np.abs( np.fft.rfft( kernel ) )
-    kFFT.shape = (1,-1)
-    print "\tKernel:"
-    print "\t\tSigma:", sigma
-    print "\t\tKernel shape:", kernel.shape
-    print "\t\tkFFT shape:", kFFT.shape
-    print "\tData:"
-    print "\t\tData shape:", rawData.shape
-
-    # TODO: This causes periodic issues - I'd be better off convolving the kernel with each frame
-    # TODO: Handle big discontinuities and don't smooth over them.
-    for i in range( 2 ):
-        dataFFT = np.fft.rfft( rawData[:,i,:], axis=1 )
-        smoothFFT = dataFFT * kFFT
-        smoothData[ :, i, : ] = np.fft.irfft( smoothFFT, smoothData.shape[2], axis=1 )
-    # orientation data
-    smoothData[:, 2:, : ] = rawData[:, 2:, : ]
-    
-    if ( True ):
-        SAMPLE = 10
-        plt.figure()
-        plt.subplot( 2, 1, 1 )
-        for i in range( 10 ):#rawData.shape[0] ):
-            plt.plot( rawData[i, 0, window:-window:SAMPLE ], rawData[i, 1, window:-window:SAMPLE], 'b' )
-        plt.xlim( (-10, 10) )
-        plt.ylim( ( -4, 8 ) )
-        plt.title( 'raw trajectory' )
-        plt.subplot( 2, 1, 2 )
-        for i in range( 10 ): #rawData.shape[0] ):
-            plt.plot( smoothData[i, 0, window:-window:SAMPLE ], smoothData[i, 1, window:-window:SAMPLE],'r' )
-        plt.title( 'Smoothed trajectory' )
-        plt.xlim( (-10, 10) )
-        plt.ylim( ( -4, 8 ) )
-        plt.show()
+    kernel = gaussian1D( sigma, 1.0 )
+    for a in xrange( rawData.shape[0] ):
+        path = rawData[ a, :2, : ].T
+        intervals = findIntervals( path )
+        for iVal in intervals:
+            iValData = path[ iVal[0]:iVal[1], : ]
+            smoothIVal = smooth( iValData, kernel )
+            smoothData[ a, :2, iVal[0]:iVal[1] ] = smoothIVal.T
     newData = SCBDataMemory()
-    newData.setData( agtData, data.version, data.simStepSize )
+    newData.setData( smoothData, data.version, data.simStepSize )
     return newData
-
     
 def smoothJulich( data, sigma ):
     '''Smooths the trajectories in the given SCB data using a gaussian kernel with
@@ -92,7 +125,16 @@ def smoothJulich( data, sigma ):
     @return     A new instance of JulichData containing smoothed trajectories.
     @raises:    ValueError if the data is not of a recognizable format.
     '''
-    return data
+    newData = deepcopy( data )
+    kernel = gaussian1D( sigma, 1.0 )
+    for ped in newData.pedestrians:
+        path = ped.traj[:, :2]
+        intervals = findIntervals( path )
+        for iVal in intervals:
+            iValData = path[ iVal[0]:iVal[1], : ]
+            smoothIVal = smooth( iValData, kernel )
+            path[ iVal[0]:iVal[1], :2 ] = smoothIVal
+    return newData
     
 def smoothTrajectory( data, sigma ):
     '''Smooths the trajectories in the given trajectory data using a gaussian kernel with
