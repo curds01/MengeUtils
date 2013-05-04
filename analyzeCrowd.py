@@ -239,8 +239,9 @@ class CrowdWindow( QtGui.QMainWindow):
         cmaps = COLOR_MAPS.keys()
         cmaps.sort()
         self.colorMapGUI.addItems( cmaps )
+        self.colorMapGUI.setCurrentIndex( 1 )
         fLayout.addWidget( self.colorMapGUI, 2, 1, 1, 1 )
-
+        
         fLayout.addWidget( QtGui.QLabel( "Image format" ), 3, 0, 1, 1, QtCore.Qt.AlignRight )
         self.imgFormatGUI = QtGui.QComboBox( box )
         self.imgFormatGUI.addItems( ( 'jpg', 'bmp', 'png' ) )
@@ -496,9 +497,9 @@ class CrowdWindow( QtGui.QMainWindow):
         except:
             pass
         try:
-            self.colorMapGUI.setCurrentIndex( self.colorMapGUI.findText( cfg[ 'colorMap' ] ) )
+            self.colorMapGUI.setCurrentIndex( self.colorMapGUI.findText( cfg[ 'colorMap' ].lower() ) )
         except:
-            pass
+            self.colorMapGUI.setCurrentIndex( 0 )
         try:
             self.doFlowGUI.setCurrentIndex( self.doFlowGUI.findText( cfg[ 'flow' ] ) )
         except:

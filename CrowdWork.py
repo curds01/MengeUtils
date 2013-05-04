@@ -39,7 +39,10 @@ class CrowdAnalyzeThread( QtCore.QThread ):
             os.makedirs( outPath )
         tempFile = os.path.join( self.data[ 'tempDir' ], self.data[ 'tempName' ] )
         grids = Crowd.GridFileSequence( tempFile )
-        colorMap = COLOR_MAPS[ self.data[ 'colorMap' ] ]
+        try:
+            colorMap = COLOR_MAPS[ self.data[ 'colorMap' ] ]
+        except:
+            colorMap = COLOR_MAPS[ 'flame' ]
 
         R = self.data[ 'kernelSize' ]
 
