@@ -34,6 +34,7 @@ class ConsoleFile( QtCore.QObject ):
 class CrowdWindow( QtGui.QMainWindow):
     def __init__( self, configName='', parent = None ):
         self.workThread = None
+        self.lastFolder = '.'
         QtGui.QMainWindow.__init__( self, parent )
         self.setWindowTitle( 'Crowd Analysis' )
 
@@ -274,31 +275,33 @@ class CrowdWindow( QtGui.QMainWindow):
 
     def selectObstDlg( self ):
         """Spawns a dialog to select an obstacle file"""
-        startPath = '.'
-        currPath = str( self.obstFilePathGUI.text() )
-        if ( currPath ):
-            startPath = os.path.split( currPath )[0]
-        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open obstacle file", startPath, "All Files (*.*)")
+        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open obstacle file", self.lastFolder, "All Files (*.*)")
         if ( fileName ):
             self.obstFilePathGUI.setText( fileName )
+            path, fName = os.path.split( str( fileName ) )
+            self.lastFolder = path
             
     def selectSCBDlg( self ):
         """Spawns a dialog to select an scb file"""
-        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open SCB file", ".", "SCB Files (*.scb)")
+        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open SCB file", self.lastFolder, "SCB Files (*.scb)")
         if ( fileName ):
             self.scbFilePathGUI.setText( fileName )
+            path, fName = os.path.split( str( fileName ) )
+            self.lastFolder = path
 
     def selectOutPathDlg( self ):
         """Spawns a dialog to select an scb file"""
-        fileName = QtGui.QFileDialog.getExistingDirectory( self, "Select Output Folder", ".")
+        fileName = QtGui.QFileDialog.getExistingDirectory( self, "Select Output Folder", self.lastFolder )
         if ( fileName ):
             self.outPathGUI.setText( fileName )
+            self.lastFolder = fileName
 
     def selectIntPathDlg( self ):
         """Spawns a dialog to select an scb file"""
-        fileName = QtGui.QFileDialog.getExistingDirectory( self, "Select Folder for Intermediate Files", ".")
+        fileName = QtGui.QFileDialog.getExistingDirectory( self, "Select Folder for Intermediate Files", self.lastFolder )
         if ( fileName ):
             self.tempPathGUI.setText( fileName )
+            self.lastFolder = fileName
 
     def toggleSpeed( self ):
         self.speedWindowGUI.setEnabled( self.doSpeedGUI.currentIndex() != 0 )
@@ -383,18 +386,22 @@ class CrowdWindow( QtGui.QMainWindow):
     
     def readConfigFileDlg( self ):
         """Spawns a dialog to read an input configuration file"""
-        fileName = QtGui.QFileDialog.getOpenFileName( self, "Read application config file", ".", "Config files (*.cfg)" )
+        fileName = QtGui.QFileDialog.getOpenFileName( self, "Read application config file", self.lastFolder, "Config files (*.cfg)" )
         if ( fileName ):
             self.readConfigFile( fileName )
+            path, fName = os.path.split( str( fileName ) )
+            self.lastFolder = path
     
     def saveConfigFileDlg( self ):
         """Spawns a dialog to save an input configuration file"""
-        fileName = QtGui.QFileDialog.getSaveFileName( self, "Save Full Config As...", ".", "Config files (*.cfg)" )
+        fileName = QtGui.QFileDialog.getSaveFileName( self, "Save Full Config As...", self.lastFolder, "Config files (*.cfg)" )
         if ( fileName ):
             config = self.collectFullConfig()
             file = open( fileName, 'w' )
             config.toFile( file )
             file.close()
+            path, fName = os.path.split( str( fileName ) )
+            self.lastFolder = path
     
     def readInConfigFile( self, fileName ):
         """Reads an input configuration file"""
