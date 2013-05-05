@@ -12,6 +12,7 @@ from qtcontext import *
 from CrowdWork import CrowdAnalyzeThread
 from config import Config
 import sys
+from analyzeWidgets import CollapsableWidget, VFlowLayout
     
 STDOUT = sys.stdout
 
@@ -39,33 +40,37 @@ class CrowdWindow( QtGui.QMainWindow):
         self.setWindowTitle( 'Crowd Analysis' )
 
         mainFrame = QtGui.QFrame( self )
-        mainVLayout = QtGui.QVBoxLayout( mainFrame )
+        mainVLayout = QtGui.QHBoxLayout( mainFrame )
                 
-        splitter = QtGui.QSplitter( mainFrame )
-        f = QtGui.QFrame( splitter )
-        vLayout = QtGui.QVBoxLayout( f )
-
+        self.sa = QtGui.QScrollArea( mainFrame )
+        self.sa.setHorizontalScrollBarPolicy( QtCore.Qt.ScrollBarAlwaysOff )
+        self.f = QtGui.QFrame()
+        vLayout = VFlowLayout()
+        
         self.createInputBox( vLayout )
         self.createOutputBox( vLayout )
         self.createAnalysisBox( vLayout )
         self.createRasterBox( vLayout )
-        self.goBtn = QtGui.QPushButton( "GO!", f )
+        self.goBtn = QtGui.QPushButton( "GO!", self.f )
         QtCore.QObject.connect( self.goBtn, QtCore.SIGNAL('clicked(bool)'), self.process )
         
-        vLayout.addWidget( self.goBtn, 2 )
+        vLayout.addWidget( self.goBtn )
+        self.f.setLayout( vLayout )
+        self.sa.setWidget( self.f )
+        
+        splitter = QtGui.QSplitter( mainFrame )
+        splitter.setOrientation( QtCore.Qt.Vertical )
 
-        self.glWindow = GLWidget(  (10,10),(0,0), (10,10),(0,0), (1,1), splitter )        
+        self.glWindow = GLWidget(  (10,10),(0,0), (10,10),(0,0), (1,1), splitter )
+        self.glWindow.setMinimumSize( QtCore.QSize( 640, 480 ) )
 
-        splitter.setStretchFactor( 0, 0 )
-        splitter.setStretchFactor( 1, 1 )
-
-        self.console = QtGui.QPlainTextEdit( mainFrame )
+        self.console = QtGui.QPlainTextEdit( splitter )
         self.console.setReadOnly( True )
         sys.stdout = ConsoleFile()
         sys.stdout.processMessage.connect( self.logMessage )
-        
-        mainVLayout.addWidget( splitter, 0 )
-        mainVLayout.addWidget( self.console, 1 )
+
+        mainVLayout.addWidget( self.sa, 0 )        
+        mainVLayout.addWidget( splitter, 1 )
 
         self.setCentralWidget( mainFrame )
 
@@ -78,6 +83,12 @@ class CrowdWindow( QtGui.QMainWindow):
         else:
             self.readConfigFile( configName )
 
+    def updateScroll( self ):
+        '''Updates the scroll bar'''
+        sb = self.sa.verticalScrollBar()
+        sz = self.f.sizeHint()
+        self.f.setFixedHeight( sz.height() )
+        
     def createInputBox( self, vLayout ):
         # input frame
         inputBox = QtGui.QGroupBox("Input")
@@ -124,7 +135,7 @@ class CrowdWindow( QtGui.QMainWindow):
         fLayout.addWidget( self.loadObstBtn, 4, 2, 1, 1 )
 
         
-        vLayout.addWidget( inputBox, 0 )   
+        vLayout.addWidget( inputBox )   
 
     def createOutputBox( self, vLayout ):
         # input frame
@@ -149,12 +160,14 @@ class CrowdWindow( QtGui.QMainWindow):
         self.tempNameGUI = QtGui.QLineEdit( inputBox )
         fLayout.addWidget( self.tempNameGUI, 2, 1, 1, 1 )        
 
-        vLayout.addWidget( inputBox, 0 )         
+        vLayout.addWidget( inputBox )         
 
     def createAnalysisBox( self, vLayout ):
         # input frame
-        box = QtGui.QGroupBox("Analysis")
-        fLayout = QtGui.QGridLayout( box )
+        box = CollapsableWidget( "Analysis" )
+        QtCore.QObject.connect( box, QtCore.SIGNAL('toggled(bool)'), self.updateScroll )
+        fLayout = QtGui.QGridLayout()
+        box.setLayout( fLayout )
         fLayout.setColumnStretch( 0, 0 )
         fLayout.setColumnStretch( 1, 0 )
         fLayout.setColumnStretch( 2, 1 )
@@ -162,31 +175,36 @@ class CrowdWindow( QtGui.QMainWindow):
         
         # density
         fLayout.addWidget( QtGui.QLabel("Density"), 0, 0, 1, 1 )
-        self.doDensityGUI = QtGui.QComboBox( box )
+        self.doDensityGUI = QtGui.QComboBox()
+        box.addWidget( self.doDensityGUI )
         self.doDensityGUI.addItems( ("No action", "Compute", "Visualize", "Compute and Vis." ) )
         fLayout.addWidget( self.doDensityGUI, 0, 1, 1, 3 )
         # speed
         
         fLayout.addWidget( QtGui.QLabel("Speed"), 1, 0, 1, 1 )
-        self.doSpeedGUI = QtGui.QComboBox( box )
+        self.doSpeedGUI = QtGui.QComboBox()
+        box.addWidget( self.doSpeedGUI )
         self.doSpeedGUI.addItems( ("No action", "Compute", "Visualize", "Compute and Vis." ) )
         QtCore.QObject.connect( self.doSpeedGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.toggleSpeed )
         fLayout.addWidget( self.doSpeedGUI, 1, 1, 1, 3 )
         fLayout.addWidget( QtGui.QLabel( "Temporal window" ), 2, 1, 1, 1, QtCore.Qt.AlignRight )
-        self.speedWindowGUI = QtGui.QSpinBox( box )
+        self.speedWindowGUI = QtGui.QSpinBox()
+        box.addWidget( self.speedWindowGUI )
         self.speedWindowGUI.setMinimum( 1 )
         self.speedWindowGUI.setEnabled( False )
         fLayout.addWidget( self.speedWindowGUI, 2, 2, 1, 2 )
 
         # flow analysis - draw some lines and count the agents that cross the line
         fLayout.addWidget( QtGui.QLabel("Flow"), 3, 0, 1, 1 )
-        self.doFlowGUI = QtGui.QComboBox( box )
+        self.doFlowGUI = QtGui.QComboBox()
+        box.addWidget( self.doFlowGUI )
         self.doFlowGUI.addItems( ("No action", "Compute", "Visualize", "Compute and Vis." ) )
         QtCore.QObject.connect( self.doFlowGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.flowChangedCB )
         fLayout.addWidget( self.doFlowGUI, 3, 1, 1, 1 )
 
         # line control
-        self.linesGUI = QtGui.QComboBox( box )
+        self.linesGUI = QtGui.QComboBox()
+        box.addWidget( self.linesGUI )
         self.linesGUI.setEnabled( False )
         QtCore.QObject.connect( self.linesGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.lineChangedCB )
         fLayout.addWidget( QtGui.QLabel("Line No."), 3, 2, 1, 1, QtCore.Qt.AlignRight )
@@ -217,7 +235,7 @@ class CrowdWindow( QtGui.QMainWindow):
         fLayout.addWidget( self.flowNameGUI, 6, 2, 1, 2 )
         
         self.flowLineCtx = QTFlowLineContext( self.cancelAddFlowLine )
-        vLayout.addWidget( box, 0 )
+        vLayout.addWidget( box )
 
     def createRasterBox( self, vLayout ):
         # input frame
@@ -251,7 +269,7 @@ class CrowdWindow( QtGui.QMainWindow):
         QtCore.QObject.connect( self.imgFormatGUI, QtCore.SIGNAL('currentIndexChanged(int)'), formatIdxChanged )
         fLayout.addWidget( self.imgFormatGUI, 3, 1, 1, 1 )        
         
-        vLayout.addWidget( box, 0 )
+        vLayout.addWidget( box )
                 
     def createActions( self ):
         """Creates the actions for menu actions"""
@@ -428,10 +446,10 @@ class CrowdWindow( QtGui.QMainWindow):
             f = open( fileName, 'r' )
             cfg = Config()
             cfg.fromFile( f )
-            self.logMessage('Read full config file %s\n' % fileName )
+            print('Read full config file %s\n' % fileName )
             self.setFullConfig( cfg )
         except IOError:
-            self.logMessage('Error reading full config file %s\n' % fileName )
+            print('Error reading full config file %s\n' % fileName )
             
     def setFullConfig( self, cfg ):
         """Given a config object for the full application, sets the application state"""
