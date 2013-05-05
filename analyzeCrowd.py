@@ -216,7 +216,7 @@ class CrowdWindow( QtGui.QMainWindow):
         # TODO: Call back on editing the box
         fLayout.addWidget( self.flowNameGUI, 6, 2, 1, 2 )
         
-        self.flowLineCtx = LineContext( self.cancelAddFlowLine )
+        self.flowLineCtx = QTFlowLineContext( self.cancelAddFlowLine )
         vLayout.addWidget( box, 0 )
 
     def createRasterBox( self, vLayout ):
