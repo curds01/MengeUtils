@@ -1,13 +1,12 @@
 ## Functionality for flow analysis in the tawaf
 
-from primitives import Vector3, Vector2
-from qtcontext import GLLine
+from primitives import Vector3, Vector2, Segment
 from math import atan2
 
-class FlowLine (GLLine ):
+class FlowLine ( Segment ):
     """Class for working with flow lines"""
     def __init__( self, p1, p2 ):
-        GLLine.__init__( self, p1, p2 )
+        Segment.__init__( self, p1, p2 )
         self.agents = []
         self.coef = Vector3( 0, 0, 0 ) # coefficients to line's equation
                                   # dot it with the point (x, y, 1) to get signed distance
@@ -18,7 +17,7 @@ class FlowLine (GLLine ):
         self.nextLine = None
 
     def __str__( self ):
-        s = GLLine.__str__( self )
+        s = Segment.__str__( self )
         for agt in self.agents:
             s += '\n\t\t%s' % agt
         return s

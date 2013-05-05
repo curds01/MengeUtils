@@ -27,9 +27,8 @@ from Grid import *
 import Signals
 import Kernels
 from GridFileSequence import *
-from qtcontext import GLLine
 from flow import *
-from primitives import Vector2
+from primitives import Vector2, Segment
 from trajectory.scbData import FrameSet
 from trace import renderTraces
 import pylab as plt
@@ -529,7 +528,7 @@ def main():
         if ( not os.path.exists( os.path.join( outPath, 'advec' ) ) ):
             os.makedirs( os.path.join( outPath, 'advec' ) )
     
-        lines = [ GLLine( Vector2(0.81592, 5.12050), Vector2( 0.96233, -5.27461) ) ]
+        lines = [ Segment( Vector2(0.81592, 5.12050), Vector2( 0.96233, -5.27461) ) ]
         print "\tComputing advection",
         s = time.clock()
         grids.computeAdvecFlow( minPt, size, res, dfunc, 3.0, R, frameSet, lines )
@@ -591,13 +590,13 @@ def main():
         if ( not os.path.exists( os.path.join( outPath, 'flow' ) ) ):
             os.makedirs( os.path.join( outPath, 'flow' ) )
                  
-        lines = ( GLLine( Vector2( 4.56230, -7.71608 ), Vector2( 81.49586, -4.55443  ) ),
-                  GLLine( Vector2( 5.08924, 5.72094 ), Vector2( 82.28628, 8.61913  ) ),
-                  GLLine( Vector2( 3.50842, 8.09218 ), Vector2( 2.71800, 51.30145  ) ),
-                  GLLine( Vector2( -5.97654, 5.72094 ), Vector2( -8.87472, 51.56492  ) ),
-                  GLLine( Vector2( -6.50348, -7.18914 ), Vector2(  -40.75473, -53.56005 ) ),
-                  GLLine( Vector2( -1.23406, -6.92567 ), Vector2( 1.13718, -51.18881  ) ),
-                  GLLine( Vector2( 3.50842, -7.45261 ), Vector2( 44.08297, -45.65592 ) ) )
+        lines = ( Segment( Vector2( 4.56230, -7.71608 ), Vector2( 81.49586, -4.55443  ) ),
+                  Segment( Vector2( 5.08924, 5.72094 ), Vector2( 82.28628, 8.61913  ) ),
+                  Segment( Vector2( 3.50842, 8.09218 ), Vector2( 2.71800, 51.30145  ) ),
+                  Segment( Vector2( -5.97654, 5.72094 ), Vector2( -8.87472, 51.56492  ) ),
+                  Segment( Vector2( -6.50348, -7.18914 ), Vector2(  -40.75473, -53.56005 ) ),
+                  Segment( Vector2( -1.23406, -6.92567 ), Vector2( 1.13718, -51.18881  ) ),
+                  Segment( Vector2( 3.50842, -7.45261 ), Vector2( 44.08297, -45.65592 ) ) )
         flow = computeFlowLines( Vector2( 0, 0 ), lines, frameSet )
         flowFile = os.path.join( outPath, 'flow', 'flow.txt' )
         file = open( flowFile, 'w' )

@@ -439,7 +439,7 @@ class Segment:
         self.p1 = self.p2
         self.p2 = t
 
-def segmentsFromString( s, LineClass ):
+def segmentsFromString( s, SegmentClass ):
     '''Given a string of floats, constructs a list of segments.  For N segments there
     must be 4N floats.'''
     lines = []
@@ -448,7 +448,7 @@ def segmentsFromString( s, LineClass ):
     while tokens:
         x1, y1, x2, y2 = tokens[:4]
         tokens = tokens[ 4: ]
-        lines.append( LineClass( Vector2( float(x1), float(y1) ), Vector2( float(x2), float(y2) ) ) )
+        lines.append( SegmentClass( Vector2( float(x1), float(y1) ), Vector2( float(x2), float(y2) ) ) )
     return lines
         
 if __name__ == "__main__":
