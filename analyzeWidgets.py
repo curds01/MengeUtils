@@ -382,9 +382,14 @@ class AnlaysisWidget( QtGui.QGroupBox ):
     def runCurrent( self ):
         '''Runs the current task - it must be active, otherwise this function couldn't be called.'''
         cWidget = self.taskGUIs.currentWidget()
-        t = cWidget.getTask()
-        self.rsrc.inputWidget.setTaskProperties( t )
-        self.executeWork( [ t ])
+        try:
+            t = cWidget.getTask()
+            self.rsrc.inputWidget.setTaskProperties( t )
+        except ValueError:
+            pass
+        else:
+            self.executeWork( [ t ])
+        
 
     def executeWork( self, tasks ):
         '''Runs the list of given tasks.
