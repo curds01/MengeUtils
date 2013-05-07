@@ -61,9 +61,11 @@ class DiracSignal( Signal ):
     def __init__( self, domain, data=None ):
         '''Constructor for the signal.
 
-        @param  domain      An instance of Grids.RectDomain.  Defines the domain of the signal.
+        @param  domain      An instance of RectDomain.  Defines the domain of the signal.
         @param  data        An Nx2 numpy array of flaots. The signal data.
         '''
+        if ( not isinstance( RectDomain, domain ) ):
+            raise TypeError, "Dirac signals should only be initialized with RectDomain instances, given %s" % ( domain.__class__ )
         self.domain = domain
         self._data = data
 
@@ -210,7 +212,7 @@ class PedestrianSignal( DiracSignal ):
     def __init__( self, domain, frameSet=None ):
         '''Constructor.
 
-        @param      domain      An instance of Grids.RectDomain.
+        @param      domain      An instance of RectDomain.
                                 Defines the domain of the signal.
         @param      frameSet    A pedestrian data frame set (such as
                                 scbData or SeyfriedTrajectoryReader.)
