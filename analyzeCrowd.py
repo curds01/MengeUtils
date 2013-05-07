@@ -228,7 +228,7 @@ class CrowdWindow( QtGui.QMainWindow):
 
     def logMessage( self, msg ):
         '''Append a message to the console'''
-        self.console.appendPlainText( msg )
+        self.console.insertPlainText( msg )
 
     def workDone( self ):
         '''Work has finished, reactivate the button'''
