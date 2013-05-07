@@ -63,6 +63,11 @@ class AbstractGrid( RectDomain ):
             assert( np.abs( self.cellSize[0] * self.resolution[0] - self.size[0] ) < 0.0001 and
                     np.abs( self.cellSize[1] * self.resolution[1] - self.size[1] ) < 0.0001 )
 
+    def __str__( self ):
+        return 'AbstractGrid from ( %.2f, %.2f ) to ( %.2f, %.2f ) - res: %d x %d' % ( self.minCorner[0], self.minCorner[1],
+                                                                      self.minCorner[0] + self.size[0], self.minCorner[1] + self.size[1],
+                                                                                       self.resolution[0], self.resolution[1] )
+
     def copy( self ):
         '''Creates a copy of itself'''
         return AbstractGrid( self.minCorner, self.size, self.resolution, self.cellSize )
@@ -259,6 +264,11 @@ class DataGrid( AbstractGrid) :
         '''Returns an AbstractGrid copy of this grid'''
         return AbstractGrid( self.minCorner, self.size, self.resolution, self.cellSize )
     
+    def __str__( self ):
+        return 'DataGrid from ( %.2f, %.2f ) to ( %.2f, %.2f ) - res: %d x %d' % ( self.minCorner[0], self.minCorner[1],
+                                                                      self.minCorner[0] + self.size[0], self.minCorner[1] + self.size[1],
+                                                                                       self.resolution[0], self.resolution[1] )
+
     def copy( self ):
         '''Produces a copy of itself - including underlying data'''
         grid = DataGrid( self.minCorner, self.size, self.resolution, self.cellSize, self.initVal, self.cells.dtype, True )
