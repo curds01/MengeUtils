@@ -534,12 +534,12 @@ class TaskWidget( QtGui.QGroupBox ):
     def writeConfig( self, file ):
         '''Writes the widget state to the given file'''
         values = [ self.name ]
-        values.append( str( self.actionGUI.currentText() ) )
+        values.append( str( self.actionGUI.currentText() ).strip() )
         if ( self.isChecked() ):
             values.append( '1' )
         else:
             values.append( '0' )
-        values.append( str( self.outPathGUI.text() ) )
+        values.append( str( self.outPathGUI.text() ).strip() )
         file.write( '~'.join( values ) )
         file.write( '\n' )
 
@@ -590,7 +590,7 @@ class DensityTaskWidget( TaskWidget ):
         self.imgFormatGUI.addItems( ( 'jpg', 'bmp', 'png' ) )
         def formatIdxChanged( idx ):
             if ( idx == 2 ):
-                self.logMessage( 'There is a memory leak for png format!' )
+                self.rsrc.logMessage( 'There is a memory leak for png format!' )
         QtCore.QObject.connect( self.imgFormatGUI, QtCore.SIGNAL('currentIndexChanged(int)'), formatIdxChanged )
         fLayout.addWidget( self.imgFormatGUI, 3, 1, 1, 1 )        
 
@@ -602,17 +602,28 @@ class DensityTaskWidget( TaskWidget ):
 
     def readConfig( self, file ):
         '''Reads the widget state from the given file'''
-        pass
+        TaskWidget.readConfig( self, file )
+        tokens = file.readline().split('~')
+        self.kernelSizeGUI.setValue( float( tokens[0] ) )
+        self.cellSizeGUI.setValue( float( tokens[1] ) )
+        self.colorMapGUI.setCurrentIndex( self.colorMapGUI.findText( tokens[2] ) )
+        self.imgFormatGUI.setCurrentIndex( self.imgFormatGUI.findText( tokens[3].strip() ) )
 
     def writeConfig( self, file ):
         '''Writes the widget state to the given file'''
-        pass
+        TaskWidget.writeConfig( self, file )
+        values = [ '%.5f' % self.kernelSizeGUI.value() ]
+        values.append( '%.5f' % self.cellSizeGUI.value() )
+        values.append( str( self.colorMapGUI.currentText() ).strip() )
+        values.append( str( self.imgFormatGUI.currentText() ).strip() )
+        file.write( '%s\n' % ( '~'.join( values ) ) )
     
     @staticmethod
     def typeStr():
         '''Returns a string representation of this task'''
         return 'DENSITY'
-        
+
+    
 class SpeedTaskWidget( TaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
         TaskWidget.__init__( self, name, parent, delCB, rsrc )
@@ -641,7 +652,7 @@ class SpeedTaskWidget( TaskWidget ):
         self.imgFormatGUI.addItems( ( 'jpg', 'bmp', 'png' ) )
         def formatIdxChanged( idx ):
             if ( idx == 2 ):
-                self.logMessage( 'There is a memory leak for png format!' )
+                self.rsrc.logMessage( 'There is a memory leak for png format!' )
         QtCore.QObject.connect( self.imgFormatGUI, QtCore.SIGNAL('currentIndexChanged(int)'), formatIdxChanged )
         fLayout.addWidget( self.imgFormatGUI, 3, 1, 1, 1 )        
         
@@ -658,12 +669,19 @@ class SpeedTaskWidget( TaskWidget ):
 
     def readConfig( self, file ):
         '''Reads the widget state from the given file'''
-        pass
+        TaskWidget.readConfig( self, file )
+        tokens = file.readline().split('~')
+        self.cellSizeGUI.setValue( float( tokens[0] ) )
+        self.colorMapGUI.setCurrentIndex( self.colorMapGUI.findText( tokens[1] ) )
+        self.imgFormatGUI.setCurrentIndex( self.imgFormatGUI.findText( tokens[2].strip() ) )
 
     def writeConfig( self, file ):
         '''Writes the widget state to the given file'''
-        pass
-    
+        TaskWidget.writeConfig( self, file )
+        values = [ '%.5f' % self.cellSizeGUI.value() ]
+        values.append( str( self.colorMapGUI.currentText() ).strip() )
+        values.append( str( self.imgFormatGUI.currentText() ).strip() )
+        file.write( '%s\n' % ( '~'.join( values ) ) )
     
 
 class FlowTaskWidget( TaskWidget ):
