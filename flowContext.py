@@ -95,6 +95,14 @@ class FlowLineContext( BaseContext ):
         '''
         return self.names[ id ]
     
+    def getLine( self, id ):
+        '''Returns the name associated with the line index, id.
+
+        @param      id      An integer.  The index into the stored set of lines.
+        @return     An instance of a FlowLine.
+        '''
+        return self.lines[ id ]
+    
     def addLine( self ):
         '''Causes the context to go into new line mode'''
         self.canDraw = True

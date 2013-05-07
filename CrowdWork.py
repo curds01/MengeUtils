@@ -13,15 +13,22 @@ import Kernels
 import Signals
 from Grid import makeDomain
 
-# TODO: Switch everything to NPFrameSet
-
 class CrowdAnalyzeThread( QtCore.QThread ):
     '''Class to perform the crowd analysis'''
     def __init__( self, data, parent=None ):
+        '''Constructor.
+
+        @param      data        A list of AnalysisTasks.  
+        '''
         QtCore.QThread.__init__( self, parent )
-        self.data = data
+        self.tasks = data
 
     def run( self ):
+        '''Execute the task list'''
+        for task in self.tasks:
+            task.execute()
+            
+    def runOld( self ):
         '''The work of the thread'''
         cellSize = float( self.data[ 'cellSize' ] )
         domainSize = Vector2( float(self.data[ 'sizeX' ] ), float( self.data[ 'sizeY' ] ) )

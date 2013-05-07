@@ -6,7 +6,8 @@ import os
 from obstacles import readObstacles
 from ColorMap import *
 from qtcontext import *
-
+from AnalysisTask import *
+from CrowdWork import CrowdAnalyzeThread
 
 class SystemResource:
     '''A simple class for sharing resources across elements of the app.'''
@@ -282,6 +283,34 @@ class InputWidget( QtGui.QGroupBox ):
                 print "Error parsing input configuration.  Found unrecognized tag: %s" % ( tokens[0] )
                 raise ValueError
 
+    def setTaskProperties( self, task ):
+        '''Given an instance of AnalysisTask, sets the appropriate input properties
+        of the task from the GUI state.
+
+        @param      task        An instance of AnalysisTask.
+        @raises     ValueError if there is a problem with the values.
+        '''
+        scbFile = str( self.scbFilePathGUI.text() ).strip()
+        if ( not scbFile ):
+            print "No scb file specified for analysis"
+            raise ValueError
+        task.setSCBFile( scbFile )
+        dt = self.timeStepGui.value()
+        if ( dt == 0.0 ):
+            print "No time step specified!"
+            raise ValueError
+        task.setTimeStep( dt )
+        
+        if ( task.requiresDomain() ):
+            w = self.domainSizeXGUI.value()
+            h = self.domainSizeYGUI.value()
+            if ( w <= 0.0 or h <= 0.0 ):
+                print "Invalid domain defined for analysis"
+                raise ValueError
+            minX = self.domainMinXGUI.value()
+            minY = self.domainMinYGUI.value()
+            task.setDomain( minX, minY, minX + w, minY + h )
+
 
 class AnlaysisWidget( QtGui.QGroupBox ):
     '''The widget for controlling the analysis'''
@@ -302,6 +331,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         self.rsrc = rsrc
         self.build()
         self.tasks = []
+        self.workThread = None
 
     def build( self ):
         layout = QtGui.QGridLayout()
@@ -313,7 +343,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         addBtn = QtGui.QPushButton( 'Add', self )
         layout.addWidget( addBtn, 0, 0 )
         QtCore.QObject.connect( addBtn, QtCore.SIGNAL('clicked(bool)'), self.addTaskCB )
-        # TODO: Connect this
+
         self.toolGUI = QtGui.QComboBox( self )
         self.toolGUI.addItems( self.TECHNIQUES )
         layout.addWidget( self.toolGUI, 0, 1 )
@@ -325,7 +355,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         self.goBtn = QtGui.QPushButton( 'Run All Active Tasks', self )
         self.goBtn.setEnabled( False )
         layout.addWidget( self.goBtn, 2, 0, 1, 2 )
-        # TODO: Connect this
+        QtCore.QObject.connect( self.goBtn, QtCore.SIGNAL('clicked(bool)'), self.runAllActive )
 
         div = QtGui.QFrame( self )
         div.setFrameShape( QtGui.QFrame.HLine )
@@ -340,6 +370,34 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         
         self.setLayout( layout )
 
+    def runAllActive( self ):
+        '''Runs all active tasks'''
+        try:
+            tasks = self.getTasks()
+        except ValueError:
+            print "No tasks to run"
+        else:
+            if ( self.workThread == None ):
+                self.goBtn.setEnabled( False )
+                # disable all task-specific "Run" buttons
+                for task in self.tasks:
+                    task.goBtn.setEnabled( False )
+                self.workThread = CrowdAnalyzeThread( tasks )
+                # Make connections that allow the thread to inform the gui when finished and output messages
+                QtCore.QObject.connect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )
+                print "Starting task execution..."
+                self.workThread.start()
+            else:
+                print "Already running"
+
+    def workDone( self ):
+        '''Called when the analysis work has finished'''
+        QtCore.QObject.disconnect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )
+        self.workThread = None
+        self.goBtn.setEnabled( True )
+        for task in self.tasks:
+            task.goBtn.setEnabled( True )
+        
     def changeActiveTask( self, active ):
         '''Called when the tab of a task is selected'''
         self.taskGUIs.currentWidget().activate()
@@ -410,14 +468,28 @@ class AnlaysisWidget( QtGui.QGroupBox ):
             raise ValueError
         
         taskCount = int( tokens[1] )
-        print "Read %d tasks" % taskCount
         for i in xrange( taskCount ):
             taskType = file.readline().strip()
             TaskClass = getTaskClass( taskType )
             task = TaskClass( '', rsrc=self.rsrc, delCB=self.deleteTask )
             task.readConfig( file )
             self.addTask( task, taskType )            
+    def getTasks( self ):
+        '''Returns a list of AnalysisTasks for the active task widgets.  If there are any
+        errors (incomplete data, etc.) a ValueError is raised.
 
+        @returns        A list of AnalysisTasks.
+        @raises         ValueError if there are data problems with ANY task.
+        '''
+        aTasks = []
+        for task in self.tasks:
+            if ( task.isChecked() ):
+                t = task.getTask()
+                # set input level properties
+                self.rsrc.inputWidget.setTaskProperties( t )
+                aTasks.append( t )
+        return aTasks
+            
 def getTaskClass( taskName ):
     '''Returns a class object for the given analysis task name'''
     if ( taskName == DensityTaskWidget.typeStr() ):
@@ -557,6 +629,32 @@ class TaskWidget( QtGui.QGroupBox ):
         self.actionGUI.setCurrentIndex( self.actionGUI.findText( tokens[1] ) )
         self.setChecked( tokens[2] == '1' )
         self.outPathGUI.setText( tokens[3] )
+
+    def setBasicTask( self, task ):
+        '''Given an instance of AnalysisTask (or sub-class) sets the basic task properties.
+
+        @param      task        The instance of AnalysisTask to change.
+        @raises     ValueError if there is a problem with the properties.
+        '''
+        task.setTaskName( self.name )
+        outFldr = str( self.outPathGUI.text() ).strip()
+        if ( not outFldr ):
+            print "Task %s has not specified an output folder" % ( self.name )
+            raise ValueError
+        task.setWorkFolder( outFldr )
+        
+        actIndex = self.actionGUI.currentIndex()
+        if ( actIndex == 0 ):
+            task.setWork( AnalysisTask.COMPUTE )
+        elif ( actIndex == 1 ):
+            task.setWork( AnalysisTask.VIS )
+        elif ( actIndex == 2 ):
+            task.setWork( AnalysisTask.COMPUTE_VIS )
+        else:
+            print "Unrecognized value for task action %s for %s" % ( self.actionGUI.currentText(), self.name )
+            raise ValueError
+
+    
                       
 class DensityTaskWidget( TaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
@@ -682,7 +780,6 @@ class SpeedTaskWidget( TaskWidget ):
         values.append( str( self.colorMapGUI.currentText() ).strip() )
         values.append( str( self.imgFormatGUI.currentText() ).strip() )
         file.write( '%s\n' % ( '~'.join( values ) ) )
-    
 
 class FlowTaskWidget( TaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
@@ -824,5 +921,26 @@ class FlowTaskWidget( TaskWidget ):
         TaskWidget.writeConfig( self, file )
         lineData = self.context.toConfigString()
         file.write( '%s\n' % lineData )
+
+    def getTask( self ):
+        '''Returns a task for this widget.
+
+        @return     An instance of FlowAnalysisTask.
+        @raises     ValueError if there is a problem in instantiating the task.addLine
+        '''
+        LINE_COUNT = self.context.lineCount()
+        if ( LINE_COUNT == 0 ):
+            print "No flow lines defined for FLOW task %s" % ( self.name )
+            raise ValueError
+        
+        task = FlowAnalysisTask()
+        for i in xrange( LINE_COUNT ):
+            task.addFlowLine( self.context.getLine( i ), self.context.getName( i ) )
+        TaskWidget.setBasicTask( self, task )
+        return task
+
+    def requiresDomain( self ):
+        '''Reports if this particular task requires domain information.'''
+        return False
     
     

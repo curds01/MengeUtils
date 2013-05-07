@@ -3,12 +3,9 @@
 from PyQt4 import QtGui, QtCore
 import os
 from GLWidget import *
-from CrowdWork import CrowdAnalyzeThread
 import sys
 from analyzeWidgets import InputWidget, AnlaysisWidget, SystemResource
     
-STDOUT = sys.stdout
-
 class ConsoleFile( QtCore.QObject ):
     processMessage = QtCore.pyqtSignal(str)
     def __init__( self ):
@@ -56,6 +53,7 @@ class CrowdWindow( QtGui.QMainWindow):
         vLayout = QtGui.QVBoxLayout()        
         self.inputBox = InputWidget( self.rsrc, self )
         vLayout.addWidget( self.inputBox )
+        self.rsrc.inputWidget = self.inputBox
         self.analysisBox = AnlaysisWidget( self.rsrc, self )
         vLayout.addWidget( self.analysisBox )  
         vLayout.addStretch( 1 )
@@ -72,6 +70,8 @@ class CrowdWindow( QtGui.QMainWindow):
 
         if ( configName ):        
             self.readConfigFile( configName )
+            path, name = os.path.split( configName )
+            self.rsrc.lastFolder = path
 
     def createActions( self ):
         """Creates the actions for menu actions"""
@@ -111,7 +111,11 @@ class CrowdWindow( QtGui.QMainWindow):
     def saveInConfigFileDlg( self ):
         """Spawns a dialog to save an input configuration file"""
         pass
-    
+
+    def saveInConfigFile( self, fileName ):
+        '''Returns a Config object reflecting the configuration of the input panel'''
+        pass
+
     def readConfigFileDlg( self ):
         """Spawns a dialog to read a full project configuration file"""
         fileName = QtGui.QFileDialog.getOpenFileName( self, "Read application config file", self.rsrc.lastFolder, "Config files (*.cfg)" )
@@ -124,135 +128,34 @@ class CrowdWindow( QtGui.QMainWindow):
         """Reads a configuration file for the full application"""
         try:
             f = open( fileName, 'r' )
-            
             self.inputBox.readConfig( f )
             self.analysisBox.readConfig( f )
             f.close()
-
             print('Read full config file %s\n' % fileName )
         except IOError, ValueError:
             print('Error reading full config file %s\n' % fileName )
+
+    def saveConfigFile( self, fileName ):
+        '''Saves the configuration file for the full application'''
+        try:
+            file = open( fileName, 'w' )
+            self.inputBox.writeConfig( file )
+            self.analysisBox.writeConfig( file )
+            file.close()
+        except IOError, ValueError:
+            print( 'Error saving full config file %\n' % fileName )
             
     def saveConfigFileDlg( self ):
         """Spawns a dialog to save a full project configuration file"""
         fileName = QtGui.QFileDialog.getSaveFileName( self, "Save Full Config As...", self.rsrc.lastFolder, "Config files (*.cfg)" )
         if ( fileName ):
-##            config = self.collectFullConfig()
-            file = open( fileName, 'w' )
-            self.inputBox.writeConfig( file )
-            self.analysisBox.writeConfig( file )
-##            config.toFile( file )
-##            file.close()
+            self.saveConfigFile( fileName )
             path, fName = os.path.split( str( fileName ) )
             self.rsrc.lastFolder = path
-    
-    def setFullConfig( self, cfg ):
-        """Given a config object for the full application, sets the application state"""
-        self.inputBox.setFromConfig( cfg )
-
-##        try:
-##            self.outPathGUI.setText( cfg[ 'outDir' ] )
-##        except:
-##            pass
-##        try:
-##            self.tempPathGUI.setText( cfg[ 'tempDir' ] )
-##        except:
-##            pass
-##        try:
-##            self.tempNameGUI.setText( cfg[ 'tempName' ] )
-##        except:
-##            pass
-##        try:
-##            self.doDensityGUI.setCurrentIndex( self.doDensityGUI.findText( cfg[ 'density' ] ) )
-##        except:
-##            pass
-##        try:
-##            self.doSpeedGUI.setCurrentIndex( self.doSpeedGUI.findText( cfg[ 'speed' ] ) )
-##        except:
-##            pass
-##        try:
-##            self.speedWindowGUI.setValue( int( cfg['speedWindow'] ) )
-##        except:
-##            pass
-##        try:
-##            self.kernelSizeGUI.setValue( float( cfg[ 'kernelSize' ] ) )
-##        except:
-##            pass
-##        try:
-##            self.cellSizeGUI.setValue( float( cfg[ 'cellSize' ] ) )
-##        except:
-##            pass
-##        try:
-##            self.colorMapGUI.setCurrentIndex( self.colorMapGUI.findText( cfg[ 'colorMap' ].lower() ) )
-##        except:
-##            self.colorMapGUI.setCurrentIndex( 0 )
-##        try:
-##            self.doFlowGUI.setCurrentIndex( self.doFlowGUI.findText( cfg[ 'flow' ] ) )
-##        except:
-##            pass
-##        try:
-##            self.flowLineCtx.setFromString( cfg[ 'flowLines' ] )
-##            ids = range( self.flowLineCtx.getLineCount() )
-##            ids = map( lambda x: str( x ), ids )
-##            self.linesGUI.addItems( ids )
-##        except:
-##            pass
-##        try:
-##            self.imgFormatGUI.setCurrentIndex( self.imgFormatGUI.findText( cfg[ 'imgFormat' ] ) )
-##        except:
-##            pass
-##        self.glWindow.updateGL()
-
                     
-    def collectFullConfig( self ):
-        '''Returns a Config object reflecting the full configuration of the application'''
-        cfg = Config()
-        self.inputBox.setConfig( cfg )
-##        cfg[ 'outDir' ] = str( self.outPathGUI.text() )
-##        cfg[ 'tempDir' ] = str( self.tempPathGUI.text() )
-##        cfg[ 'tempName' ] = str( self.tempNameGUI.text() )
-##        cfg[ 'density' ] = str( self.doDensityGUI.currentText() )
-##        cfg[ 'speed' ] = str( self.doSpeedGUI.currentText() )
-##        cfg[ 'speedWindow' ] = self.speedWindowGUI.value()
-##        cfg[ 'kernelSize' ] = self.kernelSizeGUI.value()
-##        cfg[ 'cellSize' ] = self.cellSizeGUI.value()
-##        cfg[ 'colorMap' ] = str( self.colorMapGUI.currentText() )
-##        cfg[ 'flow' ] = str( self.doFlowGUI.currentText() )
-##        cfg[ 'flowLines' ] = self.flowLineCtx.toConfigString()
-##        cfg[ 'imgFormat' ] = self.imgFormatGUI.currentText()
-        return cfg
-
-    def collectInputConfig( self ):
-        '''Returns a Config object reflecting the configuration of the input panel'''
-        pass
-
     def logMessage( self, msg ):
         '''Append a message to the console'''
         self.console.insertPlainText( msg )
-
-    def workDone( self ):
-        '''Work has finished, reactivate the button'''
-##        self.goBtn.setEnabled( True )
-        QtCore.QObject.disconnect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )
-        self.workThread = None
-
-    def process( self ):
-        if ( self.workThread == None ):
-            self.goBtn.setEnabled( False )
-            cfg = self.collectFullConfig()
-##            cfg[ 'DENSE_ACTION' ] = self.doDensityGUI.currentIndex()
-##            cfg[ 'SPEED_ACTION' ] = self.doSpeedGUI.currentIndex()
-##            cfg[ 'ADVEC_ACTION' ] = self.doFlowAdvecGUI.currentIndex()
-##            cfg[ 'ADVEC_LINES' ] = self.flowAdvecLineCtx.lines
-##            cfg[ 'FLOW_ACTION' ] = self.doFlowGUI.currentIndex()
-            self.workThread = CrowdAnalyzeThread( cfg )
-            # Make connections that allow the thread to inform the gui when finished and output messages
-            QtCore.QObject.connect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )
-            self.workThread.start()
-            self.logMessage( '\nStarting processing' )
-        else:
-            self.logMessage( 'Already running' )
-
 
 if __name__ == '__main__':
     import pygame
