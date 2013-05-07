@@ -1,18 +1,11 @@
 # GUI for analyzing crowd
 
 from PyQt4 import QtGui, QtCore
-from ColorMap import *
-import Crowd
-from math import pi, exp
-import time
 import os
 from GLWidget import *
-##from obstacles import readObstacles
-from qtcontext import *
 from CrowdWork import CrowdAnalyzeThread
-from config import Config
 import sys
-from analyzeWidgets import CollapsableWidget, VFlowLayout, InputWidget, AnlaysisWidget, SystemResource
+from analyzeWidgets import InputWidget, AnlaysisWidget, SystemResource
     
 STDOUT = sys.stdout
 
@@ -78,7 +71,7 @@ class CrowdWindow( QtGui.QMainWindow):
         self.createMenus()
         self.createStatusBar()
 
-        if ( configName == '' ):        
+        if ( configName ):        
             self.readConfigFile( configName )
 
     def createActions( self ):
@@ -132,21 +125,25 @@ class CrowdWindow( QtGui.QMainWindow):
         """Reads a configuration file for the full application"""
         try:
             f = open( fileName, 'r' )
-            cfg = Config()
-            cfg.fromFile( f )
+            
+            self.inputBox.readConfig( f )
+            self.analysisBox.readConfig( f )
+            f.close()
+
             print('Read full config file %s\n' % fileName )
-            self.setFullConfig( cfg )
-        except IOError:
+        except IOError, ValueError:
             print('Error reading full config file %s\n' % fileName )
             
     def saveConfigFileDlg( self ):
         """Spawns a dialog to save a full project configuration file"""
         fileName = QtGui.QFileDialog.getSaveFileName( self, "Save Full Config As...", self.lastFolder, "Config files (*.cfg)" )
         if ( fileName ):
-            config = self.collectFullConfig()
+##            config = self.collectFullConfig()
             file = open( fileName, 'w' )
-            config.toFile( file )
-            file.close()
+            self.inputBox.writeConfig( file )
+            self.analysisBox.writeConfig( file )
+##            config.toFile( file )
+##            file.close()
             path, fName = os.path.split( str( fileName ) )
             self.lastFolder = path
     

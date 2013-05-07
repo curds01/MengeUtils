@@ -73,6 +73,20 @@ class FlowLineContext( BaseContext ):
         self.dragging = False
         self.downPost = None
 
+    def clear( self ):
+        '''Clears out all of the lines'''
+        self.lines = []
+        self.names = []
+        self.activeID = -1
+        self.editState = self.NO_EDIT
+        self.activeLine = None
+        self.canDraw = False
+        self.dragging = False
+        self.downPost = None
+
+    def lineCount( self ):
+        return len( self.lines )
+    
     def getName( self, id ):
         '''Returns the name associated with the line index, id.
 

@@ -241,57 +241,57 @@ class InputWidget( QtGui.QGroupBox ):
         else:
             self.rsrc.logMessage('No obstacle file to load' )
 
-    def setFromConfig( self, cfg ):
-        '''Sets the various fields from a configuration'''
-        try:
-            self.scbFilePathGUI.setText( cfg[ 'SCB' ] )
-        except:
-            pass
-        try:
-            self.domainMinXGUI.setValue( float( cfg[ 'minPtX' ] ) )
-        except:
-            pass
-        try:
-            self.domainMinYGUI.setValue( float( cfg[ 'minPtY' ] ) )
-        except:
-            pass
-        try:
-            self.domainSizeXGUI.setValue( float( cfg[ 'sizeX' ] ) )
-        except:
-            pass
-        try:
-            self.domainSizeYGUI.setValue( float( cfg[ 'sizeY' ] ) )
-        except:
-            pass
-        try:
-            self.timeStepGui.setValue( float( cfg[ 'timeStep' ] ) )
-        except:
-            pass
-        try:
-            self.obstFilePathGUI.setText( cfg[ 'obstacle' ] )
-        except:
-            pass
+    def writeConfig( self, file ):
+        '''Writes the input configuration to the given file object.
 
-    def setConfig( self, cfg ):
-        '''Sets the various fields into the given cfg file'''
-        cfg[ 'SCB' ] = str( self.scbFilePathGUI.text() )
-        cfg[ 'minPtX' ] = self.domainMinXGUI.value()
-        cfg[ 'minPtY' ] = self.domainMinYGUI.value()
-        cfg[ 'sizeX' ] = self.domainSizeXGUI.value()
-        cfg[ 'sizeY' ] = self.domainSizeYGUI.value()
-        cfg[ 'timeStep' ] = self.timeStepGui.value()
-        cfg[ 'obstacle' ] = str( self.obstFilePathGUI.text() )
+        @param      file        An open file-like object.  Supports "write" operations.
+        '''
+        file.write( 'SCB || %s\n' % ( self.scbFilePathGUI.text() ) )
+        file.write( 'minPtX || %.5f\n' % ( self.domainMinXGUI.value() ) )
+        file.write( 'minPtY || %.5f\n' % ( self.domainMinYGUI.value() ) )
+        file.write( 'sizeX || %.5f\n' % ( self.domainSizeXGUI.value() ) )
+        file.write( 'sizeY || %.5f\n' % ( self.domainSizeYGUI.value() ) )
+        file.write( 'timeStep || %.5f\n' % ( self.timeStepGui.value() ) )
+        file.write( 'obstacle || %s\n' % ( self.obstFilePathGUI.text() ) )
+        
+    def readConfig( self, file ):
+        '''Reads the input configuration from the given file object.
+
+        @param      file        An open file-like object.  Supports "readline" operations.
+        @raises     ValueError if there is a problem in parsing the values.
+        '''
+        PARAM_COUNT = 7
+        # allow for out of order operations - slightly more robust
+        for i in xrange( PARAM_COUNT ):
+            tokens = map( lambda x: x.strip(), file.readline().split( '||' ) )
+            if ( tokens[0] == 'SCB' ):
+                self.scbFilePathGUI.setText( tokens[1] )
+            elif ( tokens[ 0 ] == 'minPtX' ):
+                self.domainMinXGUI.setValue( float( tokens[1] ) )
+            elif ( tokens[ 0 ] == 'minPtY' ):
+                self.domainMinYGUI.setValue( float( tokens[1] ) )
+            elif ( tokens[ 0 ] == 'sizeX' ):
+                self.domainSizeXGUI.setValue( float( tokens[1] ) )
+            elif ( tokens[ 0 ] == 'sizeY' ):
+                self.domainSizeYGUI.setValue( float( tokens[1] ) )
+            elif ( tokens[ 0 ] == 'timeStep' ):
+                self.timeStepGui.setValue( float( tokens[1] ) )
+            elif ( tokens[ 0 ] == 'obstacle' ):
+                self.obstFilePathGUI.setText( tokens[1] )
+            else:
+                print "Error parsing input configuration.  Found unrecognized tag: %s" % ( tokens[0] )
+                raise ValueError
 
 
 class AnlaysisWidget( QtGui.QGroupBox ):
     '''The widget for controlling the analysis'''
     # Enumerations of the type of analysis
     DENSITY = 0
-    POPULATION = 1
-    FLOW = 2
-    SPEED = 3
+    FLOW = 1
+    SPEED = 2
+##    POPULATION = 3
     
-    TECHNIQUES = ( 'Density', 'Population', 'Flow', 'Speed' )
+    TECHNIQUES = ( 'Density', 'Flow', 'Speed' ) # , 'Population' )
     def __init__( self, rsrc, parent=None ):
         '''Constructor.
 
@@ -312,7 +312,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         # Control for adding widgets
         addBtn = QtGui.QPushButton( 'Add', self )
         layout.addWidget( addBtn, 0, 0 )
-        QtCore.QObject.connect( addBtn, QtCore.SIGNAL('clicked(bool)'), self.addWork )
+        QtCore.QObject.connect( addBtn, QtCore.SIGNAL('clicked(bool)'), self.addTaskCB )
         # TODO: Connect this
         self.toolGUI = QtGui.QComboBox( self )
         self.toolGUI.addItems( self.TECHNIQUES )
@@ -322,7 +322,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         layout.addWidget( self.taskNameGUI, 1, 1 )
 
         # This should be greyed out if no actions exist
-        self.goBtn = QtGui.QPushButton( 'Go', self )
+        self.goBtn = QtGui.QPushButton( 'Run All Active Tasks', self )
         self.goBtn.setEnabled( False )
         layout.addWidget( self.goBtn, 2, 0, 1, 2 )
         # TODO: Connect this
@@ -347,7 +347,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
     def deleteTask( self, task ):
         '''Deletes the given task from the analysis.
 
-        @param      task        An instance of a WorkWidget (or subclass).  The task to be
+        @param      task        An instance of a TaskWidget (or subclass).  The task to be
                                 deleted.
         '''
         assert( task in self.tasks )
@@ -357,7 +357,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         if ( self.taskGUIs.count() == 0 ):
             self.goBtn.setEnabled( False )
 
-    def addWork( self ):
+    def addTaskCB( self ):
         '''Adds a block of work'''
         name = str( self.taskNameGUI.text() )
         if ( not name ):
@@ -366,33 +366,71 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         
         index = self.toolGUI.currentIndex()
         if ( index == self.DENSITY ):
-            TaskClass = DensityWorkWidget
-            s = "DENSITY"
-        elif ( index == self.POPULATION ):
-            TaskClass = WorkWidget
-            s = "POPULATION"
+            TaskClass = DensityTaskWidget
         elif ( index == self.FLOW ):
-            TaskClass = FlowWorkWidget
-            s = "FLOW"
+            TaskClass = FlowTaskWidget
         elif ( index == self.SPEED ):
-            TaskClass = SpeedWorkWidget
-            s = "SPEED"
-
-        task = TaskClass( name, rsrc=self.rsrc, delCB=self.deleteTask )
+            TaskClass = SpeedTaskWidget
+##        elif ( index == self.POPULATION ):
+##            TaskClass = TaskWidget
         
-        self.taskGUIs.addTab( task, s )
+        task = TaskClass( name, rsrc=self.rsrc, delCB=self.deleteTask )
+        self.addTask( task, TaskClass.typeStr() )
+
+    def addTask( self, task, tabLabel ):
+        '''Adds a task to the widget'''
+        self.taskGUIs.addTab( task, tabLabel )
         self.goBtn.setEnabled( True )
         self.tasks.append( task )
         
-    def setConfig( self, cfg ):    
-        '''Sets the various fields into the given cfg file'''
-        pass
+    def writeConfig( self, file ):
+        '''Writes the input configuration to the given file object.
 
-    def setFromConfig( self, cfg ):
-        '''Sets the various fields from a configuration'''
-        pass
+        @param      file        An open file-like object.  Supports "write" operations.
+        '''
+        file.write( 'Task count || %d\n' % len( self.tasks ) )
+        for task in self.tasks:
+            file.write( '%s\n' % ( task.typeStr() ) )
+            task.writeConfig( file )
+        
+    def readConfig( self, file ):
+        '''Reads the input configuration from the given file object.
 
-class WorkWidget( QtGui.QGroupBox ):
+        @param      file        An open file-like object.  Supports "readline" operations.
+        @raises     ValueError if there is a problem in parsing the values.
+        '''
+        try:
+            tokens = map( lambda x: x.strip(), file.readline().split( '||' ) )
+        except:
+            print "Error parsing task count"
+            raise ValueError
+        
+        if ( len( tokens ) != 2 or tokens[0] != 'Task count' ):
+            print "Expected to see task count in configuration file, found %s" % ( tokens[0] )
+            raise ValueError
+        
+        taskCount = int( tokens[1] )
+        print "Read %d tasks" % taskCount
+        for i in xrange( taskCount ):
+            taskType = file.readline().strip()
+            TaskClass = getTaskClass( taskType )
+            task = TaskClass( '', rsrc=self.rsrc, delCB=self.deleteTask )
+            task.readConfig( file )
+            self.addTask( task, taskType )            
+
+def getTaskClass( taskName ):
+    '''Returns a class object for the given analysis task name'''
+    if ( taskName == DensityTaskWidget.typeStr() ):
+        return DensityTaskWidget
+    elif ( taskName == FlowTaskWidget.typeStr() ):
+        return FlowTaskWidget
+    elif ( taskName == SpeedTaskWidget.typeStr() ):
+        return SpeedTaskWidget
+    else:
+        print "Unrecognized analysis task type: %s" % ( taskName )
+        raise ValueError
+        
+class TaskWidget( QtGui.QGroupBox ):
     '''The basic widget for doing work'''
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
         '''Constructor.
@@ -426,8 +464,12 @@ class WorkWidget( QtGui.QGroupBox ):
         # Spawn a dialog to change the task name
         text, ok = QtGui.QInputDialog.getText( self.parent(), 'Change task name', 'Task name' )
         if ( ok ):
-            self.setTitle( text )
-            self.name = str( text )
+            self.changeName( text )
+
+    def changeName( self, newName ):
+        '''Changes the name of the task'''
+        self.setTitle( newName )
+        self.name = str( newName )
 
     def header( self ):
         '''Builds the header for the work widget'''
@@ -441,6 +483,7 @@ class WorkWidget( QtGui.QGroupBox ):
 
         self.goBtn = QtGui.QPushButton( "Go", self )
         fLayout.addWidget( self.goBtn, 0, 0 )
+        QtCore.QObject.connect( self.goBtn, QtCore.SIGNAL('released()'), self.launchTask )
         # TODO connect this
         
         self.delBtn = QtGui.QPushButton( "Del", self )
@@ -451,8 +494,11 @@ class WorkWidget( QtGui.QGroupBox ):
         self.actionGUI = QtGui.QComboBox( self )
         self.actionGUI.addItems( ( "Compute", "Visualize", "Compute and Vis." ) )
         fLayout.addWidget( self.actionGUI, 1, 0, 1, 2 )
-        # TODO: Connect this to something
+
         return inputBox
+
+    def launchTask( self ):
+        print "Launching %s - %s" % ( self.typeStr(), self.name )
 
     def outputBox( self ):
         '''Craete the QGroupBox containing the output widgets'''
@@ -484,10 +530,37 @@ class WorkWidget( QtGui.QGroupBox ):
         else:
             self.rsrc.glWindow.setUserContext( None )
         self.rsrc.glWindow.updateGL()
-            
-class DensityWorkWidget( WorkWidget ):
+
+    def writeConfig( self, file ):
+        '''Writes the widget state to the given file'''
+        values = [ self.name ]
+        values.append( str( self.actionGUI.currentText() ) )
+        if ( self.isChecked() ):
+            values.append( '1' )
+        else:
+            values.append( '0' )
+        values.append( str( self.outPathGUI.text() ) )
+        file.write( '~'.join( values ) )
+        file.write( '\n' )
+
+    @staticmethod
+    def typeStr():
+        '''Returns a string representation of this task'''
+        return 'TASK'
+    
+    def readConfig( self, file ):
+        '''Reads the common TaskWidget parameters from the file'''
+        tokens = file.readline().split('~')
+        if ( len( tokens ) != 4 ):
+            raise ValueError, "Task Widget didn't have the basic properties"
+        self.changeName( tokens[0] )
+        self.actionGUI.setCurrentIndex( self.actionGUI.findText( tokens[1] ) )
+        self.setChecked( tokens[2] == '1' )
+        self.outPathGUI.setText( tokens[3] )
+                      
+class DensityTaskWidget( TaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
-        WorkWidget.__init__( self, name, parent, delCB, rsrc )
+        TaskWidget.__init__( self, name, parent, delCB, rsrc )
 
     def createRasterBox( self ):
         '''Create the widgets for the rasterization settings'''
@@ -526,10 +599,23 @@ class DensityWorkWidget( WorkWidget ):
     def body( self ):
         '''Build the task-specific GUI.  This should be overwritten by subclass'''
         self.bodyLayout.addWidget( self.createRasterBox() )
+
+    def readConfig( self, file ):
+        '''Reads the widget state from the given file'''
+        pass
+
+    def writeConfig( self, file ):
+        '''Writes the widget state to the given file'''
+        pass
+    
+    @staticmethod
+    def typeStr():
+        '''Returns a string representation of this task'''
+        return 'DENSITY'
         
-class SpeedWorkWidget( WorkWidget ):
+class SpeedTaskWidget( TaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
-        WorkWidget.__init__( self, name, parent, delCB, rsrc )
+        TaskWidget.__init__( self, name, parent, delCB, rsrc )
 
     def createRasterBox( self ):
         '''Create the widgets for the rasterization settings'''
@@ -565,9 +651,24 @@ class SpeedWorkWidget( WorkWidget ):
         '''Build the task-specific GUI.  This should be overwritten by subclass'''
         self.bodyLayout.addWidget( self.createRasterBox() )
 
-class FlowWorkWidget( WorkWidget ):
+    @staticmethod
+    def typeStr():
+        '''Returns a string representation of this task'''
+        return 'SPEED'
+
+    def readConfig( self, file ):
+        '''Reads the widget state from the given file'''
+        pass
+
+    def writeConfig( self, file ):
+        '''Writes the widget state to the given file'''
+        pass
+    
+    
+
+class FlowTaskWidget( TaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
-        WorkWidget.__init__( self, name, parent, delCB, rsrc )
+        TaskWidget.__init__( self, name, parent, delCB, rsrc )
         # TODO: This needs a context
         self.context = QTFlowLineContext( self.cancelAddFlowLine )
 
@@ -685,6 +786,25 @@ class FlowWorkWidget( WorkWidget ):
         self.linesGUI.removeItem( self.linesGUI.count() - 1 )
         self.linesGUI.setCurrentIndex( -1 )
 
+    @staticmethod
+    def typeStr():
+        '''Returns a string representation of this task'''
+        return 'FLOW'
     
+    def readConfig( self, file ):
+        '''Reads the widget state from the given file'''
+        self.linesGUI.clear()
+        TaskWidget.readConfig( self, file )
+        self.context.setFromString( file.readline() )
+        if ( self.context.lineCount() ):
+            self.linesGUI.addItems( [ '%d' % i for i in xrange( self.context.lineCount() ) ] )
+            self.linesGUI.setEnabled( True )
+            self.linesGUI.setCurrentIndex( 0 )
+
+    def writeConfig( self, file ):
+        '''Writes the widget state to the given file'''
+        TaskWidget.writeConfig( self, file )
+        lineData = self.context.toConfigString()
+        file.write( '%s\n' % lineData )
     
     
