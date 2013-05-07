@@ -4,6 +4,12 @@ import Crowd
 import os
 import time
 
+import Kernels
+import Signals
+from GFSVis import visualizeGFS
+from Grid import makeDomain
+from ColorMap import *
+
 class AnalysisTask:
     # Work to be performed by the task
     NO_WORK = 0
@@ -20,8 +26,8 @@ class AnalysisTask:
         self.work = self.NO_WORK
         self.workName = ''
         self.scbName = ''
-        self.domainMin = None
-        self.domainMax = None
+        self.domainX = None
+        self.domainY = None
         self.timeStep = 0.0
         self.workFldr = ''
 
@@ -48,8 +54,8 @@ class AnalysisTask:
         @param      maxY        A float.  The maximum point of the rectangular domain
                                 along the y-axis.
         '''
-        self.domainMin = Vector2( minX, minY )
-        self.domainmax = Vector2( maxX, maxY )
+        self.domainX = Vector2( minX, maxX )
+        self.domainY = Vector2( minY, maxY )
 
     def setTimeStep( self, timeStep ):
         '''Defines the time step of the analysis task.  This value will be ignored if
@@ -132,7 +138,35 @@ class DensityAnalysisTask( DiscreteAnalysisTask ):
 
     def execute( self ):
         '''Perform the work of the task'''
-        pass
+        if ( self.work ):
+            print "Accessing scb file:", self.scbName
+            frameSet = NPFrameSet( self.scbName )
+            if ( not os.path.exists( self.workFldr ) ):
+                os.makedirs( self.workFldr )
+            tempFile = os.path.join( self.workFldr, self.workName )
+            grids = Crowd.GridFileSequence( tempFile )
+            if ( self.work & AnalysisTask.COMPUTE ):
+                print "Computing density field"
+                kernel = Kernels.GaussianKernel( self.smoothParam, self.cellSize, False )
+                domain = makeDomain( self.domainX, self.domainY, self.cellSize )
+                sigDomain = makeDomain( self.domainX, self.domainY )
+                signal = Signals.PedestrianSignal( sigDomain ) # signal domain is the same as convolution domain
+                
+                s = time.clock()
+                grids.convolveSignal( domain, kernel, signal, frameSet )
+                print '    done in %.2f seconds' % ( time.clock() - s )
+            if ( self.work & AnalysisTask.VIS ):
+                imageName = os.path.join( self.workFldr, '%s_density_' % self.workName )
+                s = time.clock()
+                reader = Crowd.GridFileSequenceReader( grids.outFileName + ".density"  )
+                try:
+                    colorMap = COLOR_MAPS[ self.colorMapName ]
+                except:
+                    print 'Error loading color map: "%s", loading flame instead' % ( self.colorMapName )
+                    colorMap = COLOR_MAPS[ 'flame' ]
+                print 'Creating density images...'
+                visualizeGFS( reader, colorMap, imageName, self.outImgType, 1.0, None )
+                print '    done in %.2f seconds' % ( time.clock() - s ) 
 
 class SpeedAnalysisTask( DiscreteAnalysisTask ):
     def __init__( self ):
@@ -157,9 +191,9 @@ class FlowAnalysisTask( AnalysisTask ):
         
     def execute( self ):
         '''Perform the work of the task'''
-        print "Accessing scb file:", self.scbName
-        frameSet = NPFrameSet( self.scbName )
         if ( self.work ):
+            print "Accessing scb file:", self.scbName
+            frameSet = NPFrameSet( self.scbName )
             names = [ x[0] for x in self.lines ]
             lines = [ x[1] for x in self.lines ]
             tempFile = os.path.join( self.workFldr, self.workName )
@@ -178,3 +212,16 @@ class FlowAnalysisTask( AnalysisTask ):
                 Crowd.plotFlow( tempFile, frameSet.simStepSize, legendStr=names )
                 print '    done in %.2f seconds' % ( time.clock() - s )
 
+if __name__ == '__main__':
+    task = DensityAnalysisTask()
+    task.setSCBFile( 'M:/anisotropic/experiment/stadium/mo11_smoothShift.scb' )
+    task.setDomain( -10.00000, -3.80000, 12.4, 8.4 )
+    task.setTimeStep( 0.1 )
+    task.setWorkFolder( 'M:/anisotropic/experiment/stadium/data' )
+    task.setTaskName( 'lores' )
+    task.setWork( AnalysisTask.COMPUTE )
+    task.setCellSize( 0.25 )
+    task.setColorMap( 'black_body' )
+    task.setOutImg( 'jpg' )
+    task.setSmoothParam( 1.5 )
+    task.execute()

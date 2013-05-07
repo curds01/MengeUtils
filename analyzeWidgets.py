@@ -741,7 +741,21 @@ class DensityTaskWidget( TaskWidget ):
         '''Returns a string representation of this task'''
         return 'DENSITY'
 
-    
+    def getTask( self ):
+        '''Returns a task for this widget.
+
+        @return     An instance of DensityAnalysisTask.
+        @raises     ValueError if there is a problem in instantiating the task.addLine
+        '''
+        task = DensityAnalysisTask()
+        task.setSmoothParam( self.kernelSizeGUI.value() )
+        task.setCellSize( self.cellSizeGUI.value() )
+        task.setColorMap( str( self.colorMapGUI.currentText() ) )
+        task.setOutImg( str( self.imgFormatGUI.currentText() ) )
+        
+        TaskWidget.setBasicTask( self, task )
+        return task
+
 class SpeedTaskWidget( TaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
         TaskWidget.__init__( self, name, parent, delCB, rsrc )
