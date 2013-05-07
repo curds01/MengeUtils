@@ -352,7 +352,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         layout.addWidget( self.taskNameGUI, 1, 1 )
 
         # This should be greyed out if no actions exist
-        self.goBtn = QtGui.QPushButton( 'Run All Active Tasks', self )
+        self.goBtn = QtGui.QPushButton( 'Perform All Active Analysis Tasks', self )
         self.goBtn.setEnabled( False )
         layout.addWidget( self.goBtn, 2, 0, 1, 2 )
         QtCore.QObject.connect( self.goBtn, QtCore.SIGNAL('clicked(bool)'), self.runAllActive )
@@ -377,18 +377,32 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         except ValueError:
             print "No tasks to run"
         else:
-            if ( self.workThread == None ):
-                self.goBtn.setEnabled( False )
-                # disable all task-specific "Run" buttons
-                for task in self.tasks:
-                    task.goBtn.setEnabled( False )
-                self.workThread = CrowdAnalyzeThread( tasks )
-                # Make connections that allow the thread to inform the gui when finished and output messages
-                QtCore.QObject.connect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )
-                print "Starting task execution..."
-                self.workThread.start()
-            else:
-                print "Already running"
+            self.executeWork( tasks )
+
+    def runCurrent( self ):
+        '''Runs the current task - it must be active, otherwise this function couldn't be called.'''
+        cWidget = self.taskGUIs.currentWidget()
+        t = cWidget.getTask()
+        self.rsrc.inputWidget.setTaskProperties( t )
+        self.executeWork( [ t ])
+
+    def executeWork( self, tasks ):
+        '''Runs the list of given tasks.
+
+        @param      tasks       A list of instances of AnalysisTasks.
+        '''
+        if ( self.workThread == None ):
+            self.goBtn.setEnabled( False )
+            # disable all task-specific "Run" buttons
+            for task in self.tasks:
+                task.goBtn.setEnabled( False )
+            self.workThread = CrowdAnalyzeThread( tasks )
+            # Make connections that allow the thread to inform the gui when finished and output messages
+            QtCore.QObject.connect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )
+            print "Starting task execution..."
+            self.workThread.start()
+        else:
+            print "Already running"
 
     def workDone( self ):
         '''Called when the analysis work has finished'''
@@ -439,6 +453,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         '''Adds a task to the widget'''
         self.taskGUIs.addTab( task, tabLabel )
         self.goBtn.setEnabled( True )
+        QtCore.QObject.connect( task.goBtn, QtCore.SIGNAL('clicked(bool)'), self.runCurrent )
         self.tasks.append( task )
         
     def writeConfig( self, file ):
@@ -553,7 +568,7 @@ class TaskWidget( QtGui.QGroupBox ):
         inputBox = QtGui.QGroupBox("Action")
         fLayout = QtGui.QGridLayout( inputBox )
 
-        self.goBtn = QtGui.QPushButton( "Go", self )
+        self.goBtn = QtGui.QPushButton( "Perform This Analysis", self )
         fLayout.addWidget( self.goBtn, 0, 0 )
         QtCore.QObject.connect( self.goBtn, QtCore.SIGNAL('released()'), self.launchTask )
         # TODO connect this
