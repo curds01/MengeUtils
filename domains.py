@@ -36,7 +36,9 @@ class RectDomain:
         try:
             return self.minCorner == other.minCorner and self.size == other.size
         except AttributeError as e:
-            print "Tried to compare domains, received:", type( other ), str( other )
+            print "Tried to compare domains:"
+            print "\tThis domain:", self
+            print "\tRecieved:", type( other ), str( other )
             raise e
 
     def __neq__( self, other ):
