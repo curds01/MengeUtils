@@ -28,7 +28,6 @@ class ConsoleFile( QtCore.QObject ):
 class CrowdWindow( QtGui.QMainWindow):
     def __init__( self, configName='', parent = None ):
         self.workThread = None
-        self.lastFolder = '.'
         QtGui.QMainWindow.__init__( self, parent )
         self.setWindowTitle( 'Crowd Analysis' )
 
@@ -115,11 +114,11 @@ class CrowdWindow( QtGui.QMainWindow):
     
     def readConfigFileDlg( self ):
         """Spawns a dialog to read a full project configuration file"""
-        fileName = QtGui.QFileDialog.getOpenFileName( self, "Read application config file", self.lastFolder, "Config files (*.cfg)" )
+        fileName = QtGui.QFileDialog.getOpenFileName( self, "Read application config file", self.rsrc.lastFolder, "Config files (*.cfg)" )
         if ( fileName ):
             self.readConfigFile( fileName )
             path, fName = os.path.split( str( fileName ) )
-            self.lastFolder = path
+            self.rsrc.lastFolder = path
     
     def readConfigFile( self, fileName ):
         """Reads a configuration file for the full application"""
@@ -136,7 +135,7 @@ class CrowdWindow( QtGui.QMainWindow):
             
     def saveConfigFileDlg( self ):
         """Spawns a dialog to save a full project configuration file"""
-        fileName = QtGui.QFileDialog.getSaveFileName( self, "Save Full Config As...", self.lastFolder, "Config files (*.cfg)" )
+        fileName = QtGui.QFileDialog.getSaveFileName( self, "Save Full Config As...", self.rsrc.lastFolder, "Config files (*.cfg)" )
         if ( fileName ):
 ##            config = self.collectFullConfig()
             file = open( fileName, 'w' )
@@ -145,7 +144,7 @@ class CrowdWindow( QtGui.QMainWindow):
 ##            config.toFile( file )
 ##            file.close()
             path, fName = os.path.split( str( fileName ) )
-            self.lastFolder = path
+            self.rsrc.lastFolder = path
     
     def setFullConfig( self, cfg ):
         """Given a config object for the full application, sets the application state"""
