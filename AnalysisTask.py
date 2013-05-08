@@ -244,7 +244,7 @@ class FlowAnalysisTask( AnalysisTask ):
                 timeStep = frameSet.simStepSize
                 if ( frameSet.version[0] == '1' ):
                     timeStep = self.timeStep
-                Crowd.plotFlow( tempFile, frameSet.simStepSize, legendStr=names )
+                Crowd.plotFlow( tempFile, frameSet.simStepSize, titlePrefix=self.workName, legendStr=names )
                 print '    done in %.2f seconds' % ( time.clock() - s )
 
 class PopulationAnalysisTask( AnalysisTask ):
@@ -272,13 +272,13 @@ class PopulationAnalysisTask( AnalysisTask ):
             if ( self.work & AnalysisTask.COMPUTE ):
                 print 'Computing population analysis: %s' % ( self.workName )
                 s = time.clock()
-##                Crowd.computeFlow( frameSet, lines, tempFile, names )
+                Crowd.computePopulation( frameSet, rects, tempFile, names )
                 print '*** The analysis is not implemented yet ***'
                 print '    done in %.2f seconds' % ( time.clock() - s )
             if ( self.work & AnalysisTask.VIS ):
                 print 'Computing population plots: %s'  % ( self.workName )
                 s=time.clock()
-##                Crowd.plotFlow( tempFile, frameSet.simStepSize, legendStr=names )
+                Crowd.plotPopulation( tempFile, frameSet.simStepSize, titlePrefix=self.workName, legendStr=names )
                 print '*** The visualization is not implemented yet ***'
                 print '    done in %.2f seconds' % ( time.clock() - s )
 

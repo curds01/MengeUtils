@@ -217,6 +217,48 @@ def plotFlow( outFileName, timeStep, titlePrefix='', legendStr=None, newFig=Fals
     plt.savefig( outFileName + ".flow.png" )
     plt.savefig( outFileName + ".flow.eps" )
 
+def plotPopulation( outFileName, timeStep, titlePrefix='', legendStr=None, newFig=False, xlimits=None, ylimits=None ):
+    '''Given the data in outFileName and the given timestep, creates plots'''
+    # SMOOTH IT
+    SIGMA = 8.0
+    kernel = gaussKernel1D( 1.0, SIGMA )
+
+    if ( newFig ):
+        fig = plt.figure()
+    else:
+        plt.clf()
+        fig = plt.gcf()
+    
+    dataFile = outFileName + ".pop"
+    dFile = open( dataFile, 'r' )
+    nameLine = dFile.readline()[2:]
+    if ( legendStr is None ):
+        legendStr = nameLine.split('~')
+    
+    data = np.loadtxt( dFile )
+    data[:,0] *= timeStep
+    smoothFlows = np.empty_like( data[:, 1:] )
+    for col in xrange( data.shape[1] - 1 ):
+        smoothFlows[:, col] = np.convolve( data[:, col+1], kernel, 'same' )
+    ax = fig.add_subplot(1,1,1)
+    ax.set_title( '%s - Population' % titlePrefix )
+    plt.plot( data[:,0], smoothFlows )
+    if ( legendStr == None or len( legendStr ) != data.shape[1] - 1 ):
+        legendStr = [ 'Region %d' % i for i in range( data.shape[1] - 1 ) ]
+    plt.legend( legendStr, loc='upper right' )
+    plt.ylabel( 'Agents in Regionr' )
+##    ax = fig.add_subplot(2,1,2)
+##    plt.plot( data[:,0], np.clip( firstDeriv( smoothFlows, timeStep, 4 * 16 ), 0.0, 1e6 ) )
+    plt.xlabel( 'Simulation time (s)' )
+##    plt.ylabel( 'Flow (agents/s)' )
+    if ( xlimits != None ):
+        plt.xlim( xlimits )
+    if ( ylimits != None ):
+        plt.ylim( ylimits )
+    
+    plt.savefig( outFileName + ".pop.png" )
+    plt.savefig( outFileName + ".pop.eps" )
+
 def computeFlow( frameSet, segments, outFileName, names=None ):
     '''Compute the flow of agents past the indicated line segments.
     Output is an NxM array where there are N time steps and M segments.
@@ -338,6 +380,61 @@ def computeFlow( frameSet, segments, outFileName, names=None ):
 
     crossings = alreadyCrossed.sum( axis=1 )
     print "The following agents never crossed:", np.where( crossings == 0 )
+    
+def computePopulation( frameSet, rectDomains, outFileName, names=None ):
+    '''Computes the time-dependent population for a set of rectangular domains.
+    Output is an NxM array where there are N time steps and M rectangular regions.
+
+    @param  frameSet        An instance of trajectory data (currently scb data)
+    @param  rectDomains     A list of Segment instances.
+    @param  outFileName     The name of the file to write the flow results to.
+    @param  names           An optional list of strings.  If provided, there must be
+                            one string for each Segment (in segments).  If none are
+                            provided, line names will be generated.
+    '''
+    if ( names is None ):
+        names = [ 'Region %d' % i for i in xrange( len( rectDomains ) ) ]
+    # In this scenario, there are N agents and M segments
+
+    outFile = open( outFileName + '.pop', 'w' )
+    rectCount = len( rectDomains )
+
+    # write names
+    outFile.write( '# %s\n' % '~'.join( names ) )
+    frameSet.setNext( 0 )
+    
+    # pre-compute max corner to facilitate the test    
+    for i, rect in enumerate( rectDomains ):
+        rect.maxCorner = ( rect.minCorner[0] + rect.size[0], rect.minCorner[1] + rect.size[1] )
+
+    for i, rect in enumerate( rectDomains ):
+    
+     while ( True ):
+        try:
+            frame, idx = frameSet.next()
+        except StopIteration:
+            break
+        else:
+            ids = frameSet.getFrameIds()   # mapping from frame IDs to global IDs
+            frameIDs = map( lambda x: ids[ x ], xrange( frame.shape[0] ) )
+        # compute crossability for the current frame
+        
+        pX = frame[:, :1 ]
+        pY = frame[:, 1:2 ]
+
+        # the number of agents in each rect
+        population = np.zeros( rectCount, dtype=np.int )
+        
+        for i, rect in enumerate( rectDomains ):
+            inside = ( pX >= rect.minCorner[0] ) & ( pX <= rect.maxCorner[0] ) & ( pY >= rect.minCorner[1] ) & ( pY <= rect.maxCorner[1] )
+            population[ i ] = np.sum( inside )
+
+        outFile.write('{0:10d}'.format( idx ) )
+        for val in population:
+            outFile.write('{0:10d}'.format( val ) )
+        outFile.write('\n')
+
+    outFile.close()
     
 def computeFlowLines( center, lines, frameSet ):
     """Computes the flow of agents past the various lines"""
