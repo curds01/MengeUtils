@@ -40,6 +40,7 @@ class CrowdWindow( QtGui.QMainWindow):
         # Console
         self.console = QtGui.QPlainTextEdit( splitter )
         self.console.setReadOnly( True )
+        QtCore.QObject.connect( self.console, QtCore.SIGNAL('cursorPositionChanged ()'), self.logExtended )
         sys.stdout = ConsoleFile()
         sys.stdout.processMessage.connect( self.logMessage )
 
@@ -156,7 +157,13 @@ class CrowdWindow( QtGui.QMainWindow):
     def logMessage( self, msg ):
         '''Append a message to the console'''
         self.console.insertPlainText( msg )
-
+    def logExtended( self ):
+        '''Called when text has been added to the console'''
+        # Make sure the scroll bar is set as low as possible
+        sb = self.console.verticalScrollBar()
+        maxVal = sb.maximum()
+        sb.setSliderPosition( maxVal )
+        
 if __name__ == '__main__':
     import pygame
     pygame.init()
