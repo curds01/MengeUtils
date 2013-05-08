@@ -174,7 +174,31 @@ class SpeedAnalysisTask( DiscreteAnalysisTask ):
 
     def execute( self ):
         '''Perform the work of the task'''
-        pass
+        if ( self.work ):
+            print "Accessing scb file:", self.scbName
+            frameSet = NPFrameSet( self.scbName )
+            if ( not os.path.exists( self.workFldr ) ):
+                os.makedirs( self.workFldr )
+            tempFile = os.path.join( self.workFldr, self.workName )
+            grids = Crowd.GridFileSequence( tempFile )
+            if ( self.work & AnalysisTask.COMPUTE ):
+                print "Computing speed figures"
+                domain = makeDomain( self.domainX, self.domainY, self.cellSize )
+                s = time.clock()
+                grids.computeSpeeds( domain, frameSet, self.timeStep )
+                print '    done in %.2f seconds' % ( time.clock() - s )
+            if ( self.work & AnalysisTask.VIS ):
+                imageName = os.path.join( self.workFldr, '%s_speed_' % self.workName )
+                s = time.clock()
+                reader = Crowd.GridFileSequenceReader( grids.outFileName + ".speed"  )
+                try:
+                    colorMap = COLOR_MAPS[ self.colorMapName ]
+                except:
+                    print 'Error loading color map: "%s", loading flame instead' % ( self.colorMapName )
+                    colorMap = COLOR_MAPS[ 'flame' ]
+                print 'Creating speed images...'
+                visualizeGFS( reader, colorMap, imageName, self.outImgType, 1.0, None )
+                print '    done in %.2f seconds' % ( time.clock() - s ) 
 
 class FlowAnalysisTask( AnalysisTask ):
     def __init__( self ):

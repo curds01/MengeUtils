@@ -815,6 +815,20 @@ class SpeedTaskWidget( TaskWidget ):
         values.append( str( self.imgFormatGUI.currentText() ).strip() )
         file.write( '%s\n' % ( '~'.join( values ) ) )
 
+    def getTask( self ):
+        '''Returns a task for this widget.
+
+        @return     An instance of SpeedAnalysisTask.
+        @raises     ValueError if there is a problem in instantiating the task.addLine
+        '''
+        task = SpeedAnalysisTask()
+        task.setCellSize( self.cellSizeGUI.value() )
+        task.setColorMap( str( self.colorMapGUI.currentText() ) )
+        task.setOutImg( str( self.imgFormatGUI.currentText() ) )
+        
+        TaskWidget.setBasicTask( self, task )
+        return task
+
 class FlowTaskWidget( TaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
         TaskWidget.__init__( self, name, parent, delCB, rsrc )
