@@ -474,6 +474,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         self.goBtn.setEnabled( True )
         QtCore.QObject.connect( task.goBtn, QtCore.SIGNAL('clicked(bool)'), self.runCurrent )
         self.tasks.append( task )
+        self.taskGUIs.setCurrentWidget( task )
         
     def writeConfig( self, file ):
         '''Writes the input configuration to the given file object.
@@ -657,7 +658,6 @@ class TaskWidget( QtGui.QGroupBox ):
     def readConfig( self, file ):
         '''Reads the common TaskWidget parameters from the file'''
         tokens = map( lambda x: x.strip(), file.readline().split('~') )
-        print tokens
         if ( len( tokens ) != 3 ):
             raise ValueError, "Task Widget didn't have the basic properties"
         self.changeName( tokens[0] )
