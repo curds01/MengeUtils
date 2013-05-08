@@ -247,6 +247,41 @@ class FlowAnalysisTask( AnalysisTask ):
                 Crowd.plotFlow( tempFile, frameSet.simStepSize, legendStr=names )
                 print '    done in %.2f seconds' % ( time.clock() - s )
 
+class PopulationAnalysisTask( AnalysisTask ):
+    def __init__( self ):
+        AnalysisTask.__init__( self )
+        self.rects = []
+
+    def addRectDomain( self, rect, name ):
+        '''Adds a rectangular domain to the task
+
+        @param      rect        An instance of RectDomain.
+        @param      name        A string.  The name of the flow line.
+        '''
+        self.rects.append( ( name, rect ) )
+        
+    def execute( self ):
+        '''Perform the work of the task'''
+        if ( self.work ):
+            print "Accessing scb file:", self.scbName
+            frameSet = NPFrameSet( self.scbName )
+            names = [ x[0] for x in self.rects ]
+            rects = [ x[1] for x in self.rects ]
+            workPath = self.getWorkPath( 'population' )
+            tempFile = os.path.join( workPath, self.workName )
+            if ( self.work & AnalysisTask.COMPUTE ):
+                print 'Computing population analysis: %s' % ( self.workName )
+                s = time.clock()
+##                Crowd.computeFlow( frameSet, lines, tempFile, names )
+                print '*** The analysis is not implemented yet ***'
+                print '    done in %.2f seconds' % ( time.clock() - s )
+            if ( self.work & AnalysisTask.VIS ):
+                print 'Computing population plots: %s'  % ( self.workName )
+                s=time.clock()
+##                Crowd.plotFlow( tempFile, frameSet.simStepSize, legendStr=names )
+                print '*** The visualization is not implemented yet ***'
+                print '    done in %.2f seconds' % ( time.clock() - s )
+
 if __name__ == '__main__':
     task = DensityAnalysisTask()
     task.setSCBFile( 'M:/anisotropic/experiment/stadium/mo11_smoothShift.scb' )

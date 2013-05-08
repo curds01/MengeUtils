@@ -191,9 +191,9 @@ class AnlaysisWidget( QtGui.QGroupBox ):
     DENSITY = 0
     FLOW = 1
     SPEED = 2
-##    POPULATION = 3
+    POPULATION = 3
     
-    TECHNIQUES = ( 'Density', 'Flow', 'Speed' ) # , 'Population' )
+    TECHNIQUES = ( 'Density', 'Flow', 'Speed', 'Population' )
     def __init__( self, rsrc, parent=None ):
         '''Constructor.
 
@@ -349,8 +349,8 @@ class AnlaysisWidget( QtGui.QGroupBox ):
             TaskClass = FlowTaskWidget
         elif ( index == self.SPEED ):
             TaskClass = SpeedTaskWidget
-##        elif ( index == self.POPULATION ):
-##            TaskClass = TaskWidget
+        elif ( index == self.POPULATION ):
+            TaskClass = PopulationTaskWidget
         
         task = TaskClass( name, rsrc=self.rsrc, delCB=self.deleteTask )
         self.addTask( task, TaskClass.typeStr() )
@@ -436,6 +436,8 @@ def getTaskClass( taskName ):
         return FlowTaskWidget
     elif ( taskName == SpeedTaskWidget.typeStr() ):
         return SpeedTaskWidget
+    elif ( taskName == PopulationTaskWidget.typeStr() ):
+        return PopulationTaskWidget
     else:
         print "Unrecognized analysis task type: %s" % ( taskName )
         raise ValueError
@@ -908,4 +910,157 @@ class FlowTaskWidget( TaskWidget ):
         '''Reports if this particular task requires domain information.'''
         return False
     
+class PopulationTaskWidget( TaskWidget ):
+    def __init__( self, name, parent=None, delCB=None, rsrc=None ):
+        TaskWidget.__init__( self, name, parent, delCB, rsrc )
+        # TODO: This needs a context
+        self.context = QTRectContext( self.cancelAddRect )
+
+    def createRectBox( self ):
+        '''Creates the GroupBox containing the widgets for controlling rectangular regions'''
+        box = QtGui.QGroupBox( "Rectangular Regions" )
+        layout = QtGui.QGridLayout( box )
+        layout.setColumnStretch( 0, 0 )
+        layout.setColumnStretch( 1, 1 )
+        layout.setColumnStretch( 2, 1 )
+
+        # Rectangular region selector
+        self.rectsGUI = QtGui.QComboBox( box )
+        self.rectsGUI.setEnabled( False )
+        QtCore.QObject.connect( self.rectsGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.rectChangedCB )
+        layout.addWidget( QtGui.QLabel("Region No."), 0, 1, 1, 1, QtCore.Qt.AlignRight )
+        layout.addWidget( self.rectsGUI, 0, 2 )
+
+        tmpLayout = QtGui.QHBoxLayout()
+
+        # add button
+        self.addRectBtn = QtGui.QPushButton( 'Add' )
+        QtCore.QObject.connect( self.addRectBtn, QtCore.SIGNAL('clicked()'), self.addRectCB )      
+        tmpLayout.addWidget( self.addRectBtn )
+
+        # delete button
+        self.delRectBtn = QtGui.QPushButton( 'Delete' )
+        self.delRectBtn.setEnabled( False )
+        QtCore.QObject.connect( self.delRectBtn, QtCore.SIGNAL('clicked()'), self.delRectCB )
+        tmpLayout.addWidget( self.delRectBtn )
+
+        # edit button
+        self.editRectBtn = QtGui.QPushButton( 'Edit' )
+        self.editRectBtn.setCheckable( True )
+        self.editRectBtn.setEnabled( False )
+        QtCore.QObject.connect( self.editRectBtn, QtCore.SIGNAL('toggled(bool)'), self.editRectCB )
+        tmpLayout.addWidget( self.editRectBtn )
+
+        layout.addLayout( tmpLayout, 1, 1, 1, 2 )
+
+       # Region name
+        layout.addWidget( QtGui.QLabel("Region Name"), 2, 0, 1, 1, QtCore.Qt.AlignRight )
+        self.rectNameGUI = QtGui.QLineEdit()
+        regExp = QtCore.QRegExp( "[^~\\|,]*" )
+        validator = QtGui.QRegExpValidator( regExp, self )
+        self.rectNameGUI.setValidator( validator )
+        QtCore.QObject.connect( self.rectNameGUI, QtCore.SIGNAL('editingFinished()'), self.rectNameChangeCB )
+        layout.addWidget( self.rectNameGUI, 2, 1, 1, 2 )
+        
+        return box
     
+    def body( self ):
+        '''Build the task-specific GUI.  This should be overwritten by subclass'''
+        self.bodyLayout.addWidget( self.createRectBox() )
+
+    def rectChangedCB( self ):
+        '''Called when the rect number changes'''
+        idx = self.rectsGUI.currentIndex()
+        active = idx > -1
+        self.delRectBtn.setEnabled( active )
+        self.editRectBtn.setEnabled( active )
+        self.rectsGUI.setEnabled( self.rectsGUI.count() > 0 )
+        if ( active ):
+            self.rectNameGUI.setText( self.context.getName( idx ) )
+        self.context.setActive( idx )
+        self.rsrc.glWindow.updateGL()
+        if ( not active ):
+            self.editRectBtn.setChecked( False )
+
+    def addRectCB( self ):
+        '''When the add rect is clicked, we add the rect and update the GUI appropriately'''
+        nextIdx = self.rectsGUI.count()
+        self.delRectBtn.setEnabled( True )
+        self.context.addRect()
+        self.rectsGUI.addItem( '%d' % nextIdx )
+        self.rectsGUI.setCurrentIndex( nextIdx )
+        self.rectsGUI.setEnabled( True )
+        self.editRectBtn.setChecked( True ) # this should call the callback and automatically enable the context to draw a rect
+        self.rsrc.glWindow.updateGL()
+
+    def delRectCB( self ):
+        '''Remove the current selected rect'''
+        idx = self.rectsGUI.currentIndex()
+        assert( idx > -1 )  # this button shouldn't be enabled if this isn't true
+        self.context.deleteRect( idx )
+        self.rsrc.glWindow.updateGL()
+        self.rectsGUI.removeItem( self.rectsGUI.count() - 1 )
+        self.rectsGUI.setCurrentIndex( -1 )
+        
+    def editRectCB( self, checked ):
+        '''Cause the current rect to be editable'''
+        idx = self.rectsGUI.currentIndex()
+        if ( checked ):
+            assert( idx > -1 )  # this button shouldn't be enabled if this isn't true
+            self.context.editRect( idx )
+        else:
+            self.context.stopEdit()
+        self.rsrc.glWindow.updateGL()
+        
+    def rectNameChangeCB( self ):
+        '''Called when the name of a rect is edited.'''
+        idx = self.rectsGUI.currentIndex()
+        if ( idx > -1 ):
+            self.context.setName( idx, str( self.rectNameGUI.text() ) )
+            
+    def cancelAddRect( self ):
+        '''Called when an add rect action is canceled'''
+        self.rectsGUI.removeItem( self.rectsGUI.count() - 1 )
+        self.rectsGUI.setCurrentIndex( -1 )
+
+    @staticmethod
+    def typeStr():
+        '''Returns a string representation of this task'''
+        return 'POPULATION'
+    
+    def readConfig( self, file ):
+        '''Reads the widget state from the given file'''
+        self.rectsGUI.clear()
+        TaskWidget.readConfig( self, file )
+        self.context.setFromString( file.readline() )
+        if ( self.context.rectCount() ):
+            self.rectsGUI.addItems( [ '%d' % i for i in xrange( self.context.rectCount() ) ] )
+            self.rectsGUI.setEnabled( True )
+            self.rectsGUI.setCurrentIndex( 0 )
+
+    def writeConfig( self, file ):
+        '''Writes the widget state to the given file'''
+        TaskWidget.writeConfig( self, file )
+        rectData = self.context.toConfigString()
+        file.write( '%s\n' % rectData )
+
+    def getTask( self ):
+        '''Returns a task for this widget.
+
+        @return     An instance of PopulationAnalysisTask.
+        @raises     ValueError if there is a problem in instantiating the task.
+        '''
+        RECT_COUNT = self.context.rectCount()
+        if ( RECT_COUNT == 0 ):
+            print "No regions defined for POPULATION task %s" % ( self.title() )
+            raise ValueError
+        
+        task = PopulationAnalysisTask()
+        for i in xrange( RECT_COUNT ):
+            task.addRectDomain( self.context.getRect( i ), self.context.getName( i ) )
+        TaskWidget.setBasicTask( self, task )
+        return task
+
+    def requiresDomain( self ):
+        '''Reports if this particular task requires domain information.'''
+        return False

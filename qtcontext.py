@@ -1,6 +1,7 @@
 from PyQt4 import QtCore, QtGui, QtOpenGL
 from Context import *
 from flowContext import FlowLineContext
+from rectContext import RectContext
 
 class QtEventProcessor():
     '''QT-specific context - translates QT events to canonical events'''
@@ -53,6 +54,10 @@ class QtEventProcessor():
 class QTFlowLineContext( QtEventProcessor, FlowLineContext ):
     def __init__( self, cancelCB=None ):
         FlowLineContext.__init__( self, cancelCB )
+
+class QTRectContext( QtEventProcessor, RectContext ):
+    def __init__( self, cancelCB=None ):
+        RectContext.__init__( self, cancelCB )
         
 if __name__ == '__main__':
     print
