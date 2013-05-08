@@ -791,7 +791,7 @@ class FlowTaskWidget( TaskWidget ):
         # line name
         layout.addWidget( QtGui.QLabel("Line Name"), 3, 0, 1, 1, QtCore.Qt.AlignRight )
         self.flowNameGUI = QtGui.QLineEdit()
-        regExp = QtCore.QRegExp( "[^~\\|]*" )
+        regExp = QtCore.QRegExp( "[^~\\|,]*" )
         validator = QtGui.QRegExpValidator( regExp, self )
         self.flowNameGUI.setValidator( validator )
         QtCore.QObject.connect( self.flowNameGUI, QtCore.SIGNAL('editingFinished()'), self.flowLineNameChangeCB )
