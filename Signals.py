@@ -3,6 +3,7 @@
 import numpy as np
 import Grid
 from GridFileSequence import GridFileSequenceReader
+import domains
 
 class SignalError( Exception ):
     '''Basic exception for signals'''
@@ -64,7 +65,7 @@ class DiracSignal( Signal ):
         @param  domain      An instance of RectDomain.  Defines the domain of the signal.
         @param  data        An Nx2 numpy array of flaots. The signal data.
         '''
-        if ( not isinstance( RectDomain, domain ) ):
+        if ( not isinstance( domain, domains.RectDomain ) ):
             raise TypeError, "Dirac signals should only be initialized with RectDomain instances, given %s" % ( domain.__class__ )
         self.domain = domain
         self._data = data
