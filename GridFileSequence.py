@@ -456,7 +456,7 @@ class GridFileSequence:
         argsFunc = lambda: ( signal.copyEmpty(), pedData, gridDomain, kernel )
         return self._threadWork( 'splat', threadConvolve, argsFunc, gridDomain, overwrite )
         
-    def computeSpeeds( self, gridDomain, pedData, timeStep, excludeStates=(), speedType=BLIT_SPEED, timeWindow=1, overwrite=True ):
+    def computeSpeeds( self, gridDomain, pedData, timeStep, excludeStates=(), speedType=BLIT_SPEED, timeWindow=1, overwrite=True, maxSpeed=3.0 ):
         '''Splats the agents onto a grid based on position and the given radius
 
         @param      gridDomain      An instance of AbstractGrid, specifying the grid domain
@@ -469,6 +469,8 @@ class GridFileSequence:
         @param      overwrite       A boolean.  Indicates whether files should be created even if they
                                     already exist or computed from scratch.  If True, they are always created,
                                     if False, pre-existing files are used.
+        @param      maxSpeed        Because the data may include 'teleporting', instantaneous velocity
+                                    can grow arbitrarily high.  The computed speed is clamped to maxSpeed.
         @returns    A 2-tuple (StatRecord instance, string).  The former is a record of the per-frame statistics
                     of the speed.  The latter is the name of the output file.
         '''
@@ -496,6 +498,7 @@ class GridFileSequence:
             print "Unable to compute speed!  Insufficient frames of data for the given window!"
             return
         # continue while the index of the last frame on the queue is greater than the index of the first frame
+        # TODO: THIS IS INCREDIBLY BROKEN!!!!  MOST OF THESE CODE PATHS DON'T WORK!
 
         distFunc = lambda x, y: np.exp( -( (x * x + y *y) / ( maxRad * maxRad ) ) )
         print "Speedy type:", speedType
@@ -543,7 +546,7 @@ class GridFileSequence:
             f1 = data.pop(0)
             f2 = data[ -1 ]
             g = gridFunc() 
-            speedFunc( g, kernel, f2, f1, distFunc, maxRad, timeStep * timeWindow, excludeStates, stats )
+            speedFunc( g, kernel, f2, f1, distFunc, maxRad, timeStep * timeWindow, excludeStates, stats, maxSpeed )
             M = g.maxVal()
             if ( M > maxVal ):
                 maxVal = M

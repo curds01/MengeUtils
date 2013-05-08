@@ -572,12 +572,16 @@ class RasterGrid( DataGrid ):
             if ( callBack ):
                 callBack( progress )            
 
-    def rasterizeSpeedBlit( self, kernel, f2, f1, distFunc, maxRad, timeStep, excludeStates=(), callBack=None ):
+    def rasterizeSpeedBlit( self, kernel, f2, f1, distFunc, maxRad, timeStep, excludeStates=(), callBack=None, maxSpeed=2.5 ):
         """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
         invDT = 1.0 / timeStep
         # compute speeds
         disp = f2[:, :2] - f1[:,:2]
         speed = np.sqrt( np.sum( disp * disp, axis = 1 ) ) * invDT
+        tooFast = speed > maxSpeed
+        if ( np.sum( tooFast ) > 0 ):
+            topSpeed = speed[ ~tooFast ]
+            speed[ tooFast ] = topSpeed
         for i in xrange( f2.shape[0] ):
             if ( excludeStates ):
                 pass
@@ -701,7 +705,7 @@ class RasterGrid( DataGrid ):
 ##        self.cells /= density
         print "Max speed:", maxSpd, "max cell", self.cells.max()
         
-    def rasterizeSpeedGauss( self, kernel, f2, f1, distFunc, maxRad, timeStep ):
+    def rasterizeSpeedGauss( self, kernel, f2, f1, distFunc, maxRad, timeStep, maxSpeed=2.5 ):
         """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
         w, h = kernel.data.shape
         w /= 2
@@ -734,7 +738,7 @@ class RasterGrid( DataGrid ):
                 t = self.resolution[1]
             self.cells[ l:r, b:t ] += kernel.data[ kl:kr, kb:kt ] * disp
 
-    def rasterizeVelocity( self, X, Y, kernel, f2, f1, distFunc, maxRad, timeStep ):
+    def rasterizeVelocity( self, X, Y, kernel, f2, f1, distFunc, maxRad, timeStep, maxSpeed=2.5 ):
         """Given two frames of agents, computes per-agent displacement and rasterizes the whole frame"""
         w, h = kernel.data.shape
         w /= 2
