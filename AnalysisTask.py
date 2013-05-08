@@ -29,7 +29,7 @@ class AnalysisTask:
         self.domainX = None
         self.domainY = None
         self.timeStep = 0.0
-        self.workFldr = ''
+        self.workFldr = '.'
 
     def requiresDomain( self ):
         '''Reports if this particular task requires domain information - the default is true.'''
@@ -90,6 +90,18 @@ class AnalysisTask:
     def execute( self ):
         '''Execute the task'''
         raise NotImplementedError
+
+    def getWorkPath( self, typeName ):
+        '''Produces the work path for this task, given the type name and guarantees that it
+        exists.
+
+        @param      typeName        A string.  The name of the subfolder based on the type of
+                                    analysis.'''
+        print "WORK FOLDER:", self.workFldr
+        workPath = os.path.join( self.workFldr, typeName, self.workName )
+        if ( not os.path.exists( workPath ) ):
+            os.makedirs( workPath )
+        return workPath
     
 class DiscreteAnalysisTask( AnalysisTask ):
     '''An analysis task which relies on a discretization of the domain'''
@@ -141,9 +153,7 @@ class DensityAnalysisTask( DiscreteAnalysisTask ):
         if ( self.work ):
             print "Accessing scb file:", self.scbName
             frameSet = NPFrameSet( self.scbName )
-            workPath = os.path.join( self.workFldr, 'density', self.workName )
-            if ( not os.path.exists( workPath ) ):
-                os.makedirs( workPath )
+            workPath = self.getWorkPath( 'density' )
             tempFile = os.path.join( workPath, self.workName )
             grids = Crowd.GridFileSequence( tempFile )
             if ( self.work & AnalysisTask.COMPUTE ):
@@ -178,9 +188,7 @@ class SpeedAnalysisTask( DiscreteAnalysisTask ):
         if ( self.work ):
             print "Accessing scb file:", self.scbName
             frameSet = NPFrameSet( self.scbName )
-            workPath = os.path.join( self.workFldr, 'speed', self.workName )
-            if ( not os.path.exists( workPath ) ):
-                os.makedirs( workPath )
+            workPath = self.getWorkPath( 'speed' )
             tempFile = os.path.join( workPath, self.workName )
             grids = Crowd.GridFileSequence( tempFile )
             if ( self.work & AnalysisTask.COMPUTE ):
@@ -222,9 +230,7 @@ class FlowAnalysisTask( AnalysisTask ):
             frameSet = NPFrameSet( self.scbName )
             names = [ x[0] for x in self.lines ]
             lines = [ x[1] for x in self.lines ]
-            workPath = os.path.join( self.workFldr, 'flow', self.workName )
-            if ( not os.path.exists( workPath ) ):
-                os.makedirs( workPath )
+            workPath = self.getWorkPath( 'flow' )
             tempFile = os.path.join( workPath, self.workName )
             if ( self.work & AnalysisTask.COMPUTE ):
                 print 'Computing flow analysis: %s' % ( self.workName )
