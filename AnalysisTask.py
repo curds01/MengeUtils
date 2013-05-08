@@ -196,6 +196,8 @@ class FlowAnalysisTask( AnalysisTask ):
             frameSet = NPFrameSet( self.scbName )
             names = [ x[0] for x in self.lines ]
             lines = [ x[1] for x in self.lines ]
+            if ( not os.path.exists( self.workFldr ) ):
+                os.makedirs( self.workFldr )
             tempFile = os.path.join( self.workFldr, self.workName )
             if ( self.work & AnalysisTask.COMPUTE ):
                 print 'Computing flow analysis: %s' % ( self.workName )
