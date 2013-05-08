@@ -479,7 +479,6 @@ class TaskWidget( QtGui.QGroupBox ):
         QtGui.QGroupBox.__init__( self, name, parent )
         self.setCheckable( True )
         self.setToolTip( "Double-click to change task name" )
-        self.name = name
         self.delCB = delCB
         self.context = None
         self.rsrc = rsrc
@@ -504,8 +503,7 @@ class TaskWidget( QtGui.QGroupBox ):
     def changeName( self, newName ):
         '''Changes the name of the task'''
         self.setTitle( newName )
-        self.name = str( newName )
-
+        
     def header( self ):
         '''Builds the header for the work widget'''
         self.bodyLayout.addWidget( self.actionBox() )
@@ -532,7 +530,7 @@ class TaskWidget( QtGui.QGroupBox ):
         return inputBox
 
     def launchTask( self ):
-        print "Launching %s - %s" % ( self.typeStr(), self.name )
+        print "Launching %s - %s" % ( self.typeStr(), self.title() )
   
     def body( self ):
         '''Build the task-specific GUI.  This should be overwritten by subclass'''
@@ -548,7 +546,7 @@ class TaskWidget( QtGui.QGroupBox ):
 
     def writeConfig( self, file ):
         '''Writes the widget state to the given file'''
-        values = [ self.name ]
+        values = [ str( self.title() ) ]
         values.append( str( self.actionGUI.currentText() ).strip() )
         if ( self.isChecked() ):
             values.append( '1' )
@@ -577,7 +575,7 @@ class TaskWidget( QtGui.QGroupBox ):
         @param      task        The instance of AnalysisTask to change.
         @raises     ValueError if there is a problem with the properties.
         '''
-        task.setTaskName( self.name )
+        task.setTaskName( str( self.title() ) )
         
         actIndex = self.actionGUI.currentIndex()
         if ( actIndex == 0 ):
@@ -587,7 +585,7 @@ class TaskWidget( QtGui.QGroupBox ):
         elif ( actIndex == 2 ):
             task.setWork( AnalysisTask.COMPUTE_VIS )
         else:
-            print "Unrecognized value for task action %s for %s" % ( self.actionGUI.currentText(), self.name )
+            print "Unrecognized value for task action %s for %s" % ( self.actionGUI.currentText(), self.title() )
             raise ValueError
 
     
@@ -897,7 +895,7 @@ class FlowTaskWidget( TaskWidget ):
         '''
         LINE_COUNT = self.context.lineCount()
         if ( LINE_COUNT == 0 ):
-            print "No flow lines defined for FLOW task %s" % ( self.name )
+            print "No flow lines defined for FLOW task %s" % ( self.title() )
             raise ValueError
         
         task = FlowAnalysisTask()
