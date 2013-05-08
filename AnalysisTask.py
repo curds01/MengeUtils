@@ -141,9 +141,10 @@ class DensityAnalysisTask( DiscreteAnalysisTask ):
         if ( self.work ):
             print "Accessing scb file:", self.scbName
             frameSet = NPFrameSet( self.scbName )
-            if ( not os.path.exists( self.workFldr ) ):
-                os.makedirs( self.workFldr )
-            tempFile = os.path.join( self.workFldr, self.workName )
+            workPath = os.path.join( self.workFldr, 'density', self.workName )
+            if ( not os.path.exists( workPath ) ):
+                os.makedirs( workPath )
+            tempFile = os.path.join( workPath, self.workName )
             grids = Crowd.GridFileSequence( tempFile )
             if ( self.work & AnalysisTask.COMPUTE ):
                 print "Computing density field"
@@ -156,7 +157,7 @@ class DensityAnalysisTask( DiscreteAnalysisTask ):
                 grids.convolveSignal( domain, kernel, signal, frameSet )
                 print '    done in %.2f seconds' % ( time.clock() - s )
             if ( self.work & AnalysisTask.VIS ):
-                imageName = os.path.join( self.workFldr, '%s_density_' % self.workName )
+                imageName = os.path.join( workPath, '%s_density_' % self.workName )
                 s = time.clock()
                 reader = Crowd.GridFileSequenceReader( grids.outFileName + ".density"  )
                 try:
@@ -177,9 +178,10 @@ class SpeedAnalysisTask( DiscreteAnalysisTask ):
         if ( self.work ):
             print "Accessing scb file:", self.scbName
             frameSet = NPFrameSet( self.scbName )
-            if ( not os.path.exists( self.workFldr ) ):
-                os.makedirs( self.workFldr )
-            tempFile = os.path.join( self.workFldr, self.workName )
+            workPath = os.path.join( self.workFldr, 'speed', self.workName )
+            if ( not os.path.exists( workPath ) ):
+                os.makedirs( workPath )
+            tempFile = os.path.join( workPath, self.workName )
             grids = Crowd.GridFileSequence( tempFile )
             if ( self.work & AnalysisTask.COMPUTE ):
                 print "Computing speed figures"
@@ -188,7 +190,7 @@ class SpeedAnalysisTask( DiscreteAnalysisTask ):
                 grids.computeSpeeds( domain, frameSet, self.timeStep )
                 print '    done in %.2f seconds' % ( time.clock() - s )
             if ( self.work & AnalysisTask.VIS ):
-                imageName = os.path.join( self.workFldr, '%s_speed_' % self.workName )
+                imageName = os.path.join( workPath, '%s_speed_' % self.workName )
                 s = time.clock()
                 reader = Crowd.GridFileSequenceReader( grids.outFileName + ".speed"  )
                 try:
@@ -220,9 +222,10 @@ class FlowAnalysisTask( AnalysisTask ):
             frameSet = NPFrameSet( self.scbName )
             names = [ x[0] for x in self.lines ]
             lines = [ x[1] for x in self.lines ]
-            if ( not os.path.exists( self.workFldr ) ):
-                os.makedirs( self.workFldr )
-            tempFile = os.path.join( self.workFldr, self.workName )
+            workPath = os.path.join( self.workFldr, 'flow', self.workName )
+            if ( not os.path.exists( workPath ) ):
+                os.makedirs( workPath )
+            tempFile = os.path.join( workPath, self.workName )
             if ( self.work & AnalysisTask.COMPUTE ):
                 print 'Computing flow analysis: %s' % ( self.workName )
                 s = time.clock()

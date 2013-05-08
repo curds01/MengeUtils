@@ -351,22 +351,29 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         self.taskNameGUI = QtGui.QLineEdit()
         layout.addWidget( self.taskNameGUI, 1, 1 )
 
+        hLayout = QtGui.QHBoxLayout()
+        hLayout.addWidget( QtGui.QLabel( "Output Folder" ), 0 )
+        self.outPathGUI = QtGui.QPushButton( '', self )
+        QtCore.QObject.connect( self.outPathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectOutPathDlg )
+        hLayout.addWidget( self.outPathGUI, 1 )
+        layout.addLayout( hLayout, 2, 0, 1, 2 )
+
         # This should be greyed out if no actions exist
         self.goBtn = QtGui.QPushButton( 'Perform All Active Analysis Tasks', self )
         self.goBtn.setEnabled( False )
-        layout.addWidget( self.goBtn, 2, 0, 1, 2 )
+        layout.addWidget( self.goBtn, 3, 0, 1, 2 )
         QtCore.QObject.connect( self.goBtn, QtCore.SIGNAL('clicked(bool)'), self.runAllActive )
 
         div = QtGui.QFrame( self )
         div.setFrameShape( QtGui.QFrame.HLine )
         div.setFrameShadow( QtGui.QFrame.Sunken )
-        layout.addWidget( div, 3, 0, 1, 2 )
+        layout.addWidget( div, 4, 0, 1, 2 )
         taskLabel = QtGui.QLabel( "Tasks" )
-        layout.addWidget( taskLabel, 4, 0, 1, 2 )
+        layout.addWidget( taskLabel, 5, 0, 1, 2 )
 
         self.taskGUIs = QtGui.QTabWidget()
         QtCore.QObject.connect( self.taskGUIs, QtCore.SIGNAL('currentChanged(int)'), self.changeActiveTask )
-        layout.addWidget( self.taskGUIs, 5, 0, 1, 2 )
+        layout.addWidget( self.taskGUIs, 6, 0, 1, 2 )
         
         self.setLayout( layout )
 
@@ -390,6 +397,13 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         else:
             self.executeWork( [ t ])
         
+
+    def selectOutPathDlg( self ):
+        """Spawns a dialog to select an scb file"""
+        fileName = QtGui.QFileDialog.getExistingDirectory( self, "Select Output Folder", self.rsrc.lastFolder )
+        if ( fileName ):
+            self.outPathGUI.setText( fileName )
+            self.rsrc.lastFolder = str( fileName )
 
     def executeWork( self, tasks ):
         '''Runs the list of given tasks.
@@ -467,6 +481,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         @param      file        An open file-like object.  Supports "write" operations.
         '''
         file.write( 'Task count || %d\n' % len( self.tasks ) )
+        file.write( 'Out folder || %s\n' % self.outPathGUI.text() )
         for task in self.tasks:
             file.write( '%s\n' % ( task.typeStr() ) )
             task.writeConfig( file )
@@ -484,16 +499,30 @@ class AnlaysisWidget( QtGui.QGroupBox ):
             raise ValueError
         
         if ( len( tokens ) != 2 or tokens[0] != 'Task count' ):
-            print "Expected to see task count in configuration file, found %s" % ( tokens[0] )
+            print 'Expected to see "Task count" in configuration file, found %s' % ( tokens[0] )
             raise ValueError
-        
         taskCount = int( tokens[1] )
+        
+        try:
+            tokens = map( lambda x: x.strip(), file.readline().split( '||' ) )
+        except:
+            print "Error parsing out folder"
+            raise ValueError
+
+        if ( len( tokens ) != 2 or tokens[0] != 'Out folder' ):
+            print 'Expected to see "Out folder" in configuration file, found %s' % ( tokens[0] )
+            raise ValueError
+
+        self.outPathGUI.setText( tokens[1] )
+        self.rsrc.lastFolder = tokens[1]
+        
         for i in xrange( taskCount ):
             taskType = file.readline().strip()
             TaskClass = getTaskClass( taskType )
             task = TaskClass( '', rsrc=self.rsrc, delCB=self.deleteTask )
             task.readConfig( file )
-            self.addTask( task, taskType )            
+            self.addTask( task, taskType )
+            
     def getTasks( self ):
         '''Returns a list of AnalysisTasks for the active task widgets.  If there are any
         errors (incomplete data, etc.) a ValueError is raised.
@@ -507,6 +536,12 @@ class AnlaysisWidget( QtGui.QGroupBox ):
                 t = task.getTask()
                 # set input level properties
                 self.rsrc.inputWidget.setTaskProperties( t )
+                outFldr = str( self.outPathGUI.text() ).strip()
+                if ( not outFldr ):
+                    print "Task %s has not specified an output folder" % ( self.name )
+                    raise ValueError
+                t.setWorkFolder( outFldr )
+                
                 aTasks.append( t )
         return aTasks
             
@@ -566,7 +601,6 @@ class TaskWidget( QtGui.QGroupBox ):
     def header( self ):
         '''Builds the header for the work widget'''
         self.bodyLayout.addWidget( self.actionBox() )
-        self.bodyLayout.addWidget( self.outputBox() )
 
     def actionBox( self ):
         '''Create the QGroupBox containing the action widgets'''
@@ -591,29 +625,10 @@ class TaskWidget( QtGui.QGroupBox ):
 
     def launchTask( self ):
         print "Launching %s - %s" % ( self.typeStr(), self.name )
-
-    def outputBox( self ):
-        '''Craete the QGroupBox containing the output widgets'''
-        inputBox = QtGui.QGroupBox("Output")
-        fLayout = QtGui.QGridLayout( inputBox )
-        fLayout.setColumnStretch( 0, 0 )
-        fLayout.setColumnStretch( 1, 1 )
-        fLayout.addWidget( QtGui.QLabel( "Folder" ), 0, 0, 1, 1, QtCore.Qt.AlignRight )
-        self.outPathGUI = QtGui.QPushButton( '', self )
-        QtCore.QObject.connect( self.outPathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectOutPathDlg )
-        fLayout.addWidget( self.outPathGUI, 0, 1, 1, 1 )
-        return inputBox
-    
+  
     def body( self ):
         '''Build the task-specific GUI.  This should be overwritten by subclass'''
         pass
-
-    def selectOutPathDlg( self ):
-        """Spawns a dialog to select an scb file"""
-        fileName = QtGui.QFileDialog.getExistingDirectory( self, "Select Output Folder", self.rsrc.lastFolder )
-        if ( fileName ):
-            self.outPathGUI.setText( fileName )
-            self.rsrc.lastFolder = str( fileName )
 
     def activate( self ):
         '''Called when the work widget is activated'''
@@ -631,7 +646,6 @@ class TaskWidget( QtGui.QGroupBox ):
             values.append( '1' )
         else:
             values.append( '0' )
-        values.append( str( self.outPathGUI.text() ).strip() )
         file.write( '~'.join( values ) )
         file.write( '\n' )
 
@@ -642,13 +656,13 @@ class TaskWidget( QtGui.QGroupBox ):
     
     def readConfig( self, file ):
         '''Reads the common TaskWidget parameters from the file'''
-        tokens = file.readline().split('~')
-        if ( len( tokens ) != 4 ):
+        tokens = map( lambda x: x.strip(), file.readline().split('~') )
+        print tokens
+        if ( len( tokens ) != 3 ):
             raise ValueError, "Task Widget didn't have the basic properties"
         self.changeName( tokens[0] )
         self.actionGUI.setCurrentIndex( self.actionGUI.findText( tokens[1] ) )
         self.setChecked( tokens[2] == '1' )
-        self.outPathGUI.setText( tokens[3] )
 
     def setBasicTask( self, task ):
         '''Given an instance of AnalysisTask (or sub-class) sets the basic task properties.
@@ -657,11 +671,6 @@ class TaskWidget( QtGui.QGroupBox ):
         @raises     ValueError if there is a problem with the properties.
         '''
         task.setTaskName( self.name )
-        outFldr = str( self.outPathGUI.text() ).strip()
-        if ( not outFldr ):
-            print "Task %s has not specified an output folder" % ( self.name )
-            raise ValueError
-        task.setWorkFolder( outFldr )
         
         actIndex = self.actionGUI.currentIndex()
         if ( actIndex == 0 ):
