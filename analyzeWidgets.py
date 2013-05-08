@@ -267,12 +267,23 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         cWidget = self.taskGUIs.currentWidget()
         try:
             t = cWidget.getTask()
+            self.setOutputFldr( t )
             self.rsrc.inputWidget.setTaskProperties( t )
         except ValueError:
             pass
         else:
             self.executeWork( [ t ])
-        
+
+    def setOutputFldr( self, task ):
+        '''Sets the output folder for the given task.
+
+        @param      task        An instance of AnalysisTask.
+        '''
+        outFldr = str( self.outPathGUI.text() ).strip()
+        if ( not outFldr ):
+            print "No output folder specified.  Writing to current directory"
+            return
+        task.setWorkFolder( outFldr )
 
     def selectOutPathDlg( self ):
         """Spawns a dialog to select an scb file"""
@@ -413,12 +424,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
                 t = task.getTask()
                 # set input level properties
                 self.rsrc.inputWidget.setTaskProperties( t )
-                outFldr = str( self.outPathGUI.text() ).strip()
-                if ( not outFldr ):
-                    print "Task %s has not specified an output folder" % ( self.name )
-                    raise ValueError
-                t.setWorkFolder( outFldr )
-                
+                self.setOutputFldr( t )                
                 aTasks.append( t )
         return aTasks
             
