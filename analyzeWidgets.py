@@ -222,6 +222,9 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         layout.addWidget( self.toolGUI, 0, 1 )
         layout.addWidget( QtGui.QLabel("Task name"), 1, 0 )
         self.taskNameGUI = QtGui.QLineEdit()
+        regExp = QtCore.QRegExp( "[^~\\|]*" )
+        validator = QtGui.QRegExpValidator( regExp, self )
+        self.taskNameGUI.setValidator( validator )
         layout.addWidget( self.taskNameGUI, 1, 1 )
 
         hLayout = QtGui.QHBoxLayout()
@@ -431,6 +434,31 @@ def getTaskClass( taskName ):
         print "Unrecognized analysis task type: %s" % ( taskName )
         raise ValueError
         
+
+class TaskNameDialog( QtGui.QDialog ):
+    '''Dialog for changing task name - validates the name against delimieter characters.'''
+    def __init__( self, parent=0x0 ):
+        QtGui.QDialog.__init__( self, parent, QtCore.Qt.WindowTitleHint|QtCore.Qt.WindowSystemMenuHint )
+        self.setWindowTitle( "Change Task Name" )
+        layout = QtGui.QVBoxLayout()
+        layout.addWidget( QtGui.QLabel( "Task name" ), alignment=QtCore.Qt.AlignLeft )
+        self.nameEditor = QtGui.QLineEdit( self )
+        regExp = QtCore.QRegExp( "[^~\\|]*" )
+        validator = QtGui.QRegExpValidator( regExp, self )
+        self.nameEditor.setValidator( validator )
+        layout.addWidget( self.nameEditor )
+        btns = QtGui.QDialogButtonBox.Ok|QtGui.QDialogButtonBox.Cancel
+        buttons = QtGui.QDialogButtonBox( btns, QtCore.Qt.Horizontal, self )
+        QtCore.QObject.connect( buttons, QtCore.SIGNAL('accepted()'), self.accept )
+        QtCore.QObject.connect( buttons, QtCore.SIGNAL('rejected()'), self.reject )
+        layout.addWidget( buttons )
+        self.setLayout( layout )
+        self.setModal( True )
+
+    def getName( self ):
+        '''Return the text'''
+        return str( self.nameEditor.text() )
+
 class TaskWidget( QtGui.QGroupBox ):
     '''The basic widget for doing work'''
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
@@ -463,9 +491,9 @@ class TaskWidget( QtGui.QGroupBox ):
             
     def mouseDoubleClickEvent( self, event ):
         # Spawn a dialog to change the task name
-        text, ok = QtGui.QInputDialog.getText( self.parent(), 'Change task name', 'Task name' )
-        if ( ok ):
-            self.changeName( text )
+        dlg = TaskNameDialog( self )
+        if ( dlg.exec_() == QtGui.QDialog.Accepted ):
+            self.changeName( dlg.getName() )
 
     def changeName( self, newName ):
         '''Changes the name of the task'''
@@ -759,6 +787,9 @@ class FlowTaskWidget( TaskWidget ):
         # line name
         layout.addWidget( QtGui.QLabel("Line Name"), 3, 0, 1, 1, QtCore.Qt.AlignRight )
         self.flowNameGUI = QtGui.QLineEdit()
+        regExp = QtCore.QRegExp( "[^~\\|]*" )
+        validator = QtGui.QRegExpValidator( regExp, self )
+        self.flowNameGUI.setValidator( validator )
         QtCore.QObject.connect( self.flowNameGUI, QtCore.SIGNAL('editingFinished()'), self.flowLineNameChangeCB )
         layout.addWidget( self.flowNameGUI, 3, 1, 1, 2 )
         
