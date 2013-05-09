@@ -34,7 +34,11 @@ class RectDomain:
         if ( other == None ):
             return False
         try:
-            return self.minCorner == other.minCorner and self.size == other.size
+            dX = abs( self.minCorner[0] - other.minCorner[0] ) < 0.00001
+            dY = abs( self.minCorner[1] - other.minCorner[1] ) < 0.00001
+            dW = abs( self.size[0] - other.size[0] ) < 0.00001
+            dH = abs( self.size[1] - other.size[1] ) < 0.00001
+            return dX and dY and dW and dH
         except AttributeError as e:
             print "Tried to compare domains:"
             print "\tThis domain:", self
