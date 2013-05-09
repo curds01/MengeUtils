@@ -4,7 +4,7 @@ from PyQt4 import QtGui, QtCore
 import os
 from GLWidget import *
 import sys
-from analyzeWidgets import InputWidget, AnlaysisWidget, SystemResource
+from analyzeWidgets import AnlaysisWidget, SystemResource
     
 class ConsoleFile( QtCore.QObject ):
     processMessage = QtCore.pyqtSignal(str)
@@ -57,9 +57,6 @@ class CrowdWindow( QtGui.QMainWindow):
         self.f = QtGui.QFrame()
         vLayout = QtGui.QVBoxLayout()
         vLayout.setMargin( 0 )
-        self.inputBox = InputWidget( self.rsrc, self )
-        vLayout.addWidget( self.inputBox )
-        self.rsrc.inputWidget = self.inputBox
         self.analysisBox = AnlaysisWidget( self.rsrc, self )
         vLayout.addWidget( self.analysisBox )  
         vLayout.addStretch( 1 )
@@ -134,7 +131,6 @@ class CrowdWindow( QtGui.QMainWindow):
         """Reads a configuration file for the full application"""
         try:
             f = open( fileName, 'r' )
-            self.inputBox.readConfig( f )
             self.analysisBox.readConfig( f )
             f.close()
             print('Read full config file %s\n' % fileName )
@@ -145,7 +141,6 @@ class CrowdWindow( QtGui.QMainWindow):
         '''Saves the configuration file for the full application'''
         try:
             file = open( fileName, 'w' )
-            self.inputBox.writeConfig( file )
             self.analysisBox.writeConfig( file )
             file.close()
         except IOError, ValueError:

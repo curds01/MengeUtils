@@ -21,169 +21,169 @@ class SystemResource:
         # An instance of GLWidget
         self.glWindow = None
     
-class InputWidget( QtGui.QGroupBox ):
-    '''The group box which contains the input data for the work'''
-    def __init__( self, rsrc, parent=None ):
-        '''Constructor.
-
-        @param      rsrc        An instance of SystemResource.  Used to coordinate
-                                system-wide data.
-        '''
-        QtGui.QGroupBox.__init__( self, 'Input', parent )
-        self.rsrc = rsrc
-        self.build()
-
-    def build( self ):
-        '''Populate the widget with the input elements'''
-        fLayout = QtGui.QGridLayout( self )
-        fLayout.setColumnStretch( 0, 0 )
-        fLayout.setColumnStretch( 1, 1 )
-        fLayout.setColumnStretch( 2, 0 )
-        # scb file
-        fLayout.addWidget( QtGui.QLabel( "SCB file" ), 0, 0, 1, 1, QtCore.Qt.AlignRight )
-        self.scbFilePathGUI = QtGui.QPushButton( '', self )
-        QtCore.QObject.connect( self.scbFilePathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectSCBDlg )
-        fLayout.addWidget( self.scbFilePathGUI, 0, 1, 1, 2 )
-
-        # domain
-        fLayout.addWidget( QtGui.QLabel( "Min. Point" ), 1, 0, 1, 1, QtCore.Qt.AlignRight )
-        self.domainMinXGUI = QtGui.QDoubleSpinBox( self )
-        self.domainMinXGUI.setRange( -1e6, 1e6 )
-        fLayout.addWidget( self.domainMinXGUI, 1, 1, 1, 1 )
-        self.domainMinYGUI = QtGui.QDoubleSpinBox( self )
-        self.domainMinYGUI.setRange( -1e6, 1e6 )
-        fLayout.addWidget( self.domainMinYGUI, 1, 2, 1, 1 )
-
-        fLayout.addWidget( QtGui.QLabel( "Domain Size" ), 2, 0, 1, 1, QtCore.Qt.AlignRight )
-        self.domainSizeXGUI = QtGui.QDoubleSpinBox( self )
-        self.domainSizeXGUI.setRange( -1e6, 1e6 )
-        fLayout.addWidget( self.domainSizeXGUI, 2, 1, 1, 1 )
-        self.domainSizeYGUI = QtGui.QDoubleSpinBox( self )
-        self.domainSizeYGUI.setRange( -1e6, 1e6 )
-        fLayout.addWidget( self.domainSizeYGUI, 2, 2, 1, 1 )        
-
-        # timestep
-        fLayout.addWidget( QtGui.QLabel( "Time step" ), 3, 0, 1, 1, QtCore.Qt.AlignRight )
-        self.timeStepGui = QtGui.QDoubleSpinBox( self )
-        self.timeStepGui.setDecimals( 4 )
-        fLayout.addWidget( self.timeStepGui, 3, 1, 1, 2 )
-
-        # obstacle file
-        fLayout.addWidget( QtGui.QLabel( "Obstacle file" ), 4, 0, 1, 1, QtCore.Qt.AlignRight )
-        self.obstFilePathGUI = QtGui.QPushButton( '', self )
-        QtCore.QObject.connect( self.obstFilePathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectObstDlg )
-        fLayout.addWidget( self.obstFilePathGUI, 4, 1, 1, 1 )
-        self.loadObstBtn = QtGui.QPushButton( "Load", self )
-        QtCore.QObject.connect( self.loadObstBtn, QtCore.SIGNAL('clicked(bool)'), self.loadObstacle )
-        fLayout.addWidget( self.loadObstBtn, 4, 2, 1, 1 )
-
-    def selectSCBDlg( self ):
-        """Spawns a dialog to select an scb file"""
-        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open SCB file", self.rsrc.lastFolder, "SCB Files (*.scb)")
-        if ( fileName ):
-            self.scbFilePathGUI.setText( fileName )
-            path, fName = os.path.split( str( fileName ) )
-            self.rsrc.lastFolder = path
-
-
-    def selectObstDlg( self ):
-        """Spawns a dialog to select an obstacle file"""
-        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open obstacle file", self.rsrc.lastFolder, "All Files (*.*)")
-        if ( fileName ):
-            self.obstFilePathGUI.setText( fileName )
-            path, fName = os.path.split( str( fileName ) )
-            self.rsrc.lastFolder = path
-
-    def loadObstacle( self ):
-        """Causes the indicated obstacle file to be loaded into the OpenGL viewer"""
-        obstFileName = str( self.obstFilePathGUI.text() )
-        if ( obstFileName ):
-            self.rsrc.logMessage('Reading obstacle file: %s' % obstFileName )
-            try:
-                flipY = False
-                obstacles, bb = readObstacles( obstFileName, flipY )                
-                self.rsrc.glWindow.addDrawables( obstacles )
-                w = bb.max.x - bb.min.x
-                h = bb.max.y - bb.min.y
-                self.rsrc.glWindow.setBG( (w,h), (bb.min.x, bb.min.y) )
-                self.rsrc.glWindow.setView( (w,h), (bb.min.x, bb.min.y) )
-                glSize = self.rsrc.glWindow.size()
-                self.rsrc.glWindow.resizeGL( glSize.width(), glSize.height() )
-                self.rsrc.glWindow.updateGL()
-            except:
-                self.rsrc.logMessage('Error reading obstacle file: %s' % obstFileName )
-        else:
-            self.rsrc.logMessage('No obstacle file to load' )
-
-    def writeConfig( self, file ):
-        '''Writes the input configuration to the given file object.
-
-        @param      file        An open file-like object.  Supports "write" operations.
-        '''
-        file.write( 'SCB || %s\n' % ( self.scbFilePathGUI.text() ) )
-        file.write( 'minPtX || %.5f\n' % ( self.domainMinXGUI.value() ) )
-        file.write( 'minPtY || %.5f\n' % ( self.domainMinYGUI.value() ) )
-        file.write( 'sizeX || %.5f\n' % ( self.domainSizeXGUI.value() ) )
-        file.write( 'sizeY || %.5f\n' % ( self.domainSizeYGUI.value() ) )
-        file.write( 'timeStep || %.5f\n' % ( self.timeStepGui.value() ) )
-        file.write( 'obstacle || %s\n' % ( self.obstFilePathGUI.text() ) )
-        
-    def readConfig( self, file ):
-        '''Reads the input configuration from the given file object.
-
-        @param      file        An open file-like object.  Supports "readline" operations.
-        @raises     ValueError if there is a problem in parsing the values.
-        '''
-        PARAM_COUNT = 7
-        # allow for out of order operations - slightly more robust
-        for i in xrange( PARAM_COUNT ):
-            tokens = map( lambda x: x.strip(), file.readline().split( '||' ) )
-            if ( tokens[0] == 'SCB' ):
-                self.scbFilePathGUI.setText( tokens[1] )
-            elif ( tokens[ 0 ] == 'minPtX' ):
-                self.domainMinXGUI.setValue( float( tokens[1] ) )
-            elif ( tokens[ 0 ] == 'minPtY' ):
-                self.domainMinYGUI.setValue( float( tokens[1] ) )
-            elif ( tokens[ 0 ] == 'sizeX' ):
-                self.domainSizeXGUI.setValue( float( tokens[1] ) )
-            elif ( tokens[ 0 ] == 'sizeY' ):
-                self.domainSizeYGUI.setValue( float( tokens[1] ) )
-            elif ( tokens[ 0 ] == 'timeStep' ):
-                self.timeStepGui.setValue( float( tokens[1] ) )
-            elif ( tokens[ 0 ] == 'obstacle' ):
-                self.obstFilePathGUI.setText( tokens[1] )
-            else:
-                print "Error parsing input configuration.  Found unrecognized tag: %s" % ( tokens[0] )
-                raise ValueError
-
-    def setTaskProperties( self, task ):
-        '''Given an instance of AnalysisTask, sets the appropriate input properties
-        of the task from the GUI state.
-
-        @param      task        An instance of AnalysisTask.
-        @raises     ValueError if there is a problem with the values.
-        '''
-        scbFile = str( self.scbFilePathGUI.text() ).strip()
-        if ( not scbFile ):
-            print "No scb file specified for analysis"
-            raise ValueError
-        task.setSCBFile( scbFile )
-        dt = self.timeStepGui.value()
-        if ( dt == 0.0 ):
-            print "No time step specified!"
-            raise ValueError
-        task.setTimeStep( dt )
-        
-        if ( task.requiresDomain() ):
-            w = self.domainSizeXGUI.value()
-            h = self.domainSizeYGUI.value()
-            if ( w <= 0.0 or h <= 0.0 ):
-                print "Invalid domain defined for analysis"
-                raise ValueError
-            minX = self.domainMinXGUI.value()
-            minY = self.domainMinYGUI.value()
-            task.setDomain( minX, minY, minX + w, minY + h )
-
+##class InputWidget( QtGui.QGroupBox ):
+##    '''The group box which contains the input data for the work'''
+##    def __init__( self, rsrc, parent=None ):
+##        '''Constructor.
+##
+##        @param      rsrc        An instance of SystemResource.  Used to coordinate
+##                                system-wide data.
+##        '''
+##        QtGui.QGroupBox.__init__( self, 'Input', parent )
+##        self.rsrc = rsrc
+##        self.build()
+##
+##    def build( self ):
+##        '''Populate the widget with the input elements'''
+##        fLayout = QtGui.QGridLayout( self )
+##        fLayout.setColumnStretch( 0, 0 )
+##        fLayout.setColumnStretch( 1, 1 )
+##        fLayout.setColumnStretch( 2, 0 )
+##        # scb file
+##        fLayout.addWidget( QtGui.QLabel( "SCB file" ), 0, 0, 1, 1, QtCore.Qt.AlignRight )
+##        self.scbFilePathGUI = QtGui.QPushButton( '', self )
+##        QtCore.QObject.connect( self.scbFilePathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectSCBDlg )
+##        fLayout.addWidget( self.scbFilePathGUI, 0, 1, 1, 2 )
+##
+##        # domain
+##        fLayout.addWidget( QtGui.QLabel( "Min. Point" ), 1, 0, 1, 1, QtCore.Qt.AlignRight )
+##        self.domainMinXGUI = QtGui.QDoubleSpinBox( self )
+##        self.domainMinXGUI.setRange( -1e6, 1e6 )
+##        fLayout.addWidget( self.domainMinXGUI, 1, 1, 1, 1 )
+##        self.domainMinYGUI = QtGui.QDoubleSpinBox( self )
+##        self.domainMinYGUI.setRange( -1e6, 1e6 )
+##        fLayout.addWidget( self.domainMinYGUI, 1, 2, 1, 1 )
+##
+##        fLayout.addWidget( QtGui.QLabel( "Domain Size" ), 2, 0, 1, 1, QtCore.Qt.AlignRight )
+##        self.domainSizeXGUI = QtGui.QDoubleSpinBox( self )
+##        self.domainSizeXGUI.setRange( -1e6, 1e6 )
+##        fLayout.addWidget( self.domainSizeXGUI, 2, 1, 1, 1 )
+##        self.domainSizeYGUI = QtGui.QDoubleSpinBox( self )
+##        self.domainSizeYGUI.setRange( -1e6, 1e6 )
+##        fLayout.addWidget( self.domainSizeYGUI, 2, 2, 1, 1 )        
+##
+##        # timestep
+##        fLayout.addWidget( QtGui.QLabel( "Time step" ), 3, 0, 1, 1, QtCore.Qt.AlignRight )
+##        self.timeStepGui = QtGui.QDoubleSpinBox( self )
+##        self.timeStepGui.setDecimals( 4 )
+##        fLayout.addWidget( self.timeStepGui, 3, 1, 1, 2 )
+##
+##        # obstacle file
+##        fLayout.addWidget( QtGui.QLabel( "Obstacle file" ), 4, 0, 1, 1, QtCore.Qt.AlignRight )
+##        self.obstFilePathGUI = QtGui.QPushButton( '', self )
+##        QtCore.QObject.connect( self.obstFilePathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectObstDlg )
+##        fLayout.addWidget( self.obstFilePathGUI, 4, 1, 1, 1 )
+##        self.loadObstBtn = QtGui.QPushButton( "Load", self )
+##        QtCore.QObject.connect( self.loadObstBtn, QtCore.SIGNAL('clicked(bool)'), self.loadObstacle )
+##        fLayout.addWidget( self.loadObstBtn, 4, 2, 1, 1 )
+##
+##    def selectSCBDlg( self ):
+##        """Spawns a dialog to select an scb file"""
+##        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open SCB file", self.rsrc.lastFolder, "SCB Files (*.scb)")
+##        if ( fileName ):
+##            self.scbFilePathGUI.setText( fileName )
+##            path, fName = os.path.split( str( fileName ) )
+##            self.rsrc.lastFolder = path
+##
+##
+##    def selectObstDlg( self ):
+##        """Spawns a dialog to select an obstacle file"""
+##        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open obstacle file", self.rsrc.lastFolder, "All Files (*.*)")
+##        if ( fileName ):
+##            self.obstFilePathGUI.setText( fileName )
+##            path, fName = os.path.split( str( fileName ) )
+##            self.rsrc.lastFolder = path
+##
+##    def loadObstacle( self ):
+##        """Causes the indicated obstacle file to be loaded into the OpenGL viewer"""
+##        obstFileName = str( self.obstFilePathGUI.text() )
+##        if ( obstFileName ):
+##            self.rsrc.logMessage('Reading obstacle file: %s' % obstFileName )
+##            try:
+##                flipY = False
+##                obstacles, bb = readObstacles( obstFileName, flipY )                
+##                self.rsrc.glWindow.addDrawables( obstacles )
+##                w = bb.max.x - bb.min.x
+##                h = bb.max.y - bb.min.y
+##                self.rsrc.glWindow.setBG( (w,h), (bb.min.x, bb.min.y) )
+##                self.rsrc.glWindow.setView( (w,h), (bb.min.x, bb.min.y) )
+##                glSize = self.rsrc.glWindow.size()
+##                self.rsrc.glWindow.resizeGL( glSize.width(), glSize.height() )
+##                self.rsrc.glWindow.updateGL()
+##            except:
+##                self.rsrc.logMessage('Error reading obstacle file: %s' % obstFileName )
+##        else:
+##            self.rsrc.logMessage('No obstacle file to load' )
+##
+##    def writeConfig( self, file ):
+##        '''Writes the input configuration to the given file object.
+##
+##        @param      file        An open file-like object.  Supports "write" operations.
+##        '''
+##        file.write( 'SCB || %s\n' % ( self.scbFilePathGUI.text() ) )
+##        file.write( 'minPtX || %.5f\n' % ( self.domainMinXGUI.value() ) )
+##        file.write( 'minPtY || %.5f\n' % ( self.domainMinYGUI.value() ) )
+##        file.write( 'sizeX || %.5f\n' % ( self.domainSizeXGUI.value() ) )
+##        file.write( 'sizeY || %.5f\n' % ( self.domainSizeYGUI.value() ) )
+##        file.write( 'timeStep || %.5f\n' % ( self.timeStepGui.value() ) )
+##        file.write( 'obstacle || %s\n' % ( self.obstFilePathGUI.text() ) )
+##        
+##    def readConfig( self, file ):
+##        '''Reads the input configuration from the given file object.
+##
+##        @param      file        An open file-like object.  Supports "readline" operations.
+##        @raises     ValueError if there is a problem in parsing the values.
+##        '''
+##        PARAM_COUNT = 7
+##        # allow for out of order operations - slightly more robust
+##        for i in xrange( PARAM_COUNT ):
+##            tokens = map( lambda x: x.strip(), file.readline().split( '||' ) )
+##            if ( tokens[0] == 'SCB' ):
+##                self.scbFilePathGUI.setText( tokens[1] )
+##            elif ( tokens[ 0 ] == 'minPtX' ):
+##                self.domainMinXGUI.setValue( float( tokens[1] ) )
+##            elif ( tokens[ 0 ] == 'minPtY' ):
+##                self.domainMinYGUI.setValue( float( tokens[1] ) )
+##            elif ( tokens[ 0 ] == 'sizeX' ):
+##                self.domainSizeXGUI.setValue( float( tokens[1] ) )
+##            elif ( tokens[ 0 ] == 'sizeY' ):
+##                self.domainSizeYGUI.setValue( float( tokens[1] ) )
+##            elif ( tokens[ 0 ] == 'timeStep' ):
+##                self.timeStepGui.setValue( float( tokens[1] ) )
+##            elif ( tokens[ 0 ] == 'obstacle' ):
+##                self.obstFilePathGUI.setText( tokens[1] )
+##            else:
+##                print "Error parsing input configuration.  Found unrecognized tag: %s" % ( tokens[0] )
+##                raise ValueError
+##
+##    def setTaskProperties( self, task ):
+##        '''Given an instance of AnalysisTask, sets the appropriate input properties
+##        of the task from the GUI state.
+##
+##        @param      task        An instance of AnalysisTask.
+##        @raises     ValueError if there is a problem with the values.
+##        '''
+##        scbFile = str( self.scbFilePathGUI.text() ).strip()
+##        if ( not scbFile ):
+##            print "No scb file specified for analysis"
+##            raise ValueError
+##        task.setSCBFile( scbFile )
+##        dt = self.timeStepGui.value()
+##        if ( dt == 0.0 ):
+##            print "No time step specified!"
+##            raise ValueError
+##        task.setTimeStep( dt )
+##        
+##        if ( task.requiresDomain() ):
+##            w = self.domainSizeXGUI.value()
+##            h = self.domainSizeYGUI.value()
+##            if ( w <= 0.0 or h <= 0.0 ):
+##                print "Invalid domain defined for analysis"
+##                raise ValueError
+##            minX = self.domainMinXGUI.value()
+##            minY = self.domainMinYGUI.value()
+##            task.setDomain( minX, minY, minX + w, minY + h )
+##
 
 class AnlaysisWidget( QtGui.QGroupBox ):
     '''The widget for controlling the analysis'''
@@ -227,13 +227,6 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         validator = QtGui.QRegExpValidator( regExp, self )
         self.taskNameGUI.setValidator( validator )
         layout.addWidget( self.taskNameGUI, 1, 1 )
-
-        hLayout = QtGui.QHBoxLayout()
-        hLayout.addWidget( QtGui.QLabel( "Output Folder" ), 0 )
-        self.outPathGUI = QtGui.QPushButton( '', self )
-        QtCore.QObject.connect( self.outPathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectOutPathDlg )
-        hLayout.addWidget( self.outPathGUI, 1 )
-        layout.addLayout( hLayout, 2, 0, 1, 2 )
 
         # This should be greyed out if no actions exist
         self.goBtn = QtGui.QPushButton( 'Perform All Active Analysis Tasks', self )
@@ -285,13 +278,6 @@ class AnlaysisWidget( QtGui.QGroupBox ):
             print "No output folder specified.  Writing to current directory"
             return
         task.setWorkFolder( outFldr )
-
-    def selectOutPathDlg( self ):
-        """Spawns a dialog to select an scb file"""
-        fileName = QtGui.QFileDialog.getExistingDirectory( self, "Select Output Folder", self.rsrc.lastFolder )
-        if ( fileName ):
-            self.outPathGUI.setText( fileName )
-            self.rsrc.lastFolder = str( fileName )
 
     def executeWork( self, tasks ):
         '''Runs the list of given tasks.
@@ -469,7 +455,7 @@ class TaskNameDialog( QtGui.QDialog ):
         return str( self.nameEditor.text() )
 
 class TaskWidget( QtGui.QGroupBox ):
-    '''The basic widget for doing work'''
+    '''The basic widget for doing analysis work'''
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
         '''Constructor.
 
@@ -488,7 +474,6 @@ class TaskWidget( QtGui.QGroupBox ):
         assert( not self.rsrc is None )
         
         self.bodyLayout = QtGui.QVBoxLayout( self )
-        self.header()
         self.body()
         self.bodyLayout.addStretch( 10 )
 
@@ -507,10 +492,44 @@ class TaskWidget( QtGui.QGroupBox ):
         '''Changes the name of the task'''
         self.setTitle( newName )
         
-    def header( self ):
-        '''Builds the header for the work widget'''
-        self.bodyLayout.addWidget( self.actionBox() )
+    def ioBox( self ):
+        '''Creates the QGroupBox containing the I/O widgets'''
+        # scb file
+        ioBox = QtGui.QGroupBox( "Input/Output" )
+        fLayout = QtGui.QGridLayout( ioBox )
+        fLayout.setColumnStretch( 0, 0 )
+        fLayout.setColumnStretch( 1, 1 )
+        fLayout.setColumnStretch( 0, 2 )
 
+        # SCB input
+        fLayout.addWidget( QtGui.QLabel( "SCB file" ), 0, 0, 1, 1, QtCore.Qt.AlignRight )
+        self.scbFilePathGUI = QtGui.QPushButton( '', self )
+        QtCore.QObject.connect( self.scbFilePathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectSCBDlg )
+        fLayout.addWidget( self.scbFilePathGUI, 0, 1, 1, 2 )
+
+        # Time Step
+        # TODO: Set this value based on the scb file
+        fLayout.addWidget( QtGui.QLabel( "Time step" ), 1, 0, 1, 1, QtCore.Qt.AlignRight )
+        self.timeStepGui = QtGui.QDoubleSpinBox( self )
+        self.timeStepGui.setDecimals( 4 )
+        fLayout.addWidget( self.timeStepGui, 1, 1, 1, 2 )
+
+        # obstacle file
+        fLayout.addWidget( QtGui.QLabel( "Obstacle file" ), 2, 0, 1, 1, QtCore.Qt.AlignRight )
+        self.obstFilePathGUI = QtGui.QPushButton( '', self )
+        QtCore.QObject.connect( self.obstFilePathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectObstDlg )
+        fLayout.addWidget( self.obstFilePathGUI, 2, 1, 1, 1 )
+        self.loadObstBtn = QtGui.QPushButton( "Load", self )
+        QtCore.QObject.connect( self.loadObstBtn, QtCore.SIGNAL('clicked(bool)'), self.loadObstacle )
+        fLayout.addWidget( self.loadObstBtn, 2, 2, 1, 1 )
+
+        # Output foloder
+        fLayout.addWidget( QtGui.QLabel( "Output Folder" ), 3, 0, 1, 1, QtCore.Qt.AlignRight )
+        self.outPathGUI = QtGui.QPushButton( '', self )
+        QtCore.QObject.connect( self.outPathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectOutPathDlg )
+        fLayout.addWidget( self.outPathGUI, 3, 1, 1, 2 )
+        return ioBox
+        
     def actionBox( self ):
         '''Create the QGroupBox containing the action widgets'''
         inputBox = QtGui.QGroupBox("Action")
@@ -537,7 +556,8 @@ class TaskWidget( QtGui.QGroupBox ):
   
     def body( self ):
         '''Build the task-specific GUI.  This should be overwritten by subclass'''
-        pass
+        self.bodyLayout.addWidget( self.actionBox() )
+        self.bodyLayout.addWidget( self.ioBox() )
 
     def activate( self ):
         '''Called when the work widget is activated'''
@@ -557,6 +577,50 @@ class TaskWidget( QtGui.QGroupBox ):
             values.append( '0' )
         file.write( '~'.join( values ) )
         file.write( '\n' )
+
+    def selectSCBDlg( self ):
+        """Spawns a dialog to select an scb file"""
+        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open SCB file", self.rsrc.lastFolder, "SCB Files (*.scb)")
+        if ( fileName ):
+            self.scbFilePathGUI.setText( fileName )
+            path, fName = os.path.split( str( fileName ) )
+            self.rsrc.lastFolder = path
+
+    def selectObstDlg( self ):
+        """Spawns a dialog to select an obstacle file"""
+        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open obstacle file", self.rsrc.lastFolder, "All Files (*.*)")
+        if ( fileName ):
+            self.obstFilePathGUI.setText( fileName )
+            path, fName = os.path.split( str( fileName ) )
+            self.rsrc.lastFolder = path
+
+    def loadObstacle( self ):
+        """Causes the indicated obstacle file to be loaded into the OpenGL viewer"""
+        obstFileName = str( self.obstFilePathGUI.text() )
+        if ( obstFileName ):
+            self.rsrc.logMessage('Reading obstacle file: %s' % obstFileName )
+            try:
+                flipY = False
+                obstacles, bb = readObstacles( obstFileName, flipY )                
+                self.rsrc.glWindow.addDrawables( obstacles )
+                w = bb.max.x - bb.min.x
+                h = bb.max.y - bb.min.y
+                self.rsrc.glWindow.setBG( (w,h), (bb.min.x, bb.min.y) )
+                self.rsrc.glWindow.setView( (w,h), (bb.min.x, bb.min.y) )
+                glSize = self.rsrc.glWindow.size()
+                self.rsrc.glWindow.resizeGL( glSize.width(), glSize.height() )
+                self.rsrc.glWindow.updateGL()
+            except:
+                self.rsrc.logMessage('Error reading obstacle file: %s' % obstFileName )
+        else:
+            self.rsrc.logMessage('No obstacle file to load' )
+    
+    def selectOutPathDlg( self ):
+        """Spawns a dialog to select an scb file"""
+        fileName = QtGui.QFileDialog.getExistingDirectory( self, "Select Output Folder", self.rsrc.lastFolder )
+        if ( fileName ):
+            self.outPathGUI.setText( fileName )
+            self.rsrc.lastFolder = str( fileName )
 
     @staticmethod
     def typeStr():
@@ -591,27 +655,55 @@ class TaskWidget( QtGui.QGroupBox ):
             print "Unrecognized value for task action %s for %s" % ( self.actionGUI.currentText(), self.title() )
             raise ValueError
 
-    
-                      
-class DensityTaskWidget( TaskWidget ):
+class DomainTaskWidget( TaskWidget ):
+    '''A TaskWidget that requires a rectangular domain over which to perform analysis.'''
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
         TaskWidget.__init__( self, name, parent, delCB, rsrc )
 
-    def createRasterBox( self ):
+    def domainBox( self ):
+        '''Creates the rectangular domain widgets'''
+        domainBox = QtGui.QGroupBox( "Analysis Domain" )
+        fLayout = QtGui.QGridLayout( domainBox )
+        fLayout.setColumnStretch( 0, 0 )
+        fLayout.setColumnStretch( 1, 1 )
+        
+        # Domain minimum point
+        fLayout.addWidget( QtGui.QLabel( "Min. Point" ), 0, 0, 1, 1, QtCore.Qt.AlignRight )
+        rowLayout = QtGui.QHBoxLayout()
+        fLayout.addLayout( rowLayout, 0, 1, 1, 2 )        
+        self.domainMinXGUI = QtGui.QDoubleSpinBox( self )
+        self.domainMinXGUI.setRange( -1e6, 1e6 )
+        rowLayout.addWidget( self.domainMinXGUI )
+        self.domainMinYGUI = QtGui.QDoubleSpinBox( self )
+        self.domainMinYGUI.setRange( -1e6, 1e6 )
+        rowLayout.addWidget( self.domainMinYGUI )
+
+        # Domain size
+        fLayout.addWidget( QtGui.QLabel( "Domain Size" ), 1, 0, 1, 1, QtCore.Qt.AlignRight )
+        rowLayout = QtGui.QHBoxLayout()
+        fLayout.addLayout( rowLayout, 1, 1, 1, 2 ) 
+        self.domainSizeXGUI = QtGui.QDoubleSpinBox( self )
+        self.domainSizeXGUI.setRange( -1e6, 1e6 )
+        rowLayout.addWidget( self.domainSizeXGUI )
+        self.domainSizeYGUI = QtGui.QDoubleSpinBox( self )
+        self.domainSizeYGUI.setRange( -1e6, 1e6 )
+        rowLayout.addWidget( self.domainSizeYGUI )
+
+        return domainBox
+    
+    def rasterBox( self ):
         '''Create the widgets for the rasterization settings'''
         box = QtGui.QGroupBox("Raster Settings")
         fLayout = QtGui.QGridLayout( box )
         fLayout.setColumnStretch( 0, 0 )
         fLayout.setColumnStretch( 1, 1 )
 
-        fLayout.addWidget( QtGui.QLabel( "Kernel Size" ), 0, 0, 1, 1, QtCore.Qt.AlignRight )
-        self.kernelSizeGUI = QtGui.QDoubleSpinBox( box )
-        fLayout.addWidget( self.kernelSizeGUI, 0, 1, 1, 1 )
-
+        # Cell size
         fLayout.addWidget( QtGui.QLabel( "Cell Size" ), 1, 0, 1, 1, QtCore.Qt.AlignRight )
         self.cellSizeGUI = QtGui.QDoubleSpinBox( box )
         fLayout.addWidget( self.cellSizeGUI, 1, 1, 1, 1 )
 
+        # Color map
         fLayout.addWidget( QtGui.QLabel( "Color Map" ), 2, 0, 1, 1, QtCore.Qt.AlignRight )
         self.colorMapGUI = QtGui.QComboBox( box )
         cmaps = COLOR_MAPS.keys()
@@ -619,7 +711,8 @@ class DensityTaskWidget( TaskWidget ):
         self.colorMapGUI.addItems( cmaps )
         self.colorMapGUI.setCurrentIndex( 0 )
         fLayout.addWidget( self.colorMapGUI, 2, 1, 1, 1 )
-        
+
+        # image format
         fLayout.addWidget( QtGui.QLabel( "Image format" ), 3, 0, 1, 1, QtCore.Qt.AlignRight )
         self.imgFormatGUI = QtGui.QComboBox( box )
         self.imgFormatGUI.addItems( ( 'jpg', 'bmp', 'png' ) )
@@ -632,8 +725,31 @@ class DensityTaskWidget( TaskWidget ):
         return box
         
     def body( self ):
+        TaskWidget.body( self )
+        self.bodyLayout.addWidget( self.domainBox() )
+        self.bodyLayout.addWidget( self.rasterBox() )
+                      
+class DensityTaskWidget( DomainTaskWidget ):
+    def __init__( self, name, parent=None, delCB=None, rsrc=None ):
+        DomainTaskWidget.__init__( self, name, parent, delCB, rsrc )
+
+    def kernelBox( self ):
+        '''Create the widgets for the rasterization settings'''
+        box = QtGui.QGroupBox("Density Estimation Kernel")
+        fLayout = QtGui.QGridLayout( box )
+        fLayout.setColumnStretch( 0, 0 )
+        fLayout.setColumnStretch( 1, 1 )
+
+        fLayout.addWidget( QtGui.QLabel( "Smooth Param." ), 0, 0, 1, 1, QtCore.Qt.AlignRight )
+        self.kernelSizeGUI = QtGui.QDoubleSpinBox( box )
+        fLayout.addWidget( self.kernelSizeGUI, 0, 1, 1, 1 )
+
+        return box
+        
+    def body( self ):
         '''Build the task-specific GUI.  This should be overwritten by subclass'''
-        self.bodyLayout.addWidget( self.createRasterBox() )
+        DomainTaskWidget.body( self )
+        self.bodyLayout.addWidget( self.kernelBox() )
 
     def readConfig( self, file ):
         '''Reads the widget state from the given file'''
@@ -673,43 +789,9 @@ class DensityTaskWidget( TaskWidget ):
         TaskWidget.setBasicTask( self, task )
         return task
 
-class SpeedTaskWidget( TaskWidget ):
+class SpeedTaskWidget( DomainTaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
-        TaskWidget.__init__( self, name, parent, delCB, rsrc )
-
-    def createRasterBox( self ):
-        '''Create the widgets for the rasterization settings'''
-        box = QtGui.QGroupBox("Raster Settings")
-        fLayout = QtGui.QGridLayout( box )
-        fLayout.setColumnStretch( 0, 0 )
-        fLayout.setColumnStretch( 1, 1 )
-
-        fLayout.addWidget( QtGui.QLabel( "Cell Size" ), 1, 0, 1, 1, QtCore.Qt.AlignRight )
-        self.cellSizeGUI = QtGui.QDoubleSpinBox( box )
-        fLayout.addWidget( self.cellSizeGUI, 1, 1, 1, 1 )
-
-        fLayout.addWidget( QtGui.QLabel( "Color Map" ), 2, 0, 1, 1, QtCore.Qt.AlignRight )
-        self.colorMapGUI = QtGui.QComboBox( box )
-        cmaps = COLOR_MAPS.keys()
-        cmaps.sort()
-        self.colorMapGUI.addItems( cmaps )
-        self.colorMapGUI.setCurrentIndex( 0 )
-        fLayout.addWidget( self.colorMapGUI, 2, 1, 1, 1 )
-        
-        fLayout.addWidget( QtGui.QLabel( "Image format" ), 3, 0, 1, 1, QtCore.Qt.AlignRight )
-        self.imgFormatGUI = QtGui.QComboBox( box )
-        self.imgFormatGUI.addItems( ( 'jpg', 'bmp', 'png' ) )
-        def formatIdxChanged( idx ):
-            if ( idx == 2 ):
-                self.rsrc.logMessage( 'There is a memory leak for png format!' )
-        QtCore.QObject.connect( self.imgFormatGUI, QtCore.SIGNAL('currentIndexChanged(int)'), formatIdxChanged )
-        fLayout.addWidget( self.imgFormatGUI, 3, 1, 1, 1 )        
-        
-        return box
-        
-    def body( self ):
-        '''Build the task-specific GUI.  This should be overwritten by subclass'''
-        self.bodyLayout.addWidget( self.createRasterBox() )
+        DomainTaskWidget.__init__( self, name, parent, delCB, rsrc )
 
     @staticmethod
     def typeStr():
@@ -804,6 +886,7 @@ class FlowTaskWidget( TaskWidget ):
     
     def body( self ):
         '''Build the task-specific GUI.  This should be overwritten by subclass'''
+        TaskWidget.body( self )
         self.bodyLayout.addWidget( self.createFlowLineBox() )
 
     def lineChangedCB( self ):
@@ -967,6 +1050,7 @@ class PopulationTaskWidget( TaskWidget ):
     
     def body( self ):
         '''Build the task-specific GUI.  This should be overwritten by subclass'''
+        TaskWidget.body( self )
         self.bodyLayout.addWidget( self.createRectBox() )
 
     def rectChangedCB( self ):
