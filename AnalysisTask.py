@@ -26,14 +26,8 @@ class AnalysisTask:
         self.work = self.NO_WORK
         self.workName = ''
         self.scbName = ''
-        self.domainX = None
-        self.domainY = None
         self.timeStep = 0.0
         self.workFldr = '.'
-
-    def requiresDomain( self ):
-        '''Reports if this particular task requires domain information - the default is true.'''
-        return False
 
     def setSCBFile( self, fileName ):
         '''Sets the scb file name for the analysis task.
@@ -41,21 +35,6 @@ class AnalysisTask:
         @param      fileName        A string.  The path to the input scb file name.
         '''
         self.scbName = fileName
-
-    def setDomain( self, minX, minY, maxX, maxY):
-        '''Defines the analysis domain.
-
-        @param      minX        A float.  The minimum point of the rectangular domain
-                                along the x-axis.
-        @param      minY        A float.  The minimum point of the rectangular domain
-                                along the y-axis.
-        @param      maxX        A float.  The maximum point of the rectangular domain
-                                along the x-axis.
-        @param      maxY        A float.  The maximum point of the rectangular domain
-                                along the y-axis.
-        '''
-        self.domainX = Vector2( minX, maxX )
-        self.domainY = Vector2( minY, maxY )
 
     def setTimeStep( self, timeStep ):
         '''Defines the time step of the analysis task.  This value will be ignored if
@@ -102,11 +81,33 @@ class AnalysisTask:
         if ( not os.path.exists( workPath ) ):
             os.makedirs( workPath )
         return workPath
-    
-class DiscreteAnalysisTask( AnalysisTask ):
-    '''An analysis task which relies on a discretization of the domain'''
+
+class DomainAnalysisTask( AnalysisTask ):
+    '''An analysis task which relies on a domain.'''
     def __init__( self ):
         AnalysisTask.__init__( self )
+        self.domainX = None
+        self.domainY = None
+
+    def setDomain( self, minX, minY, maxX, maxY):
+        '''Defines the analysis domain.
+
+        @param      minX        A float.  The minimum point of the rectangular domain
+                                along the x-axis.
+        @param      minY        A float.  The minimum point of the rectangular domain
+                                along the y-axis.
+        @param      maxX        A float.  The maximum point of the rectangular domain
+                                along the x-axis.
+        @param      maxY        A float.  The maximum point of the rectangular domain
+                                along the y-axis.
+        '''
+        self.domainX = Vector2( minX, maxX )
+        self.domainY = Vector2( minY, maxY )
+
+class DiscreteAnalysisTask( DomainAnalysisTask ):
+    '''An analysis task which relies on a discretization of a domain'''
+    def __init__( self ):
+        DomainAnalysisTask.__init__( self )
         self.cellSize = 0.0
         self.colorMapName = ''
         self.outImgType = ''

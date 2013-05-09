@@ -3,6 +3,7 @@ from Context import *
 from primitives import Vector2, Segment
 from OpenGL.GL import *
 import flowUtils
+from copy import deepcopy
 
 class GLFlowSegment( Segment ):
     '''The OpenGL representation of a flow line.  Basically a segment
@@ -73,6 +74,13 @@ class FlowLineContext( BaseContext ):
         self.dragging = False
         self.downPost = None
 
+    def copy( self, context ):
+        '''Copy the state of the given FlowLineContext into this'''
+        assert( isinstance( context, FlowLineContext ) )
+        self.clear()
+        self.names = [ a for a in context.names ]
+        self.lines = deepcopy( context.lines )
+        
     def clear( self ):
         '''Clears out all of the lines'''
         self.lines = []

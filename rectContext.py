@@ -3,6 +3,7 @@ from Context import *
 from primitives import Vector2
 from OpenGL.GL import *
 from domains import RectDomain
+from copy import deepcopy
 
 class GLRectDomain( RectDomain ):
     '''The GL representation of a rectangular domain'''
@@ -69,6 +70,13 @@ class RectContext( BaseContext ):
         self.downPos = None
         self.downWorld = None
 
+    def copy( self, context ):
+        '''Copy the state of the given RectContext into this'''
+        assert( isinstance( context, RectContext ) )
+        self.clear()
+        self.names = [ a for a in context.names ]
+        self.rects = deepcopy( context.rects )
+        
     def clear( self ):
         '''Clears out all of the rects'''
         self.rects = []

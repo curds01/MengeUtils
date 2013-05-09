@@ -20,171 +20,34 @@ class SystemResource:
         # GL WINDOW COMMANDS
         # An instance of GLWidget
         self.glWindow = None
-    
-##class InputWidget( QtGui.QGroupBox ):
-##    '''The group box which contains the input data for the work'''
-##    def __init__( self, rsrc, parent=None ):
-##        '''Constructor.
-##
-##        @param      rsrc        An instance of SystemResource.  Used to coordinate
-##                                system-wide data.
-##        '''
-##        QtGui.QGroupBox.__init__( self, 'Input', parent )
-##        self.rsrc = rsrc
-##        self.build()
-##
-##    def build( self ):
-##        '''Populate the widget with the input elements'''
-##        fLayout = QtGui.QGridLayout( self )
-##        fLayout.setColumnStretch( 0, 0 )
-##        fLayout.setColumnStretch( 1, 1 )
-##        fLayout.setColumnStretch( 2, 0 )
-##        # scb file
-##        fLayout.addWidget( QtGui.QLabel( "SCB file" ), 0, 0, 1, 1, QtCore.Qt.AlignRight )
-##        self.scbFilePathGUI = QtGui.QPushButton( '', self )
-##        QtCore.QObject.connect( self.scbFilePathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectSCBDlg )
-##        fLayout.addWidget( self.scbFilePathGUI, 0, 1, 1, 2 )
-##
-##        # domain
-##        fLayout.addWidget( QtGui.QLabel( "Min. Point" ), 1, 0, 1, 1, QtCore.Qt.AlignRight )
-##        self.domainMinXGUI = QtGui.QDoubleSpinBox( self )
-##        self.domainMinXGUI.setRange( -1e6, 1e6 )
-##        fLayout.addWidget( self.domainMinXGUI, 1, 1, 1, 1 )
-##        self.domainMinYGUI = QtGui.QDoubleSpinBox( self )
-##        self.domainMinYGUI.setRange( -1e6, 1e6 )
-##        fLayout.addWidget( self.domainMinYGUI, 1, 2, 1, 1 )
-##
-##        fLayout.addWidget( QtGui.QLabel( "Domain Size" ), 2, 0, 1, 1, QtCore.Qt.AlignRight )
-##        self.domainSizeXGUI = QtGui.QDoubleSpinBox( self )
-##        self.domainSizeXGUI.setRange( -1e6, 1e6 )
-##        fLayout.addWidget( self.domainSizeXGUI, 2, 1, 1, 1 )
-##        self.domainSizeYGUI = QtGui.QDoubleSpinBox( self )
-##        self.domainSizeYGUI.setRange( -1e6, 1e6 )
-##        fLayout.addWidget( self.domainSizeYGUI, 2, 2, 1, 1 )        
-##
-##        # timestep
-##        fLayout.addWidget( QtGui.QLabel( "Time step" ), 3, 0, 1, 1, QtCore.Qt.AlignRight )
-##        self.timeStepGui = QtGui.QDoubleSpinBox( self )
-##        self.timeStepGui.setDecimals( 4 )
-##        fLayout.addWidget( self.timeStepGui, 3, 1, 1, 2 )
-##
-##        # obstacle file
-##        fLayout.addWidget( QtGui.QLabel( "Obstacle file" ), 4, 0, 1, 1, QtCore.Qt.AlignRight )
-##        self.obstFilePathGUI = QtGui.QPushButton( '', self )
-##        QtCore.QObject.connect( self.obstFilePathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectObstDlg )
-##        fLayout.addWidget( self.obstFilePathGUI, 4, 1, 1, 1 )
-##        self.loadObstBtn = QtGui.QPushButton( "Load", self )
-##        QtCore.QObject.connect( self.loadObstBtn, QtCore.SIGNAL('clicked(bool)'), self.loadObstacle )
-##        fLayout.addWidget( self.loadObstBtn, 4, 2, 1, 1 )
-##
-##    def selectSCBDlg( self ):
-##        """Spawns a dialog to select an scb file"""
-##        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open SCB file", self.rsrc.lastFolder, "SCB Files (*.scb)")
-##        if ( fileName ):
-##            self.scbFilePathGUI.setText( fileName )
-##            path, fName = os.path.split( str( fileName ) )
-##            self.rsrc.lastFolder = path
-##
-##
-##    def selectObstDlg( self ):
-##        """Spawns a dialog to select an obstacle file"""
-##        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open obstacle file", self.rsrc.lastFolder, "All Files (*.*)")
-##        if ( fileName ):
-##            self.obstFilePathGUI.setText( fileName )
-##            path, fName = os.path.split( str( fileName ) )
-##            self.rsrc.lastFolder = path
-##
-##    def loadObstacle( self ):
-##        """Causes the indicated obstacle file to be loaded into the OpenGL viewer"""
-##        obstFileName = str( self.obstFilePathGUI.text() )
-##        if ( obstFileName ):
-##            self.rsrc.logMessage('Reading obstacle file: %s' % obstFileName )
-##            try:
-##                flipY = False
-##                obstacles, bb = readObstacles( obstFileName, flipY )                
-##                self.rsrc.glWindow.addDrawables( obstacles )
-##                w = bb.max.x - bb.min.x
-##                h = bb.max.y - bb.min.y
-##                self.rsrc.glWindow.setBG( (w,h), (bb.min.x, bb.min.y) )
-##                self.rsrc.glWindow.setView( (w,h), (bb.min.x, bb.min.y) )
-##                glSize = self.rsrc.glWindow.size()
-##                self.rsrc.glWindow.resizeGL( glSize.width(), glSize.height() )
-##                self.rsrc.glWindow.updateGL()
-##            except:
-##                self.rsrc.logMessage('Error reading obstacle file: %s' % obstFileName )
-##        else:
-##            self.rsrc.logMessage('No obstacle file to load' )
-##
-##    def writeConfig( self, file ):
-##        '''Writes the input configuration to the given file object.
-##
-##        @param      file        An open file-like object.  Supports "write" operations.
-##        '''
-##        file.write( 'SCB || %s\n' % ( self.scbFilePathGUI.text() ) )
-##        file.write( 'minPtX || %.5f\n' % ( self.domainMinXGUI.value() ) )
-##        file.write( 'minPtY || %.5f\n' % ( self.domainMinYGUI.value() ) )
-##        file.write( 'sizeX || %.5f\n' % ( self.domainSizeXGUI.value() ) )
-##        file.write( 'sizeY || %.5f\n' % ( self.domainSizeYGUI.value() ) )
-##        file.write( 'timeStep || %.5f\n' % ( self.timeStepGui.value() ) )
-##        file.write( 'obstacle || %s\n' % ( self.obstFilePathGUI.text() ) )
-##        
-##    def readConfig( self, file ):
-##        '''Reads the input configuration from the given file object.
-##
-##        @param      file        An open file-like object.  Supports "readline" operations.
-##        @raises     ValueError if there is a problem in parsing the values.
-##        '''
-##        PARAM_COUNT = 7
-##        # allow for out of order operations - slightly more robust
-##        for i in xrange( PARAM_COUNT ):
-##            tokens = map( lambda x: x.strip(), file.readline().split( '||' ) )
-##            if ( tokens[0] == 'SCB' ):
-##                self.scbFilePathGUI.setText( tokens[1] )
-##            elif ( tokens[ 0 ] == 'minPtX' ):
-##                self.domainMinXGUI.setValue( float( tokens[1] ) )
-##            elif ( tokens[ 0 ] == 'minPtY' ):
-##                self.domainMinYGUI.setValue( float( tokens[1] ) )
-##            elif ( tokens[ 0 ] == 'sizeX' ):
-##                self.domainSizeXGUI.setValue( float( tokens[1] ) )
-##            elif ( tokens[ 0 ] == 'sizeY' ):
-##                self.domainSizeYGUI.setValue( float( tokens[1] ) )
-##            elif ( tokens[ 0 ] == 'timeStep' ):
-##                self.timeStepGui.setValue( float( tokens[1] ) )
-##            elif ( tokens[ 0 ] == 'obstacle' ):
-##                self.obstFilePathGUI.setText( tokens[1] )
-##            else:
-##                print "Error parsing input configuration.  Found unrecognized tag: %s" % ( tokens[0] )
-##                raise ValueError
-##
-##    def setTaskProperties( self, task ):
-##        '''Given an instance of AnalysisTask, sets the appropriate input properties
-##        of the task from the GUI state.
-##
-##        @param      task        An instance of AnalysisTask.
-##        @raises     ValueError if there is a problem with the values.
-##        '''
-##        scbFile = str( self.scbFilePathGUI.text() ).strip()
-##        if ( not scbFile ):
-##            print "No scb file specified for analysis"
-##            raise ValueError
-##        task.setSCBFile( scbFile )
-##        dt = self.timeStepGui.value()
-##        if ( dt == 0.0 ):
-##            print "No time step specified!"
-##            raise ValueError
-##        task.setTimeStep( dt )
-##        
-##        if ( task.requiresDomain() ):
-##            w = self.domainSizeXGUI.value()
-##            h = self.domainSizeYGUI.value()
-##            if ( w <= 0.0 or h <= 0.0 ):
-##                print "Invalid domain defined for analysis"
-##                raise ValueError
-##            minX = self.domainMinXGUI.value()
-##            minY = self.domainMinYGUI.value()
-##            task.setDomain( minX, minY, minX + w, minY + h )
-##
 
+class TaskCopyDialog( QtGui.QDialog ):
+    '''A dialog for choosing a task'''
+    def __init__( self, tasks, parent=None ):
+        '''Constructor.
+
+        @param      tasks       A list of TaskWidgets, used to populate the combo box.
+        '''
+        QtGui.QDialog.__init__( self, parent, QtCore.Qt.WindowTitleHint|QtCore.Qt.WindowSystemMenuHint )
+        self.tasks = tasks
+        self.setWindowTitle( "Select Task" )
+        layout = QtGui.QVBoxLayout()
+        layout.addWidget( QtGui.QLabel( "Task name" ), alignment=QtCore.Qt.AlignLeft )
+        self.taskSelector = QtGui.QComboBox( self )
+        self.taskSelector.addItems( map( lambda x: '%s - %s' % ( x.typeStr(), x.title() ), tasks ) )
+        layout.addWidget( self.taskSelector )
+        btns = QtGui.QDialogButtonBox.Ok|QtGui.QDialogButtonBox.Cancel
+        buttons = QtGui.QDialogButtonBox( btns, QtCore.Qt.Horizontal, self )
+        QtCore.QObject.connect( buttons, QtCore.SIGNAL('accepted()'), self.accept )
+        QtCore.QObject.connect( buttons, QtCore.SIGNAL('rejected()'), self.reject )
+        layout.addWidget( buttons )
+        self.setLayout( layout )
+        self.setModal( True )
+
+    def getSelectedTask( self ):
+        '''Return the text'''
+        return self.tasks[ self.taskSelector.currentIndex() ]
+        
 class AnlaysisWidget( QtGui.QGroupBox ):
     '''The widget for controlling the analysis'''
     # Enumerations of the type of analysis
@@ -261,23 +124,10 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         cWidget = self.taskGUIs.currentWidget()
         try:
             t = cWidget.getTask()
-            self.setOutputFldr( t )
-            self.rsrc.inputWidget.setTaskProperties( t )
         except ValueError:
             pass
         else:
             self.executeWork( [ t ])
-
-    def setOutputFldr( self, task ):
-        '''Sets the output folder for the given task.
-
-        @param      task        An instance of AnalysisTask.
-        '''
-        outFldr = str( self.outPathGUI.text() ).strip()
-        if ( not outFldr ):
-            print "No output folder specified.  Writing to current directory"
-            return
-        task.setWorkFolder( outFldr )
 
     def executeWork( self, tasks ):
         '''Runs the list of given tasks.
@@ -355,10 +205,10 @@ class AnlaysisWidget( QtGui.QGroupBox ):
 
         @param      file        An open file-like object.  Supports "write" operations.
         '''
+        file.write( '# WARNING!  Editing this file can cause problems.  Order, case, and syntax all matter\n' )
+        file.write( '# The only comments allowed are full line comments\n' )
         file.write( 'Task count || %d\n' % len( self.tasks ) )
-        file.write( 'Out folder || %s\n' % self.outPathGUI.text() )
         for task in self.tasks:
-            file.write( '%s\n' % ( task.typeStr() ) )
             task.writeConfig( file )
         
     def readConfig( self, file ):
@@ -367,8 +217,11 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         @param      file        An open file-like object.  Supports "readline" operations.
         @raises     ValueError if there is a problem in parsing the values.
         '''
+        line = file.readline().strip()
+        while ( line[0] == '#' ):
+            line = file.readline().strip()
         try:
-            tokens = map( lambda x: x.strip(), file.readline().split( '||' ) )
+            tokens = map( lambda x: x.strip(), line.split( '||' ) )
         except:
             print "Error parsing task count"
             raise ValueError
@@ -377,19 +230,6 @@ class AnlaysisWidget( QtGui.QGroupBox ):
             print 'Expected to see "Task count" in configuration file, found %s' % ( tokens[0] )
             raise ValueError
         taskCount = int( tokens[1] )
-        
-        try:
-            tokens = map( lambda x: x.strip(), file.readline().split( '||' ) )
-        except:
-            print "Error parsing out folder"
-            raise ValueError
-
-        if ( len( tokens ) != 2 or tokens[0] != 'Out folder' ):
-            print 'Expected to see "Out folder" in configuration file, found %s' % ( tokens[0] )
-            raise ValueError
-
-        self.outPathGUI.setText( tokens[1] )
-        self.rsrc.lastFolder = tokens[1]
         
         for i in xrange( taskCount ):
             taskType = file.readline().strip()
@@ -408,12 +248,19 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         aTasks = []
         for task in self.tasks:
             if ( task.isChecked() ):
-                t = task.getTask()
-                # set input level properties
-                self.rsrc.inputWidget.setTaskProperties( t )
-                self.setOutputFldr( t )                
+                t = task.getTask()               
                 aTasks.append( t )
         return aTasks
+
+    def copyTaskToCurrent( self ):
+        '''Copies the parameters from one task to the current task'''
+        # construct task list
+        tasks = self.tasks
+        dlg = TaskCopyDialog( tasks, self )
+        if ( dlg.exec_() == QtGui.QDialog.Accepted ):
+            srcTask = dlg.getSelectedTask()
+            dstTask = self.taskGUIs.currentWidget()
+            dstTask.copySettings( srcTask )
             
 def getTaskClass( taskName ):
     '''Returns a class object for the given analysis task name'''
@@ -488,10 +335,6 @@ class TaskWidget( QtGui.QGroupBox ):
         if ( dlg.exec_() == QtGui.QDialog.Accepted ):
             self.changeName( dlg.getName() )
 
-    def changeName( self, newName ):
-        '''Changes the name of the task'''
-        self.setTitle( newName )
-        
     def ioBox( self ):
         '''Creates the QGroupBox containing the I/O widgets'''
         # scb file
@@ -567,17 +410,6 @@ class TaskWidget( QtGui.QGroupBox ):
             self.rsrc.glWindow.setUserContext( None )
         self.rsrc.glWindow.updateGL()
 
-    def writeConfig( self, file ):
-        '''Writes the widget state to the given file'''
-        values = [ str( self.title() ) ]
-        values.append( str( self.actionGUI.currentText() ).strip() )
-        if ( self.isChecked() ):
-            values.append( '1' )
-        else:
-            values.append( '0' )
-        file.write( '~'.join( values ) )
-        file.write( '\n' )
-
     def selectSCBDlg( self ):
         """Spawns a dialog to select an scb file"""
         fileName = QtGui.QFileDialog.getOpenFileName( self, "Open SCB file", self.rsrc.lastFolder, "SCB Files (*.scb)")
@@ -627,23 +459,94 @@ class TaskWidget( QtGui.QGroupBox ):
         '''Returns a string representation of this task'''
         return 'TASK'
     
+    def writeConfig( self, file ):
+        '''Writes the widget state to the given file'''
+        # Write TYPE
+        file.write( '%s\n' % self.typeStr()  )
+        # Write I/O (scb name, time step, obstacle file, output folder)
+        file.write( 'SCB || %s\n' % ( self.scbFilePathGUI.text() ) )
+        file.write( 'timeStep || %.5f\n' % ( self.timeStepGui.value() ) )
+        file.write( 'obstacle || %s\n' % ( self.obstFilePathGUI.text() ) )
+        file.write( 'outFldr || %s\n' % ( self.outPathGUI.text() ) )
+        # action info: work name,
+        file.write( 'workName || %s\n' % ( self.title() ) )
+        file.write( 'task || %s\n' % ( self.actionGUI.currentText() ) )
+        file.write( 'active || ' )
+        if ( self.isChecked() ):
+            file.write( '1\n' )
+        else:
+            file.write( '0\n' )
+
+    def _parseConfigLine( self, file, name, setFunc, convertFunc=None ):
+        '''Parses a key-value line from the config file.  The string value is optionally converted
+        via the convertFunc and passed as a parameter to the setFunc callable.
+
+        @param      file            An open file object.  The file to read the line from.
+        @param      name            The name of the expected key.
+        @param      setFunc         A callable.  The (possibly converted) value is passed as a parameter.
+        @param      convertFunc     A callable.  If provided, the string value will be passed to this
+                                    function and the RESULT is passed to setFunc.
+        @return     A string.  The value in the key-value pair.
+        '''
+        line = file.readline().strip()
+        while ( line[0] == '#' ):
+            line = file.readline().strip()
+        try:
+            tokens = map( lambda x: x.strip(), line.split( '||' ) )
+        except:
+            print "Error parsing %s" % name
+            print '\tRead: %s' % line
+            return
+        if ( len( tokens ) != 2 ):
+            print "Too many values found for key: %s" % ( name )
+            print '\tRead: %s' % line
+            return
+        if ( tokens[0] != name ):
+            print "Looking for key %s, found %s" % ( name, tokens[0] )
+            print '\tRead: %s' % line
+            return
+        value = tokens[1]
+        if ( convertFunc ):
+            try:
+                value = convertFunc( value )
+            except ValueError:
+                print "Error converting the value for %s: %s" % ( name, value )
+                print '\tRead: %s' % line
+        setFunc( value )
+    
     def readConfig( self, file ):
         '''Reads the common TaskWidget parameters from the file'''
-        tokens = map( lambda x: x.strip(), file.readline().split('~') )
-        if ( len( tokens ) != 3 ):
-            raise ValueError, "Task Widget didn't have the basic properties"
-        self.changeName( tokens[0] )
-        self.actionGUI.setCurrentIndex( self.actionGUI.findText( tokens[1] ) )
-        self.setChecked( tokens[2] == '1' )
+        # I/O info
+        self._parseConfigLine( file, 'SCB', self.scbFilePathGUI.setText )
+        self._parseConfigLine( file, 'timeStep', self.timeStepGui.setValue, float )
+        self._parseConfigLine( file, 'obstacle', self.obstFilePathGUI.setText )
+        self._parseConfigLine( file, 'outFldr', self.outPathGUI.setText )
 
-    def setBasicTask( self, task ):
-        '''Given an instance of AnalysisTask (or sub-class) sets the basic task properties.
+        # work info
+        self._parseConfigLine( file, 'workName', self.setTitle )
+        self._parseConfigLine( file, 'task', self.actionGUI.setCurrentIndex, self.actionGUI.findText )
+        def isActive( txt ):
+            return txt == '1'
+        self._parseConfigLine( file, 'active', self.setEnabled, isActive )
 
-        @param      task        The instance of AnalysisTask to change.
-        @raises     ValueError if there is a problem with the properties.
+    def copySettings( self, task ):
+        '''Copy the settings from the given task into this task'''
+        assert( isinstance( task, TaskWidget ) )
+        self.scbFilePathGUI.setText( task.scbFilePathGUI.text() )
+        self.timeStepGui.setValue( task.timeStepGui.value() )
+        self.obstFilePathGUI.setText( task.obstFilePathGUI.text() )
+        self.outPathGUI.setText( task.outPathGUI.text() )
+        # don't copy task name, activity or enabled state
+
+    def setTaskParameters( self, task ):
+        '''Sets the parameters in the task based on this widget.
+        If there is a problem with the parameters, a ValueError exception is raised.
+
+        @raises     ValueError if there is a problem in setting the parameters.
         '''
+        # input scb file
         task.setTaskName( str( self.title() ) )
-        
+        # action
         actIndex = self.actionGUI.currentIndex()
         if ( actIndex == 0 ):
             task.setWork( AnalysisTask.COMPUTE )
@@ -654,6 +557,24 @@ class TaskWidget( QtGui.QGroupBox ):
         else:
             print "Unrecognized value for task action %s for %s" % ( self.actionGUI.currentText(), self.title() )
             raise ValueError
+        # scb file
+        scbFile = str( self.scbFilePathGUI.text() ).strip()
+        if ( not scbFile ):
+            print "No scb file specified for analysis"
+            raise ValueError
+        task.setSCBFile( scbFile )
+        dt = self.timeStepGui.value()
+        if ( dt == 0.0 ):
+            print "No time step specified!"
+            raise ValueError
+        # time step
+        task.setTimeStep( dt )
+        # output folder
+        outFldr = str( self.outPathGUI.text() )
+        if ( not outFldr ):
+            print "No output folder specified for %s - %s" % ( self.typeStr(), self.title() )
+            raise ValueError
+        task.setWorkFolder( outFldr )
 
 class DomainTaskWidget( TaskWidget ):
     '''A TaskWidget that requires a rectangular domain over which to perform analysis.'''
@@ -672,10 +593,12 @@ class DomainTaskWidget( TaskWidget ):
         rowLayout = QtGui.QHBoxLayout()
         fLayout.addLayout( rowLayout, 0, 1, 1, 2 )        
         self.domainMinXGUI = QtGui.QDoubleSpinBox( self )
+        self.domainMinXGUI.setValue( 0.0 )
         self.domainMinXGUI.setRange( -1e6, 1e6 )
         rowLayout.addWidget( self.domainMinXGUI )
         self.domainMinYGUI = QtGui.QDoubleSpinBox( self )
         self.domainMinYGUI.setRange( -1e6, 1e6 )
+        self.domainMinYGUI.setValue( 0.0 )
         rowLayout.addWidget( self.domainMinYGUI )
 
         # Domain size
@@ -684,9 +607,11 @@ class DomainTaskWidget( TaskWidget ):
         fLayout.addLayout( rowLayout, 1, 1, 1, 2 ) 
         self.domainSizeXGUI = QtGui.QDoubleSpinBox( self )
         self.domainSizeXGUI.setRange( -1e6, 1e6 )
+        self.domainSizeXGUI.setValue( 0.0 )
         rowLayout.addWidget( self.domainSizeXGUI )
         self.domainSizeYGUI = QtGui.QDoubleSpinBox( self )
         self.domainSizeYGUI.setRange( -1e6, 1e6 )
+        self.domainSizeYGUI.setValue( 0.0 )
         rowLayout.addWidget( self.domainSizeYGUI )
 
         return domainBox
@@ -728,6 +653,61 @@ class DomainTaskWidget( TaskWidget ):
         TaskWidget.body( self )
         self.bodyLayout.addWidget( self.domainBox() )
         self.bodyLayout.addWidget( self.rasterBox() )
+
+    def writeConfig( self, file ):
+        TaskWidget.writeConfig( self, file )
+        # domain extent
+        file.write( 'minPtX || %.5f\n' % ( self.domainMinXGUI.value() ) )
+        file.write( 'minPtY || %.5f\n' % ( self.domainMinYGUI.value() ) )
+        file.write( 'sizeX || %.5f\n' % ( self.domainSizeXGUI.value() ) )
+        file.write( 'sizeY || %.5f\n' % ( self.domainSizeYGUI.value() ) )
+        # raster properties
+        file.write( 'cellSize || %.5f\n' % ( self.cellSizeGUI.value() ) )
+        file.write( 'colorMap || %s\n' % ( self.colorMapGUI.currentText() ) )
+        file.write( 'imgType || %s\n' % ( self.imgFormatGUI.currentText() ) )
+
+    def readConfig( self, file ):
+        TaskWidget.readConfig( self, file )
+        # domain extent
+        self._parseConfigLine( file, 'minPtX', self.domainMinXGUI.setValue, float )
+        self._parseConfigLine( file, 'minPtY', self.domainMinYGUI.setValue, float )
+        self._parseConfigLine( file, 'sizeX', self.domainSizeXGUI.setValue, float )
+        self._parseConfigLine( file, 'sizeY', self.domainSizeYGUI.setValue, float )
+        # raster properties
+        self._parseConfigLine( file, 'cellSize', self.cellSizeGUI.setValue, float )
+        self._parseConfigLine( file, 'colorMap', self.colorMapGUI.setCurrentIndex, self.colorMapGUI.findText )
+        self._parseConfigLine( file, 'imgType', self.imgFormatGUI.setCurrentIndex, self.imgFormatGUI.findText )
+
+    def copySettings( self, task ):
+        '''Copy the settings from the given task into this task'''
+        TaskWidget.copySettings( self, task )
+        if ( isinstance( task, DomainTaskWidget ) ):
+            self.domainMinXGUI.setValue( task.domainMinXGUI.value() )
+            self.domainMinYGUI.setValue( task.domainMinYGUI.value() )
+            self.domainSizeXGUI.setValue( task.domainSizeXGUI.value() )
+            self.domainSizeYGUI.setValue( task.domainSizeYGUI.value() )
+            self.cellSizeGUI.setValue( task.cellSizeGUI.value() )
+            self.colorMapGUI.setCurrentIndex( task.colorMapGUI.currentIndex() )
+            self.imgFormatGUI.setCurrentIndex( task.imgFormatGUI.currentIndex() )
+
+    def setTaskParameters( self, task ):
+        '''Sets the parameters in the task based on this widget.
+        If there is a problem with the parameters, a ValueError exception is raised.
+
+        @raises     ValueError if there is a problem in setting the parameters.
+        '''
+        TaskWidget.setTaskParameters( self, task )
+        w = self.domainSizeXGUI.value()
+        h = self.domainSizeYGUI.value()
+        if ( w <= 0.0 or h <= 0.0 ):
+            print "Invalid domain defined for analysis - zero area"
+            raise ValueError
+        minX = self.domainMinXGUI.value()
+        minY = self.domainMinYGUI.value()
+        task.setDomain( minX, minY, minX + w, minY + h )
+        task.setCellSize( self.cellSizeGUI.value() )
+        task.setColorMap( str( self.colorMapGUI.currentText() ) )
+        task.setOutImg( str( self.imgFormatGUI.currentText() ) )
                       
 class DensityTaskWidget( DomainTaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
@@ -753,21 +733,13 @@ class DensityTaskWidget( DomainTaskWidget ):
 
     def readConfig( self, file ):
         '''Reads the widget state from the given file'''
-        TaskWidget.readConfig( self, file )
-        tokens = file.readline().split('~')
-        self.kernelSizeGUI.setValue( float( tokens[0] ) )
-        self.cellSizeGUI.setValue( float( tokens[1] ) )
-        self.colorMapGUI.setCurrentIndex( self.colorMapGUI.findText( tokens[2] ) )
-        self.imgFormatGUI.setCurrentIndex( self.imgFormatGUI.findText( tokens[3].strip() ) )
+        DomainTaskWidget.readConfig( self, file )
+        self._parseConfigLine( file, 'smoothParam', self.kernelSizeGUI.setValue, float )
 
     def writeConfig( self, file ):
         '''Writes the widget state to the given file'''
-        TaskWidget.writeConfig( self, file )
-        values = [ '%.5f' % self.kernelSizeGUI.value() ]
-        values.append( '%.5f' % self.cellSizeGUI.value() )
-        values.append( str( self.colorMapGUI.currentText() ).strip() )
-        values.append( str( self.imgFormatGUI.currentText() ).strip() )
-        file.write( '%s\n' % ( '~'.join( values ) ) )
+        DomainTaskWidget.writeConfig( self, file )
+        file.write( 'smoothParam || %.5f\n' % ( self.kernelSizeGUI.value() ) )
     
     @staticmethod
     def typeStr():
@@ -781,13 +753,23 @@ class DensityTaskWidget( DomainTaskWidget ):
         @raises     ValueError if there is a problem in instantiating the task.addLine
         '''
         task = DensityAnalysisTask()
-        task.setSmoothParam( self.kernelSizeGUI.value() )
-        task.setCellSize( self.cellSizeGUI.value() )
-        task.setColorMap( str( self.colorMapGUI.currentText() ) )
-        task.setOutImg( str( self.imgFormatGUI.currentText() ) )
-        
-        TaskWidget.setBasicTask( self, task )
+        self.setTaskParameters( task )
         return task
+
+    def copySettings( self, task ):
+        '''Copy the settings from the given task into this task'''
+        TaskWidget.copySettings( self, task )
+        if ( isinstance( task, DensityTaskWidget ) ):
+            self.kernelSizeGUI.setValue( task.kernelSizeGUI.value() )
+
+    def setTaskParameters( self, task ):
+        '''Sets the parameters in the task based on this widget.
+        If there is a problem with the parameters, a ValueError exception is raised.
+
+        @raises     ValueError if there is a problem in setting the parameters.
+        '''
+        DomainTaskWidget.setTaskParameters( self, task )
+        task.setSmoothParam( self.kernelSizeGUI.value() )
 
 class SpeedTaskWidget( DomainTaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
@@ -800,19 +782,11 @@ class SpeedTaskWidget( DomainTaskWidget ):
 
     def readConfig( self, file ):
         '''Reads the widget state from the given file'''
-        TaskWidget.readConfig( self, file )
-        tokens = file.readline().split('~')
-        self.cellSizeGUI.setValue( float( tokens[0] ) )
-        self.colorMapGUI.setCurrentIndex( self.colorMapGUI.findText( tokens[1] ) )
-        self.imgFormatGUI.setCurrentIndex( self.imgFormatGUI.findText( tokens[2].strip() ) )
+        DomainTaskWidget.readConfig( self, file )
 
     def writeConfig( self, file ):
         '''Writes the widget state to the given file'''
-        TaskWidget.writeConfig( self, file )
-        values = [ '%.5f' % self.cellSizeGUI.value() ]
-        values.append( str( self.colorMapGUI.currentText() ).strip() )
-        values.append( str( self.imgFormatGUI.currentText() ).strip() )
-        file.write( '%s\n' % ( '~'.join( values ) ) )
+        DomainTaskWidget.writeConfig( self, file )
 
     def getTask( self ):
         '''Returns a task for this widget.
@@ -821,11 +795,7 @@ class SpeedTaskWidget( DomainTaskWidget ):
         @raises     ValueError if there is a problem in instantiating the task.addLine
         '''
         task = SpeedAnalysisTask()
-        task.setCellSize( self.cellSizeGUI.value() )
-        task.setColorMap( str( self.colorMapGUI.currentText() ) )
-        task.setOutImg( str( self.imgFormatGUI.currentText() ) )
-        
-        TaskWidget.setBasicTask( self, task )
+        self.setTaskParameters( task )
         return task
 
 class FlowTaskWidget( TaskWidget ):
@@ -985,14 +955,34 @@ class FlowTaskWidget( TaskWidget ):
             raise ValueError
         
         task = FlowAnalysisTask()
-        for i in xrange( LINE_COUNT ):
-            task.addFlowLine( self.context.getLine( i ), self.context.getName( i ) )
-        TaskWidget.setBasicTask( self, task )
+        self.setTaskParameters( task )
         return task
 
-    def requiresDomain( self ):
-        '''Reports if this particular task requires domain information.'''
-        return False
+    def copySettings( self, task ):
+        '''Copy the settings from the given task into this task'''
+        TaskWidget.copySettings( self, task )
+        if ( isinstance( task, FlowTaskWidget ) ):
+            self.context.copy( task.context )
+            self.linesGUI.clear()
+            items = [ task.linesGUI.itemText( i ) for i in xrange( task.linesGUI.count() ) ]
+            self.linesGUI.addItems( items )
+            hasItems = len( items ) > 0
+            self.delFlowLineBtn.setEnabled( hasItems )
+            self.flipFlowLineBtn.setEnabled( hasItems )
+            self.editFlowLineBtn.setEnabled( hasItems )
+            if ( hasItems ):
+                self.linesGUI.setCurrentIndex( 0 )
+
+    def setTaskParameters( self, task ):
+        '''Sets the parameters in the task based on this widget.
+        If there is a problem with the parameters, a ValueError exception is raised.
+
+        @raises     ValueError if there is a problem in setting the parameters.
+        '''
+        TaskWidget.setTaskParameters( self, task )
+        LINE_COUNT = self.context.lineCount()
+        for i in xrange( LINE_COUNT ):
+            task.addFlowLine( self.context.getLine( i ), self.context.getName( i ) )
     
 class PopulationTaskWidget( TaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
@@ -1141,11 +1131,30 @@ class PopulationTaskWidget( TaskWidget ):
             raise ValueError
         
         task = PopulationAnalysisTask()
-        for i in xrange( RECT_COUNT ):
-            task.addRectDomain( self.context.getRect( i ), self.context.getName( i ) )
-        TaskWidget.setBasicTask( self, task )
+        self.setTaskParameters( task )
         return task
 
-    def requiresDomain( self ):
-        '''Reports if this particular task requires domain information.'''
-        return False
+    def setTaskParameters( self, task ):
+        '''Sets the parameters in the task based on this widget.
+        If there is a problem with the parameters, a ValueError exception is raised.
+
+        @raises     ValueError if there is a problem in setting the parameters.
+        '''
+        TaskWidget.setTaskParameters( self, task )
+        RECT_COUNT = self.context.rectCount()
+        for i in xrange( RECT_COUNT ):
+            task.addRectDomain( self.context.getRect( i ), self.context.getName( i ) )
+
+    def copySettings( self, task ):
+        '''Copy the settings from the given task into this task'''
+        TaskWidget.copySettings( self, task )
+        if ( isinstance( task, PopulationTaskWidget ) ):
+            self.context.copy( task.context )
+            self.rectsGUI.clear()
+            items = [ task.rectsGUI.itemText( i ) for i in xrange( task.rectsGUI.count() ) ]
+            self.rectsGUI.addItems( items )
+            hasItems = len( items ) > 0
+            self.delRectBtn.setEnabled( hasItems )
+            self.editRectBtn.setEnabled( hasItems )
+            if ( hasItems ):
+                self.rectsGUI.setCurrentIndex( 0 )

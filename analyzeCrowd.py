@@ -90,6 +90,9 @@ class CrowdWindow( QtGui.QMainWindow):
         self.saveConfigAct = QtGui.QAction( "&Save Full Config",
                                             self, statusTip="Save config file for full application",
                                             triggered=self.saveConfigFileDlg )
+        self.copyTaskAct = QtGui.QAction( "&Copy Task Settings",
+                                          self, statusTip="Copy task parameters from another task into the current task",
+                                          triggered=self.copyTaskDlg )
 
     def createMenus( self ):
         self.fileMenu = self.menuBar().addMenu("&Input")
@@ -99,6 +102,8 @@ class CrowdWindow( QtGui.QMainWindow):
         self.settingsMenu = self.menuBar().addMenu("&Settings")
         self.settingsMenu.addAction( self.readConfigAct )
         self.settingsMenu.addAction( self.saveConfigAct )
+        self.settingsMenu = self.menuBar().addMenu("&Tasks")
+        self.settingsMenu.addAction( self.copyTaskAct )
 
     def createStatusBar(self):
         self.statusBar().showMessage("Ready")
@@ -154,6 +159,12 @@ class CrowdWindow( QtGui.QMainWindow):
             path, fName = os.path.split( str( fileName ) )
             self.rsrc.lastFolder = path
                     
+
+    def copyTaskDlg( self ):
+        '''Creates a dialog for copying the settings of one task into another.'''
+        print "Copying task settings"
+        self.analysisBox.copyTaskToCurrent()
+    
     def logMessage( self, msg ):
         '''Append a message to the console'''
         self.console.insertPlainText( msg )
