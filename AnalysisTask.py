@@ -168,9 +168,13 @@ class DensityAnalysisTask( DiscreteAnalysisTask ):
                 grids.convolveSignal( domain, kernel, signal, frameSet )
                 print '    done in %.2f seconds' % ( time.clock() - s )
             if ( self.work & AnalysisTask.VIS ):
+                dataFile = grids.outFileName + ".density"
+                if ( not os.path.exists( dataFile ) ):
+                    print "Can't visualize density - unable to locate file: %s" % dataFile
+                    return
                 imageName = os.path.join( workPath, '%s_density_' % self.workName )
                 s = time.clock()
-                reader = Crowd.GridFileSequenceReader( grids.outFileName + ".density"  )
+                reader = Crowd.GridFileSequenceReader( dataFile )
                 try:
                     colorMap = COLOR_MAPS[ self.colorMapName ]
                 except:
@@ -199,9 +203,13 @@ class SpeedAnalysisTask( DiscreteAnalysisTask ):
                 grids.computeSpeeds( domain, frameSet, self.timeStep )
                 print '    done in %.2f seconds' % ( time.clock() - s )
             if ( self.work & AnalysisTask.VIS ):
+                dataFile = grids.outFileName + ".speed"
+                if ( not os.path.exists( dataFile ) ):
+                    print "Can't visualize speed - unable to locate file: %s" % dataFile
+                    return
                 imageName = os.path.join( workPath, '%s_speed_' % self.workName )
                 s = time.clock()
-                reader = Crowd.GridFileSequenceReader( grids.outFileName + ".speed"  )
+                reader = Crowd.GridFileSequenceReader( dataFile  )
                 try:
                     colorMap = COLOR_MAPS[ self.colorMapName ]
                 except:
@@ -239,6 +247,9 @@ class FlowAnalysisTask( AnalysisTask ):
                 Crowd.computeFlow( frameSet, lines, tempFile, names )
                 print '    done in %.2f seconds' % ( time.clock() - s )
             if ( self.work & AnalysisTask.VIS ):
+                if ( not os.path.exists( tempFile ) ):
+                    print "Can't create flow plots - unable to locate file: %s" % tempFile
+                    return
                 print 'Computing flow plots: %s'  % ( self.workName )
                 s=time.clock()
                 # this gives the ability to change the pre-computed names
@@ -277,6 +288,9 @@ class PopulationAnalysisTask( AnalysisTask ):
                 print '*** The analysis is not implemented yet ***'
                 print '    done in %.2f seconds' % ( time.clock() - s )
             if ( self.work & AnalysisTask.VIS ):
+                if ( not os.path.exists( tempFile ) ):
+                    print "Can't create population plots - unable to locate file: %s" % tempFile
+                    return
                 print 'Computing population plots: %s'  % ( self.workName )
                 s=time.clock()
                 Crowd.plotPopulation( tempFile, frameSet.simStepSize, titlePrefix=self.workName, legendStr=names )
