@@ -210,6 +210,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         layout = QtGui.QGridLayout()
         layout.setColumnStretch( 0, 0 )
         layout.setColumnStretch( 1, 1 )
+        layout.setMargin( 2 )
 
         ####################################
         # Control for adding widgets

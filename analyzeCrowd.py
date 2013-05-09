@@ -29,7 +29,11 @@ class CrowdWindow( QtGui.QMainWindow):
         self.setWindowTitle( 'Crowd Analysis' )
 
         mainFrame = QtGui.QFrame( self )
+        mainFrame.setFrameShadow( QtGui.QFrame.Plain )
+        mainFrame.setFrameShape( QtGui.QFrame.NoFrame )
         mainVLayout = QtGui.QHBoxLayout( mainFrame )
+        mainVLayout.setSpacing( 3 )
+        mainVLayout.setMargin( 0 )
 
         # Feedback panel
         splitter = QtGui.QSplitter( mainFrame )
@@ -51,7 +55,8 @@ class CrowdWindow( QtGui.QMainWindow):
         
         # Main configuration panel                
         self.f = QtGui.QFrame()
-        vLayout = QtGui.QVBoxLayout()        
+        vLayout = QtGui.QVBoxLayout()
+        vLayout.setMargin( 0 )
         self.inputBox = InputWidget( self.rsrc, self )
         vLayout.addWidget( self.inputBox )
         self.rsrc.inputWidget = self.inputBox
