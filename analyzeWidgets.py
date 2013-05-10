@@ -8,6 +8,7 @@ from ColorMap import *
 from qtcontext import *
 from AnalysisTask import *
 from CrowdWork import CrowdAnalyzeThread
+from trajectory.scbData import NPFrameSet
 
 class SystemResource:
     '''A simple class for sharing resources across elements of the app.'''
@@ -354,7 +355,7 @@ class TaskWidget( QtGui.QGroupBox ):
         # TODO: Set this value based on the scb file
         fLayout.addWidget( QtGui.QLabel( "Time step" ), 1, 0, 1, 1, QtCore.Qt.AlignRight )
         self.timeStepGui = QtGui.QDoubleSpinBox( self )
-        self.timeStepGui.setDecimals( 4 )
+        self.timeStepGui.setDecimals( 5 )
         fLayout.addWidget( self.timeStepGui, 1, 1, 1, 2 )
 
         # obstacle file
@@ -414,9 +415,18 @@ class TaskWidget( QtGui.QGroupBox ):
         """Spawns a dialog to select an scb file"""
         fileName = QtGui.QFileDialog.getOpenFileName( self, "Open SCB file", self.rsrc.lastFolder, "SCB Files (*.scb)")
         if ( fileName ):
-            self.scbFilePathGUI.setText( fileName )
-            path, fName = os.path.split( str( fileName ) )
-            self.rsrc.lastFolder = path
+            if ( os.path.exists( fileName ) ):
+                self.scbFilePathGUI.setText( fileName )
+                path, fName = os.path.split( str( fileName ) )
+                self.rsrc.lastFolder = path
+                frameSet = NPFrameSet( fileName )
+                if ( frameSet.version[0] == '1' ):
+                    print "SCB data is version %s, you must set the time step explicitly"
+                    self.timeStepGui.setEnabled( True )
+                    self.timeStepGui.setValue( 0.0 )
+                else:
+                    self.timeStepGui.setEnabled( False )
+                    self.timeStepGui.setValue( frameSet.simStepSize )
 
     def selectObstDlg( self ):
         """Spawns a dialog to select an obstacle file"""
@@ -519,6 +529,13 @@ class TaskWidget( QtGui.QGroupBox ):
         # I/O info
         self._parseConfigLine( file, 'SCB', self.scbFilePathGUI.setText )
         self._parseConfigLine( file, 'timeStep', self.timeStepGui.setValue, float )
+        frameSet = NPFrameSet( str( self.scbFilePathGUI.text() ) )
+        if ( frameSet.version[0] == '1' ):
+            self.timeStepGui.setEnabled( True )
+            self.timeStepGui.setValue( 0.0 )
+        else:
+            self.timeStepGui.setEnabled( False )
+            self.timeStepGui.setValue( frameSet.simStepSize )
         self._parseConfigLine( file, 'obstacle', self.obstFilePathGUI.setText )
         self._parseConfigLine( file, 'outFldr', self.outPathGUI.setText )
 
@@ -536,6 +553,7 @@ class TaskWidget( QtGui.QGroupBox ):
         self.timeStepGui.setValue( task.timeStepGui.value() )
         self.obstFilePathGUI.setText( task.obstFilePathGUI.text() )
         self.outPathGUI.setText( task.outPathGUI.text() )
+        self.timeStepGui.setEnabled( task.timeStepGui.isEnabled() )
         # don't copy task name, activity or enabled state
 
     def setTaskParameters( self, task ):
