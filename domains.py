@@ -147,7 +147,10 @@ class RectDomain:
         maxCorner = Vector2( X[2], Y[2] )
         
         return RectDomain( minCorner, maxCorner - minCorner )
-    
+
+    @property
+    def area( self ):
+        return self.size[0] * self.size[1]
 
 if __name__ == '__main__':
     def testIntersection():

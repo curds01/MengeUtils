@@ -436,6 +436,196 @@ def computePopulation( frameSet, rectDomains, outFileName, names=None ):
 
     outFile.close()
     
+
+def framesInRegion( region, data ):
+    '''For each agent in data, computes the largest interval of time during which
+    the agent is in the region
+
+    @param      region      An instance of RectDomain.
+    @param      data        An instance of trajectory data with N agents.
+    @returns    A 2-tuple of numpy arrays: ( intervals, speeds )
+                    intervals: A numpy array of ints of shape (N, 2).
+                        The first column represents the frame time the agent enters the region.
+                        The second colum represents the number of frames the agent is
+                            inside the region.
+                    distances: The distances traveled by the agent from entry to exit over the
+                        interval.
+                    if the interval duration is zero, the distance value will be meaningless.
+    '''
+    data.setNext( 0 )
+    # The entrance and duration times of each agent
+    agtTime = np.zeros( ( data.agentCount(), 2 ), dtype=np.int )
+    inRegion = {}   # map from the agent id to the time it entered
+
+    enterPt = np.empty( ( data.agentCount(), 2 ), dtype=np.float32 )
+    distance = np.empty( data.agentCount(), dtype=np.float32 )
+    
+    while ( True ):
+        try:
+            frame, idx = data.next()
+        except StopIteration:
+            break
+        IDs = data.getFrameIds()  # a mapping from frame ID to data ID
+        isInside = region.pointsInside( frame[:, :2 ] )
+        for fID, state in enumerate( isInside ):
+            simID = IDs[ fID ]
+            if ( state ):
+                if ( not inRegion.has_key( simID ) ):
+                    inRegion[ simID ] = idx
+                    enterPt[ simID, : ] = frame[ fID, :2 ]
+            else:
+                if ( inRegion.has_key( simID ) ):
+                    enter = inRegion.pop( simID )
+                    elapsed = idx - enter
+                    if ( elapsed > agtTime[ simID, 1 ] ):
+                        agtTime[ simID, : ] = ( enter, elapsed )
+                        exit = frame[ fID, :2 ]
+                        delta = exit - enterPt[ simID, : ]
+                        distSq = np.dot( delta, delta )
+                        distance[ simID ] = distSq
+    distance = np.sqrt( distance )
+    
+    return agtTime, distance
+
+def calcSpeeds( intervals, distances, timeStep ):
+    '''Compute the average speed for each agent crossing the rectangular region.
+
+    @param      intervals       A numpy array of ints of shape (N, 2).
+                                The first column is the frame during which the corresponding agent
+                                    enters the rectangular region.
+                                The second column is the duration of time spent in the region.
+    @param      distances       A numpy array of floats of shape (N, ).  The distance that each
+                                agent traveled during its interval
+    @param      rect            An instance of RectDomain.
+    @param      timeStep        A float. The duration of a single frame in the data.
+    @returns    A 2-tuple of numpy arrays: ( speeds, valid ).
+                    speeds: A numpy array of floats of shape (N, ).  The average speed for each agent.
+                    valid:  A numpy array of bool of shape (N, ).  True if the corresponding speed is
+                        meaningful, False otherwise.  This will happen if there is not a well-defined
+                        interval for the agent.
+    '''
+    elapsedTime = intervals[ :, 1 ] * timeStep
+    valid = elapsedTime > 0
+    speed = np.empty_like( elapsedTime )
+    speed[ valid ] = distances[ valid ] / elapsedTime[ valid ]
+    
+    return speed, valid
+
+def calcIntervalDensityRegion( intervals, density ):
+    '''Computes the average density for each interval based on the average density in the region.
+
+    @param      intervals       A numpy array of ints of shape (N, 2).
+                                The first column is the frame during which the corresponding agent
+                                    enters the rectangular region.
+                                The second column is the duration of time spent in the region.
+    @param      density         A numpy array of floats of shape (T, )
+                                The average density of the region over the time [0, T).
+                                The interval values in intervals should lie in the domain [0, T).
+    @returns    A numpy array of floats with shape (N, 1).  The average density in the region over
+                    each non-zero interval.
+    '''
+    densities = np.empty( intervals.shape[0], dtype=np.float32 )
+    for i, iVal in enumerate( intervals ):
+        start, length = iVal
+        if ( length > 0 ):
+            densities[ i ] = np.mean( density[ start:(start+length) ] )
+    return densities
+
+def defaultRegionNames( regionCount, forFileName=True ):
+    '''Produces a list of default region names.
+
+    @param      regionCount     An int.  The number of region names to generate.
+    @param      forFileName     A boolean.  Determines if the names are created for filenames
+                                (True) or for display (False).
+    '''
+    if ( forFileName ):
+        return [ 'Region_%d' % i for i in xrange( len( rectDomains ) ) ]
+    else:
+        [ 'Region %d' % i for i in xrange( len( rectDomains ) ) ]
+                                
+
+def computeFundDiag( frameSet, rectDomains, outFileName, names=None ):
+    '''Computes the fundamental diagram in one or more regions for the given agent data and
+    writes it to files.
+
+    @param      frameSet        An instance of trajectory data.
+    @param      rectDomains     A list of RectDomain instances.  Compute the fundamental diagram for
+                                each agent who passes through the region.
+    @param      outFileName     The base name for the output files - one file per region will be
+                                created, with an index number as suffix (starting at 0).
+    @param      names           A list of strings.  Names for the rectangular domains.
+    '''
+    #   TODO: Offer up alternative density computation
+    # compute population of region over the time.
+    computePopulation( frameSet, rectDomains, outFileName, names )
+    # read population data
+    dataFile = outFileName + ".pop"
+    dFile = open( dataFile, 'r' )
+    nameLine = dFile.readline()[2:]
+    areas = np.array( [ rect.area for rect in rectDomains ], dtype=np.float32 )
+    areas.shape = (1, -1)
+    density = np.loadtxt( dFile )[:,1:] / areas
+
+    if ( names is None ):
+        names = defaultRegionNames( len( rectDomains ) ) 
+    else:
+        assert( len( names ) == len( rectDomains ) )
+    
+    # For each region
+    for i, rect in enumerate( rectDomains ):
+        # Compute intervals of agents crossing the regions
+        intervals, distances = framesInRegion( rect, frameSet )
+        # For each interval, determine the agent's average speed and the average density
+        speeds, valid = calcSpeeds( intervals, distances, frameSet.simStepSize )
+        densities = calcIntervalDensityRegion( intervals, density[ :, i ] )
+        data = np.column_stack( ( densities[valid], speeds[valid] ) )
+        fdFileName = outFileName + '_%s.npy' % names[ i ] 
+        np.save( fdFileName, data )
+
+def plotFundDiag( outFileName, rectDomains, names=None ):
+    '''Creates plots of fundamental diagram analysis.
+
+    @param      outFileName     The base name for the output files - one file per region will be
+                                created, with an index number as suffix (starting at 0).
+    @param      rectDomains     A list of RectDomain instances.  Compute the fundamental diagram for
+                                each agent who passes through the region.
+    @param      names           A list of strings.  Names for the rectangular domains.
+    '''
+    if ( names is None ):
+        fileNames = defaultRegionNames( len( rectDomains ) )
+        displayNames = defaultRegionNames( len( rectDomains ), False )
+    else:
+        assert( len( rectDomains ) == len( names ) )
+        fileNames = names
+        displayNames = names
+
+    regions = []
+    legendStr = []
+    plt.figure()
+    for i, name in enumerate( fileNames ):
+        fdFileName = outFileName + '_%s.npy' % names[ i ]
+        fdData = np.load( fdFileName )
+        regions.append( fdData )
+        legendStr.append( displayNames[ i ] )
+        
+        plt.title( 'Fundamental Diagram - %s' % displayNames[ i ] )
+        plt.plot( fdData[:,0], fdData[:,1], 'ob' )
+        plt.xlabel( 'Density (people/m$^2$)' )
+        plt.ylabel( 'Speed (m/s)' )
+        figName, ext = os.path.splitext( fdFileName )
+        plt.savefig( figName + '.eps' )
+        plt.savefig( figName + '.png' )
+        plt.clf()
+    plt.title( 'Fundamental Diagram - All Regions' )
+    plt.xlabel( 'Density (people/m$^2$)' )
+    plt.ylabel( 'Speed (m/s)' )
+    if ( len( rectDomains ) > 0 ):
+        for data in regions:
+            plt.plot( data[:,0], data[:,1], 'o' )
+        plt.legend( legendStr )
+        plt.savefig( outFileName + '.eps' )
+        plt.savefig( outFileName + '.png' )
+    
 def computeFlowLines( center, lines, frameSet ):
     """Computes the flow of agents past the various lines"""
     # THIS VERSION IS HEAVILY TAWAF-CENTRIC - the simple computeFlow is far more generic

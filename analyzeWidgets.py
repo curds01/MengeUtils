@@ -57,8 +57,9 @@ class AnlaysisWidget( QtGui.QGroupBox ):
     FLOW = 1
     SPEED = 2
     POPULATION = 3
+    FUND_DIAG = 4
     
-    TECHNIQUES = ( 'Density', 'Flow', 'Speed', 'Population' )
+    TECHNIQUES = ( 'Density', 'Flow', 'Speed', 'Population', 'Fundamental Diagram' )
     def __init__( self, rsrc, parent=None ):
         '''Constructor.
 
@@ -190,6 +191,8 @@ class AnlaysisWidget( QtGui.QGroupBox ):
             TaskClass = SpeedTaskWidget
         elif ( index == self.POPULATION ):
             TaskClass = PopulationTaskWidget
+        elif ( index == self.FUND_DIAG ):
+            TaskClass = FundDiagTaskWidget
         
         task = TaskClass( name, rsrc=self.rsrc, delCB=self.deleteTask )
         self.addTask( task, TaskClass.typeStr() )
@@ -275,6 +278,8 @@ def getTaskClass( taskName ):
         return SpeedTaskWidget
     elif ( taskName == PopulationTaskWidget.typeStr() ):
         return PopulationTaskWidget
+    elif ( taskName == FundDiagTaskWidget.typeStr() ):
+        return FundDiagTaskWidget
     else:
         self.rsrc.logger.error( "Unrecognized analysis task type: %s" % ( taskName ) )
         raise ValueError
@@ -1004,7 +1009,7 @@ class FlowTaskWidget( TaskWidget ):
         for i in xrange( LINE_COUNT ):
             task.addFlowLine( self.context.getLine( i ), self.context.getName( i ) )
     
-class PopulationTaskWidget( TaskWidget ):
+class RectRegionTaskWidget( TaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
         TaskWidget.__init__( self, name, parent, delCB, rsrc )
         # TODO: This needs a context
@@ -1121,7 +1126,7 @@ class PopulationTaskWidget( TaskWidget ):
     @staticmethod
     def typeStr():
         '''Returns a string representation of this task'''
-        return 'POPULATION'
+        return 'RectRegion'
     
     def readConfig( self, file ):
         '''Reads the widget state from the given file'''
@@ -1145,14 +1150,7 @@ class PopulationTaskWidget( TaskWidget ):
         @return     An instance of PopulationAnalysisTask.
         @raises     ValueError if there is a problem in instantiating the task.
         '''
-        RECT_COUNT = self.context.rectCount()
-        if ( RECT_COUNT == 0 ):
-            print "No regions defined for POPULATION task %s" % ( self.title() )
-            raise ValueError
-        
-        task = PopulationAnalysisTask()
-        self.setTaskParameters( task )
-        return task
+        raise NotImplementedError
 
     def setTaskParameters( self, task ):
         '''Sets the parameters in the task based on this widget.
@@ -1178,3 +1176,54 @@ class PopulationTaskWidget( TaskWidget ):
             self.editRectBtn.setEnabled( hasItems )
             if ( hasItems ):
                 self.rectsGUI.setCurrentIndex( 0 )
+
+class PopulationTaskWidget( RectRegionTaskWidget ):
+    '''Widget for computing the population in rectangular regions'''
+    def __init__( self, name, parent=None, delCB=None, rsrc=None ):
+        RectRegionTaskWidget.__init__( self, name, parent, delCB, rsrc )
+
+    @staticmethod
+    def typeStr():
+        '''Returns a string representation of this task'''
+        return 'POPULATION'
+
+    def getTask( self ):
+        '''Returns a task for this widget.
+
+        @return     An instance of PopulationAnalysisTask.
+        @raises     ValueError if there is a problem in instantiating the task.
+        '''
+        RECT_COUNT = self.context.rectCount()
+        if ( RECT_COUNT == 0 ):
+            self.rsrc.logger.error( "No regions defined for POPULATION task %s" % ( self.title() ) )
+            raise ValueError
+        
+        task = PopulationAnalysisTask()
+        self.setTaskParameters( task )
+        return task
+    
+class FundDiagTaskWidget( RectRegionTaskWidget ):
+    '''Widget for computing the fundamental diagram'''
+    def __init__( self, name, parent=None, delCB=None, rsrc=None ):
+        RectRegionTaskWidget.__init__( self, name, parent, delCB, rsrc )
+
+    @staticmethod
+    def typeStr():
+        '''Returns a string representation of this task'''
+        return 'FUND DIAG'
+
+    def getTask( self ):
+        '''Returns a task for this widget.
+
+        @return     An instance of FundDiagAnalysisTask.
+        @raises     ValueError if there is a problem in instantiating the task.
+        '''
+        RECT_COUNT = self.context.rectCount()
+        if ( RECT_COUNT == 0 ):
+            self.rsrc.logger.error( "No regions defined for FUND DIAG task %s" % ( self.title() ) )
+            raise ValueError
+        
+        task = FundDiagAnalysisTask()
+        self.setTaskParameters( task )
+        return task
+    
