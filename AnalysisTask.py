@@ -152,13 +152,14 @@ class DensityAnalysisTask( DiscreteAnalysisTask ):
     def execute( self ):
         '''Perform the work of the task'''
         if ( self.work ):
-            print "Accessing scb file:", self.scbName
+            print 'Density analysis: %s' % ( self.workName )
+            print "\tAccessing scb file:", self.scbName
             frameSet = NPFrameSet( self.scbName )
             workPath = self.getWorkPath( 'density' )
             tempFile = os.path.join( workPath, self.workName )
             grids = Crowd.GridFileSequence( tempFile )
             if ( self.work & AnalysisTask.COMPUTE ):
-                print "Computing density field"
+                print "\tComputing"
                 kernel = Kernels.GaussianKernel( self.smoothParam, self.cellSize, False )
                 domain = makeDomain( self.domainX, self.domainY, self.cellSize )
                 sigDomain = makeDomain( self.domainX, self.domainY )
@@ -166,11 +167,11 @@ class DensityAnalysisTask( DiscreteAnalysisTask ):
                 
                 s = time.clock()
                 grids.convolveSignal( domain, kernel, signal, frameSet )
-                print '    done in %.2f seconds' % ( time.clock() - s )
+                print '\t\tdone in %.2f seconds' % ( time.clock() - s )
             if ( self.work & AnalysisTask.VIS ):
                 dataFile = grids.outFileName + ".density"
                 if ( not os.path.exists( dataFile ) ):
-                    print "Can't visualize density - unable to locate file: %s" % dataFile
+                    print "\tCan't visualize density - unable to locate file: %s" % dataFile
                     return
                 imageName = os.path.join( workPath, '%s_density_' % self.workName )
                 s = time.clock()
@@ -178,11 +179,11 @@ class DensityAnalysisTask( DiscreteAnalysisTask ):
                 try:
                     colorMap = COLOR_MAPS[ self.colorMapName ]
                 except:
-                    print 'Error loading color map: "%s", loading flame instead' % ( self.colorMapName )
+                    print '\tError loading color map: "%s", loading flame instead' % ( self.colorMapName )
                     colorMap = COLOR_MAPS[ 'flame' ]
-                print 'Creating density images...'
+                print '\tCreating images'
                 visualizeGFS( reader, colorMap, imageName, self.outImgType, 1.0, None )
-                print '    done in %.2f seconds' % ( time.clock() - s ) 
+                print '\t\tdone in %.2f seconds' % ( time.clock() - s ) 
 
 class SpeedAnalysisTask( DiscreteAnalysisTask ):
     def __init__( self ):
@@ -191,21 +192,22 @@ class SpeedAnalysisTask( DiscreteAnalysisTask ):
     def execute( self ):
         '''Perform the work of the task'''
         if ( self.work ):
-            print "Accessing scb file:", self.scbName
+            print 'Speed analysis: %s' % ( self.workName )
+            print "\tAccessing scb file:", self.scbName
             frameSet = NPFrameSet( self.scbName )
             workPath = self.getWorkPath( 'speed' )
             tempFile = os.path.join( workPath, self.workName )
             grids = Crowd.GridFileSequence( tempFile )
             if ( self.work & AnalysisTask.COMPUTE ):
-                print "Computing speed figures"
+                print "\tComputing"
                 domain = makeDomain( self.domainX, self.domainY, self.cellSize )
                 s = time.clock()
                 grids.computeSpeeds( domain, frameSet, self.timeStep )
-                print '    done in %.2f seconds' % ( time.clock() - s )
+                print '\t\tdone in %.2f seconds' % ( time.clock() - s )
             if ( self.work & AnalysisTask.VIS ):
                 dataFile = grids.outFileName + ".speed"
                 if ( not os.path.exists( dataFile ) ):
-                    print "Can't visualize speed - unable to locate file: %s" % dataFile
+                    print "\tCan't visualize speed - unable to locate file: %s" % dataFile
                     return
                 imageName = os.path.join( workPath, '%s_speed_' % self.workName )
                 s = time.clock()
@@ -213,11 +215,11 @@ class SpeedAnalysisTask( DiscreteAnalysisTask ):
                 try:
                     colorMap = COLOR_MAPS[ self.colorMapName ]
                 except:
-                    print 'Error loading color map: "%s", loading flame instead' % ( self.colorMapName )
+                    print '\tError loading color map: "%s", loading flame instead' % ( self.colorMapName )
                     colorMap = COLOR_MAPS[ 'flame' ]
-                print 'Creating speed images...'
+                print '\tCreating images'
                 visualizeGFS( reader, colorMap, imageName, self.outImgType, 1.0, None )
-                print '    done in %.2f seconds' % ( time.clock() - s ) 
+                print '\t\tdone in %.2f seconds' % ( time.clock() - s ) 
 
 class FlowAnalysisTask( AnalysisTask ):
     def __init__( self ):
@@ -235,29 +237,30 @@ class FlowAnalysisTask( AnalysisTask ):
     def execute( self ):
         '''Perform the work of the task'''
         if ( self.work ):
-            print "Accessing scb file:", self.scbName
+            print 'Flow analysis: %s' % ( self.workName )
+            print "\tAccessing scb file:", self.scbName
             frameSet = NPFrameSet( self.scbName )
             names = [ x[0] for x in self.lines ]
             lines = [ x[1] for x in self.lines ]
             workPath = self.getWorkPath( 'flow' )
             tempFile = os.path.join( workPath, self.workName )
             if ( self.work & AnalysisTask.COMPUTE ):
-                print 'Computing flow analysis: %s' % ( self.workName )
+                print '\tComputing'
                 s = time.clock()
                 Crowd.computeFlow( frameSet, lines, tempFile, names )
-                print '    done in %.2f seconds' % ( time.clock() - s )
+                print '\t\tdone in %.2f seconds' % ( time.clock() - s )
             if ( self.work & AnalysisTask.VIS ):
-                if ( not os.path.exists( tempFile ) ):
-                    print "Can't create flow plots - unable to locate file: %s" % tempFile
+                if ( not os.path.exists( tempFile + ".flow" ) ):
+                    print "\tCan't create flow plots - unable to locate file: %s" % tempFile
                     return
-                print 'Computing flow plots: %s'  % ( self.workName )
+                print '\tComputing plots'
                 s=time.clock()
                 # this gives the ability to change the pre-computed names
                 timeStep = frameSet.simStepSize
                 if ( frameSet.version[0] == '1' ):
                     timeStep = self.timeStep
                 Crowd.plotFlow( tempFile, frameSet.simStepSize, titlePrefix=self.workName, legendStr=names )
-                print '    done in %.2f seconds' % ( time.clock() - s )
+                print '\t\tdone in %.2f seconds' % ( time.clock() - s )
 
 class PopulationAnalysisTask( AnalysisTask ):
     def __init__( self ):
@@ -275,27 +278,26 @@ class PopulationAnalysisTask( AnalysisTask ):
     def execute( self ):
         '''Perform the work of the task'''
         if ( self.work ):
-            print "Accessing scb file:", self.scbName
+            print 'Population analysis: %s' % ( self.workName )
+            print "\tAccessing scb file:", self.scbName
             frameSet = NPFrameSet( self.scbName )
             names = [ x[0] for x in self.rects ]
             rects = [ x[1] for x in self.rects ]
             workPath = self.getWorkPath( 'population' )
             tempFile = os.path.join( workPath, self.workName )
             if ( self.work & AnalysisTask.COMPUTE ):
-                print 'Computing population analysis: %s' % ( self.workName )
+                print '\tComputing'
                 s = time.clock()
                 Crowd.computePopulation( frameSet, rects, tempFile, names )
-                print '*** The analysis is not implemented yet ***'
-                print '    done in %.2f seconds' % ( time.clock() - s )
+                print '\t\tdone in %.2f seconds' % ( time.clock() - s )
             if ( self.work & AnalysisTask.VIS ):
-                if ( not os.path.exists( tempFile ) ):
-                    print "Can't create population plots - unable to locate file: %s" % tempFile
+                if ( not os.path.exists( tempFile + ".pop" ) ):
+                    print "\tCan't create population plots - unable to locate file: %s" % tempFile
                     return
-                print 'Computing population plots: %s'  % ( self.workName )
+                print '\tComputing plots'
                 s=time.clock()
                 Crowd.plotPopulation( tempFile, frameSet.simStepSize, titlePrefix=self.workName, legendStr=names )
-                print '*** The visualization is not implemented yet ***'
-                print '    done in %.2f seconds' % ( time.clock() - s )
+                print '\t\tdone in %.2f seconds' % ( time.clock() - s )
 
 if __name__ == '__main__':
     task = DensityAnalysisTask()

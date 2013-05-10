@@ -15,8 +15,8 @@ class SystemResource:
     def __init__( self ):
         # A string representing the last folder accessed
         self.lastFolder = '.'
-        # A callable for loggin messages
-        self.logMessage = None
+        # A logger for printing messages to the system
+        self.logger = None
 
         # GL WINDOW COMMANDS
         # An instance of GLWidget
@@ -117,7 +117,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         try:
             tasks = self.getTasks()
         except ValueError:
-            print "No tasks to run"
+            self.rsrc.logger.error( "No tasks to run" )
         else:
             self.executeWork( tasks )
 
@@ -144,10 +144,10 @@ class AnlaysisWidget( QtGui.QGroupBox ):
             self.workThread = CrowdAnalyzeThread( tasks )
             # Make connections that allow the thread to inform the gui when finished and output messages
             QtCore.QObject.connect( self.workThread, QtCore.SIGNAL('finished()'), self.workDone )
-            print "Starting task execution..."
+            self.rsrc.logger.info( "Starting task execution..." )
             self.workThread.start()
         else:
-            print "Already running"
+            self.rsrc.logger.error( "Already running" )
 
     def workDone( self ):
         '''Called when the analysis work has finished'''
@@ -225,11 +225,11 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         try:
             tokens = map( lambda x: x.strip(), line.split( '||' ) )
         except:
-            print "Error parsing task count"
+            self.rsrc.logger.error( "Error parsing task count" )
             raise ValueError
         
         if ( len( tokens ) != 2 or tokens[0] != 'Task count' ):
-            print 'Expected to see "Task count" in configuration file, found %s' % ( tokens[0] )
+            self.rsrc.logger.error( 'Expected to see "Task count" in configuration file, found %s' % ( tokens[0] ) )
             raise ValueError
         taskCount = int( tokens[1] )
         
@@ -276,7 +276,7 @@ def getTaskClass( taskName ):
     elif ( taskName == PopulationTaskWidget.typeStr() ):
         return PopulationTaskWidget
     else:
-        print "Unrecognized analysis task type: %s" % ( taskName )
+        self.rsrc.logger.error( "Unrecognized analysis task type: %s" % ( taskName ) )
         raise ValueError
         
 
@@ -398,7 +398,7 @@ class TaskWidget( QtGui.QGroupBox ):
         return inputBox
 
     def launchTask( self ):
-        print "Launching %s - %s" % ( self.typeStr(), self.title() )
+        self.rsrc.logger.info( "Launching %s - %s" % ( self.typeStr(), self.title() ) )
   
     def body( self ):
         '''Build the task-specific GUI.  This should be overwritten by subclass'''
@@ -423,7 +423,7 @@ class TaskWidget( QtGui.QGroupBox ):
                 self.rsrc.lastFolder = path
                 frameSet = NPFrameSet( fileName )
                 if ( frameSet.version[0] == '1' ):
-                    print "SCB data is version %s, you must set the time step explicitly"
+                    self.rsrc.logger.warning( "SCB data is version %s, you must set the time step explicitly" % frameSet.version )
                     self.timeStepGui.setEnabled( True )
                     self.timeStepGui.setValue( 0.0 )
                 else:
@@ -442,7 +442,7 @@ class TaskWidget( QtGui.QGroupBox ):
         """Causes the indicated obstacle file to be loaded into the OpenGL viewer"""
         obstFileName = str( self.obstFilePathGUI.text() )
         if ( obstFileName ):
-            self.rsrc.logMessage('Reading obstacle file: %s' % obstFileName )
+            self.rsrc.logger.info( 'Reading obstacle file: %s' % obstFileName )
             try:
                 flipY = False
                 obstacles, bb = readObstacles( obstFileName, flipY )                
@@ -455,9 +455,9 @@ class TaskWidget( QtGui.QGroupBox ):
                 self.rsrc.glWindow.resizeGL( glSize.width(), glSize.height() )
                 self.rsrc.glWindow.updateGL()
             except:
-                self.rsrc.logMessage('Error reading obstacle file: %s' % obstFileName )
+                self.rsrc.logger.error( 'Error reading obstacle file: %s' % obstFileName )
         else:
-            self.rsrc.logMessage('No obstacle file to load' )
+            self.rsrc.logger.error( 'No obstacle file to load' )
     
     def selectOutPathDlg( self ):
         """Spawns a dialog to select an scb file"""
@@ -506,24 +506,24 @@ class TaskWidget( QtGui.QGroupBox ):
         try:
             tokens = map( lambda x: x.strip(), line.split( '||' ) )
         except:
-            print "Error parsing %s" % name
-            print '\tRead: %s' % line
+            self.rsrc.logger.error( "Error parsing %s" % name )
+            self.rsrc.logger.error( '\tRead: %s' % line )
             return
         if ( len( tokens ) != 2 ):
-            print "Too many values found for key: %s" % ( name )
-            print '\tRead: %s' % line
+            self.rsrc.logger.error( "Too many values found for key: %s" % ( name ) )
+            self.rsrc.logger.error( '\tRead: %s' % line )
             return
         if ( tokens[0] != name ):
-            print "Looking for key %s, found %s" % ( name, tokens[0] )
-            print '\tRead: %s' % line
+            self.rsrc.logger.error( "Looking for key %s, found %s" % ( name, tokens[0] ) )
+            self.rsrc.logger.error( '\tRead: %s' % line )
             return
         value = tokens[1]
         if ( convertFunc ):
             try:
                 value = convertFunc( value )
             except ValueError:
-                print "Error converting the value for %s: %s" % ( name, value )
-                print '\tRead: %s' % line
+                self.rsrc.logger.error( "Error converting the value for %s: %s" % ( name, value ) )
+                self.rsrc.logger.error( '\tRead: %s' % line )
         setFunc( value )
     
     def readConfig( self, file ):
@@ -575,24 +575,24 @@ class TaskWidget( QtGui.QGroupBox ):
         elif ( actIndex == 2 ):
             task.setWork( AnalysisTask.COMPUTE_VIS )
         else:
-            print "Unrecognized value for task action %s for %s" % ( self.actionGUI.currentText(), self.title() )
+            self.rsrc.logger.error( "Unrecognized value for task action %s for %s" % ( self.actionGUI.currentText(), self.title() ) )
             raise ValueError
         # scb file
         scbFile = str( self.scbFilePathGUI.text() ).strip()
         if ( not scbFile ):
-            print "No scb file specified for analysis"
+            self.rsrc.logger.error( "No scb file specified for analysis" )
             raise ValueError
         task.setSCBFile( scbFile )
         dt = self.timeStepGui.value()
         if ( dt == 0.0 ):
-            print "No time step specified!"
+            self.rsrc.logger.error( "No time step specified!" )
             raise ValueError
         # time step
         task.setTimeStep( dt )
         # output folder
         outFldr = str( self.outPathGUI.text() )
         if ( not outFldr ):
-            print "No output folder specified for %s - %s" % ( self.typeStr(), self.title() )
+            self.rsrc.logger.error( "No output folder specified for %s - %s" % ( self.typeStr(), self.title() ) )
             raise ValueError
         task.setWorkFolder( outFldr )
 
@@ -663,7 +663,7 @@ class DomainTaskWidget( TaskWidget ):
         self.imgFormatGUI.addItems( ( 'jpg', 'bmp', 'png' ) )
         def formatIdxChanged( idx ):
             if ( idx == 2 ):
-                self.rsrc.logMessage( 'There is a memory leak for png format!' )
+                self.rsrc.logger.warning( 'There is a memory leak for png format!' )
         QtCore.QObject.connect( self.imgFormatGUI, QtCore.SIGNAL('currentIndexChanged(int)'), formatIdxChanged )
         fLayout.addWidget( self.imgFormatGUI, 3, 1, 1, 1 )        
 
@@ -720,7 +720,7 @@ class DomainTaskWidget( TaskWidget ):
         w = self.domainSizeXGUI.value()
         h = self.domainSizeYGUI.value()
         if ( w <= 0.0 or h <= 0.0 ):
-            print "Invalid domain defined for analysis - zero area"
+            self.rsrc.logger.error( "Invalid domain defined for analysis - zero area" )
             raise ValueError
         minX = self.domainMinXGUI.value()
         minY = self.domainMinYGUI.value()
@@ -971,7 +971,7 @@ class FlowTaskWidget( TaskWidget ):
         '''
         LINE_COUNT = self.context.lineCount()
         if ( LINE_COUNT == 0 ):
-            print "No flow lines defined for FLOW task %s" % ( self.title() )
+            self.rsrc.logger.error( "No flow lines defined for FLOW task %s" % ( self.title() ) )
             raise ValueError
         
         task = FlowAnalysisTask()

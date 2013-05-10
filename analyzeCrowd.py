@@ -5,7 +5,7 @@ import os
 from GLWidget import *
 import sys
 from analyzeWidgets import AnlaysisWidget, SystemResource
-    
+
 class ConsoleFile( QtCore.QObject ):
     processMessage = QtCore.pyqtSignal(str)
     def __init__( self ):
@@ -21,6 +21,42 @@ class ConsoleFile( QtCore.QObject ):
     def flush( self ):
         self.processMessage.emit( self.buffer )
         self.buffer = ''
+
+class Logger( QtGui.QPlainTextEdit ):
+    def __init__( self, parent=None ):
+        QtGui.QPlainTextEdit.__init__( self, parent )
+        self.setReadOnly( True )
+
+    def formatWhiteSpace( self, msg ):
+        '''Finds the white space and formats it appropriately for html'''
+        msg = msg.replace( '\t', '&nbsp;&nbsp;&nbsp;&nbsp;' )
+        lines = msg.split( '\n' )
+        if ( lines[-1] == '' ):
+            lines.pop( -1 )
+        return '<br>'.join( lines )
+##        msg = msg.replace( '\n', '<br>' )
+##        return msg
+
+    def info( self, *printable ):
+        '''Displays the list of items in printable as strings to the console, color-coded as information.'''
+        s = '<font color="#008">'
+        s += self.formatWhiteSpace( ' '.join( map( lambda x: str( x ), printable ) ) )
+        s += '</font>'
+        self.appendHtml( s )
+
+    def warning( self, *printable ):
+        '''Displays the list of items in printable as strings to the console, color-coded as a warning.'''
+        s = '<font color="#A50">'
+        s += self.formatWhiteSpace( ' '.join( map( lambda x: str( x ), printable ) ) )
+        s += '</font>'
+        self.appendHtml( s )
+
+    def error( self, *printable ):
+        '''Displays the list of items in printable as strings to the console, color-coded as an error.'''
+        s = '<font color="#B00">'
+        s += self.formatWhiteSpace( ' '.join( map( lambda x: str( x ), printable ) ) )
+        s += '</font>'
+        self.appendHtml( s )
 
 class CrowdWindow( QtGui.QMainWindow):
     def __init__( self, configName='', parent = None ):
@@ -42,16 +78,15 @@ class CrowdWindow( QtGui.QMainWindow):
         self.glWindow = GLWidget(  (10,10),(0,0), (10,10),(0,0), (1,1), splitter )
         self.glWindow.setMinimumSize( QtCore.QSize( 640, 480 ) )
         # Console
-        self.console = QtGui.QPlainTextEdit( splitter )
-        self.console.setReadOnly( True )
+        self.console = Logger( splitter )
         QtCore.QObject.connect( self.console, QtCore.SIGNAL('cursorPositionChanged ()'), self.logExtended )
-        sys.stdout = ConsoleFile()
-        sys.stdout.processMessage.connect( self.logMessage )
 
         # set up the shared resource
         self.rsrc = SystemResource()
         self.rsrc.glWindow = self.glWindow
-        self.rsrc.logMessage = self.logMessage
+        self.rsrc.logger = self.console
+        sys.stdout = ConsoleFile()
+        sys.stdout.processMessage.connect( self.console.info )
         
         # Main configuration panel                
         self.f = QtGui.QFrame()
@@ -114,7 +149,7 @@ class CrowdWindow( QtGui.QMainWindow):
 
     def readInConfigFile( self, fileName ):
         """Reads an input configuration file"""
-        print "Read input file"
+        self.console.info( "Read input file" )
 
     def saveInConfigFileDlg( self ):
         """Spawns a dialog to save an input configuration file"""
@@ -138,9 +173,9 @@ class CrowdWindow( QtGui.QMainWindow):
             f = open( fileName, 'r' )
             self.analysisBox.readConfig( f )
             f.close()
-            print('Read full config file %s\n' % fileName )
+            self.console.info( 'Read full config file %s\n' % fileName )
         except IOError, ValueError:
-            print('Error reading full config file %s\n' % fileName )
+            self.console.error( 'Error reading full config file %s\n' % fileName )
 
     def saveConfigFile( self, fileName ):
         '''Saves the configuration file for the full application'''
@@ -149,7 +184,7 @@ class CrowdWindow( QtGui.QMainWindow):
             self.analysisBox.writeConfig( file )
             file.close()
         except IOError, ValueError:
-            print( 'Error saving full config file %\n' % fileName )
+            self.console.error( 'Error saving full config file %\n' % fileName )
             
     def saveConfigFileDlg( self ):
         """Spawns a dialog to save a full project configuration file"""
@@ -164,9 +199,6 @@ class CrowdWindow( QtGui.QMainWindow):
         '''Creates a dialog for copying the settings of one task into another.'''
         self.analysisBox.copyTaskToCurrent()
     
-    def logMessage( self, msg ):
-        '''Append a message to the console'''
-        self.console.insertPlainText( msg )
     def logExtended( self ):
         '''Called when text has been added to the console'''
         # Make sure the scroll bar is set as low as possible
