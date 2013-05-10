@@ -246,7 +246,7 @@ def plotPopulation( outFileName, timeStep, titlePrefix='', legendStr=None, newFi
     if ( legendStr == None or len( legendStr ) != data.shape[1] - 1 ):
         legendStr = [ 'Region %d' % i for i in range( data.shape[1] - 1 ) ]
     plt.legend( legendStr, loc='upper right' )
-    plt.ylabel( 'Agents in Regionr' )
+    plt.ylabel( 'Agents in Region' )
 ##    ax = fig.add_subplot(2,1,2)
 ##    plt.plot( data[:,0], np.clip( firstDeriv( smoothFlows, timeStep, 4 * 16 ), 0.0, 1e6 ) )
     plt.xlabel( 'Simulation time (s)' )
