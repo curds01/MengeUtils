@@ -336,7 +336,7 @@ class TaskWidget( QtGui.QGroupBox ):
         # Spawn a dialog to change the task name
         dlg = TaskNameDialog( self )
         if ( dlg.exec_() == QtGui.QDialog.Accepted ):
-            self.changeName( dlg.getName() )
+            self.setTitle( dlg.getName() )
 
     def ioBox( self ):
         '''Creates the QGroupBox containing the I/O widgets'''
