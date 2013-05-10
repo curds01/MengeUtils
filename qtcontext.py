@@ -42,11 +42,11 @@ class QtEventProcessor():
             mods = Event.NO_MODS
             eMods = evt.modifiers()
             if ( eMods & QtCore.Qt.ShiftModifier ):
-                mods = mods & Event.SHIFT
+                mods = mods | Event.SHIFT
             if ( eMods & QtCore.Qt.AltModifier ):
-                mods = mods & Event.ALT
+                mods = mods | Event.ALT
             if ( eMods & QtCore.Qt.ControlModifier ):
-                mods = mods & Event.CTRL
+                mods = mods | Event.CTRL
             return MouseEvent( eType, button=eBtn, x=mX, y=mY, modifiers=mods )
         else:
             raise ValueError, "Unrecognized QEvent type: %s" % ( evt.type() )
