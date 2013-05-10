@@ -27,34 +27,34 @@ class Logger( QtGui.QPlainTextEdit ):
         QtGui.QPlainTextEdit.__init__( self, parent )
         self.setReadOnly( True )
 
-    def formatWhiteSpace( self, msg ):
-        '''Finds the white space and formats it appropriately for html'''
+    def htmlFriendly( self, msg ):
+        '''Converts the string into an html-friendly format'''
+        msg = msg.replace( '<', '&lt;' )
+        msg = msg.replace( '>', '&gt;' )
         msg = msg.replace( '\t', '&nbsp;&nbsp;&nbsp;&nbsp;' )
         lines = msg.split( '\n' )
         if ( lines[-1] == '' ):
             lines.pop( -1 )
         return '<br>'.join( lines )
-##        msg = msg.replace( '\n', '<br>' )
-##        return msg
 
     def info( self, *printable ):
         '''Displays the list of items in printable as strings to the console, color-coded as information.'''
         s = '<font color="#008">'
-        s += self.formatWhiteSpace( ' '.join( map( lambda x: str( x ), printable ) ) )
+        s += self.htmlFriendly( ' '.join( map( lambda x: str( x ), printable ) ) )
         s += '</font>'
         self.appendHtml( s )
 
     def warning( self, *printable ):
         '''Displays the list of items in printable as strings to the console, color-coded as a warning.'''
         s = '<font color="#A50">'
-        s += self.formatWhiteSpace( ' '.join( map( lambda x: str( x ), printable ) ) )
+        s += self.htmlFriendly( ' '.join( map( lambda x: str( x ), printable ) ) )
         s += '</font>'
         self.appendHtml( s )
 
     def error( self, *printable ):
         '''Displays the list of items in printable as strings to the console, color-coded as an error.'''
         s = '<font color="#B00">'
-        s += self.formatWhiteSpace( ' '.join( map( lambda x: str( x ), printable ) ) )
+        s += self.htmlFriendly( ' '.join( map( lambda x: str( x ), printable ) ) )
         s += '</font>'
         self.appendHtml( s )
 
