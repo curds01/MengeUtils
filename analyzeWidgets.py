@@ -34,7 +34,8 @@ class TaskCopyDialog( QtGui.QDialog ):
         self.setWindowTitle( "Select Task" )
         layout = QtGui.QVBoxLayout()
         layout.addWidget( QtGui.QLabel( "Task name" ), alignment=QtCore.Qt.AlignLeft )
-        self.taskSelector = QtGui.QComboBox( self )
+        self.taskSelector = QtGui.QListWidget( self )
+        self.taskSelector.setSelectionMode( QtGui.QAbstractItemView.SingleSelection )
         self.taskSelector.addItems( map( lambda x: '%s - %s' % ( x.typeStr(), x.title() ), tasks ) )
         layout.addWidget( self.taskSelector )
         btns = QtGui.QDialogButtonBox.Ok|QtGui.QDialogButtonBox.Cancel
@@ -47,7 +48,7 @@ class TaskCopyDialog( QtGui.QDialog ):
 
     def getSelectedTask( self ):
         '''Return the text'''
-        return self.tasks[ self.taskSelector.currentIndex() ]
+        return self.tasks[ self.taskSelector.currentIndex().row() ]
         
 class AnlaysisWidget( QtGui.QGroupBox ):
     '''The widget for controlling the analysis'''
@@ -256,11 +257,12 @@ class AnlaysisWidget( QtGui.QGroupBox ):
     def copyTaskToCurrent( self ):
         '''Copies the parameters from one task to the current task'''
         # construct task list
-        tasks = self.tasks
+        currWidget = self.taskGUIs.currentWidget()
+        tasks = filter( lambda x: x != currWidget, self.tasks )
         dlg = TaskCopyDialog( tasks, self )
         if ( dlg.exec_() == QtGui.QDialog.Accepted ):
             srcTask = dlg.getSelectedTask()
-            dstTask = self.taskGUIs.currentWidget()
+            dstTask = currWidget
             dstTask.copySettings( srcTask )
             
 def getTaskClass( taskName ):

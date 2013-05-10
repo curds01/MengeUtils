@@ -162,7 +162,6 @@ class CrowdWindow( QtGui.QMainWindow):
 
     def copyTaskDlg( self ):
         '''Creates a dialog for copying the settings of one task into another.'''
-        print "Copying task settings"
         self.analysisBox.copyTaskToCurrent()
     
     def logMessage( self, msg ):
