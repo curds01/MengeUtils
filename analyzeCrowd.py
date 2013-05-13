@@ -170,19 +170,15 @@ class CrowdWindow( QtGui.QMainWindow):
     def readConfigFile( self, fileName ):
         """Reads a configuration file for the full application"""
         try:
-            f = open( fileName, 'r' )
-            self.analysisBox.readConfig( f )
-            f.close()
+            self.analysisBox.readConfig( fileName )
             self.console.info( 'Read full config file %s\n' % fileName )
         except IOError, ValueError:
             self.console.error( 'Error reading full config file %s\n' % fileName )
-
+            
     def saveConfigFile( self, fileName ):
         '''Saves the configuration file for the full application'''
         try:
-            file = open( fileName, 'w' )
-            self.analysisBox.writeConfig( file )
-            file.close()
+            self.analysisBox.writeConfig( fileName )
         except IOError, ValueError:
             self.console.error( 'Error saving full config file %\n' % fileName )
             

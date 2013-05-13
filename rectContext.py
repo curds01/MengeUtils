@@ -146,33 +146,17 @@ class RectContext( BaseContext ):
         self.editState = self.NO_EDIT
         self.canDraw = False
         
-    def toConfigString( self ):
-        """Creates a parseable config string so that the context can be reconsituted"""
-        s = ''
-        names = self.names
-        while ( len( names ) > len( self.rects ) ):
-            assert( self.editState == self.ADD )
-            names = names[:-1]
-        s = ','.join( names ) + "~"
-        for i, rect in enumerate( self.rects ):
-            s += ' %.5f %.5f %.5f %.5f' % ( rect.minCorner[0], rect.minCorner[1], rect.size[0], rect.size[1] )
-        return s
+    def setMultiRects( self, names, rects ):
+        '''Sets the rects in the context with the given names and rects.
+        It is asserted that len( names ) == len( rects ).
 
-    def setFromString( self, s ):
-        '''Parses the string created by toConfigString into a set of rects'''
-        self.names = []
-        self.rects = []
+        @param      names       A list of strings.  One name per rect.
+        @param      rects       A list of RectDomain instances.  One rect per name.
+        '''
+        self.rects = map( lambda x: GLRectDomain( x.minCorner, x.size ), rects )
+        self.names = names
         self.activeID = -1
         self.editState = self.NO_EDIT
-        tokens = s.split( '~' )
-        assert( len( tokens ) == 2 )
-        self.names = tokens[0].split( ',' )
-        tokens = tokens[1].split()
-        assert( len( tokens ) == len( self.names ) * 4 )
-        while ( tokens ):
-            minX, minY, w, h = map( lambda x: float(x), tokens[:4] )
-            tokens = tokens[4:]
-            self.rects.append( GLRectDomain( ( minX, minY ), ( w, h ) ) )
 
     def handleMouse ( self, evt, view ):
         """Detects click, drag, release and creates a rect"""

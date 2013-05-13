@@ -205,55 +205,20 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         self.tasks.append( task )
         self.taskGUIs.setCurrentWidget( task )
         
-    def writeConfig( self, file ):
-        '''Writes the input configuration to the given file object.
-
-        @param      file        An open file-like object.  Supports "write" operations.
-        '''
-        file.write( '# WARNING!  Editing this file can cause problems.  Order, case, and syntax all matter\n' )
-        file.write( '# The only comments allowed are full line comments\n' )
-        file.write( 'Task count || %d\n' % len( self.tasks ) )
-        for task in self.tasks:
-            task.writeConfig( file )
-        
-    def readConfig( self, file ):
-        '''Reads the input configuration from the given file object.
-
-        @param      file        An open file-like object.  Supports "readline" operations.
-        @raises     ValueError if there is a problem in parsing the values.
-        '''
-        line = file.readline().strip()
-        while ( line[0] == '#' ):
-            line = file.readline().strip()
-        try:
-            tokens = map( lambda x: x.strip(), line.split( '||' ) )
-        except:
-            self.rsrc.logger.error( "Error parsing task count" )
-            raise ValueError
-        
-        if ( len( tokens ) != 2 or tokens[0] != 'Task count' ):
-            self.rsrc.logger.error( 'Expected to see "Task count" in configuration file, found %s' % ( tokens[0] ) )
-            raise ValueError
-        taskCount = int( tokens[1] )
-        
-        for i in xrange( taskCount ):
-            taskType = file.readline().strip()
-            TaskClass = getTaskClass( taskType )
-            task = TaskClass( '', rsrc=self.rsrc, delCB=self.deleteTask )
-            task.readConfig( file )
-            self.addTask( task, taskType )
-            
-    def getTasks( self ):
+    def getTasks( self, testValid=True ):
         '''Returns a list of AnalysisTasks for the active task widgets.  If there are any
         errors (incomplete data, etc.) a ValueError is raised.
 
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
         @returns        A list of AnalysisTasks.
         @raises         ValueError if there are data problems with ANY task.
         '''
         aTasks = []
         for task in self.tasks:
             if ( task.isChecked() ):
-                t = task.getTask()               
+                t = task.getTask( testValid )               
                 aTasks.append( t )
         return aTasks
 
@@ -267,18 +232,41 @@ class AnlaysisWidget( QtGui.QGroupBox ):
             srcTask = dlg.getSelectedTask()
             dstTask = currWidget
             dstTask.copySettings( srcTask )
+
+    def readConfig( self, fileName ):
+        '''Configures the analysis widget based on configuraiton file.
+
+        @param      fileName    A string.  The name of the file which contains the
+                                configuration information.
+        '''
+        tasks = readAnalysisProject( fileName )
+        for task in tasks:
+            taskType = task.typeStr()
+            TaskClass = getTaskWidgetClass( taskType )
+            widget = TaskClass( '', rsrc=self.rsrc, delCB=self.deleteTask )
+            widget.setFromTask( task )
+            self.addTask( widget, taskType )
+
+    def writeConfig( self, fileName ):
+        '''Writes the configuration file based on task widget state.
+
+        @param      fileName    A string.  The name of the file which contains the
+                                configuration information.
+        '''
+        tasks = self.getTasks( False )
+        writeAnalysisProject( tasks, fileName )        
             
-def getTaskClass( taskName ):
+def getTaskWidgetClass( taskName ):
     '''Returns a class object for the given analysis task name'''
-    if ( taskName == DensityTaskWidget.typeStr() ):
+    if ( taskName == DensityAnalysisTask.typeStr() ):
         return DensityTaskWidget
-    elif ( taskName == FlowTaskWidget.typeStr() ):
+    elif ( taskName == FlowAnalysisTask.typeStr() ):
         return FlowTaskWidget
-    elif ( taskName == SpeedTaskWidget.typeStr() ):
+    elif ( taskName == SpeedAnalysisTask.typeStr() ):
         return SpeedTaskWidget
-    elif ( taskName == PopulationTaskWidget.typeStr() ):
+    elif ( taskName == PopulationAnalysisTask.typeStr() ):
         return PopulationTaskWidget
-    elif ( taskName == FundDiagTaskWidget.typeStr() ):
+    elif ( taskName == FundDiagAnalysisTask.typeStr() ):
         return FundDiagTaskWidget
     else:
         self.rsrc.logger.error( "Unrecognized analysis task type: %s" % ( taskName ) )
@@ -476,83 +464,6 @@ class TaskWidget( QtGui.QGroupBox ):
         '''Returns a string representation of this task'''
         return 'TASK'
     
-    def writeConfig( self, file ):
-        '''Writes the widget state to the given file'''
-        # Write TYPE
-        file.write( '%s\n' % self.typeStr()  )
-        # Write I/O (scb name, time step, obstacle file, output folder)
-        file.write( 'SCB || %s\n' % ( self.scbFilePathGUI.text() ) )
-        file.write( 'timeStep || %.5f\n' % ( self.timeStepGui.value() ) )
-        file.write( 'obstacle || %s\n' % ( self.obstFilePathGUI.text() ) )
-        file.write( 'outFldr || %s\n' % ( self.outPathGUI.text() ) )
-        # action info: work name,
-        file.write( 'workName || %s\n' % ( self.title() ) )
-        file.write( 'task || %s\n' % ( self.actionGUI.currentText() ) )
-        file.write( 'active || ' )
-        if ( self.isChecked() ):
-            file.write( '1\n' )
-        else:
-            file.write( '0\n' )
-
-    def _parseConfigLine( self, file, name, setFunc, convertFunc=None ):
-        '''Parses a key-value line from the config file.  The string value is optionally converted
-        via the convertFunc and passed as a parameter to the setFunc callable.
-
-        @param      file            An open file object.  The file to read the line from.
-        @param      name            The name of the expected key.
-        @param      setFunc         A callable.  The (possibly converted) value is passed as a parameter.
-        @param      convertFunc     A callable.  If provided, the string value will be passed to this
-                                    function and the RESULT is passed to setFunc.
-        @return     A string.  The value in the key-value pair.
-        '''
-        line = file.readline().strip()
-        while ( line[0] == '#' ):
-            line = file.readline().strip()
-        try:
-            tokens = map( lambda x: x.strip(), line.split( '||' ) )
-        except:
-            self.rsrc.logger.error( "Error parsing %s" % name )
-            self.rsrc.logger.error( '\tRead: %s' % line )
-            return
-        if ( len( tokens ) != 2 ):
-            self.rsrc.logger.error( "Too many values found for key: %s" % ( name ) )
-            self.rsrc.logger.error( '\tRead: %s' % line )
-            return
-        if ( tokens[0] != name ):
-            self.rsrc.logger.error( "Looking for key %s, found %s" % ( name, tokens[0] ) )
-            self.rsrc.logger.error( '\tRead: %s' % line )
-            return
-        value = tokens[1]
-        if ( convertFunc ):
-            try:
-                value = convertFunc( value )
-            except ValueError:
-                self.rsrc.logger.error( "Error converting the value for %s: %s" % ( name, value ) )
-                self.rsrc.logger.error( '\tRead: %s' % line )
-        setFunc( value )
-    
-    def readConfig( self, file ):
-        '''Reads the common TaskWidget parameters from the file'''
-        # I/O info
-        self._parseConfigLine( file, 'SCB', self.scbFilePathGUI.setText )
-        self._parseConfigLine( file, 'timeStep', self.timeStepGui.setValue, float )
-        frameSet = NPFrameSet( str( self.scbFilePathGUI.text() ) )
-        if ( frameSet.version[0] == '1' ):
-            self.timeStepGui.setEnabled( True )
-            self.timeStepGui.setValue( 0.0 )
-        else:
-            self.timeStepGui.setEnabled( False )
-            self.timeStepGui.setValue( frameSet.simStepSize )
-        self._parseConfigLine( file, 'obstacle', self.obstFilePathGUI.setText )
-        self._parseConfigLine( file, 'outFldr', self.outPathGUI.setText )
-
-        # work info
-        self._parseConfigLine( file, 'workName', self.setTitle )
-        self._parseConfigLine( file, 'task', self.actionGUI.setCurrentIndex, self.actionGUI.findText )
-        def isActive( txt ):
-            return txt == '1'
-        self._parseConfigLine( file, 'active', self.setEnabled, isActive )
-
     def copySettings( self, task ):
         '''Copy the settings from the given task into this task'''
         assert( isinstance( task, TaskWidget ) )
@@ -563,16 +474,60 @@ class TaskWidget( QtGui.QGroupBox ):
         self.timeStepGui.setEnabled( task.timeStepGui.isEnabled() )
         # don't copy task name, activity or enabled state
 
-    def setTaskParameters( self, task ):
+    def setFromTask( self, task ):
+        '''Sets the task properties from the given AnalysisTask.
+
+        @param      task        An instance of AnalysisTask.
+        '''
+        self.scbFilePathGUI.setText( task.scbName )
+        if ( task.scbName ):
+            try:
+                frameSet = NPFrameSet( str( task.scbName ) )
+            except IOError:
+                self.rsrc.logger.error( "Error with scb file - clearing the field" )
+                self.scbFilePathGUI.setText( '' )
+                self.timeStepGui.setEnabled( False )
+            else:
+                if ( frameSet.version[0] == '1' ):
+                    self.timeStepGui.setEnabled( True )
+                    self.timeStepGui.setValue( task.timeStep )
+                else:
+                    self.timeStepGui.setEnabled( False )
+                    self.timeStepGui.setValue( frameSet.simStepSize )
+        self.obstFilePathGUI.setText( task.obstName )
+        self.outPathGUI.setText( task.workFldr )
+        self.setTitle( task.workName )
+        self.setEnabled( task.active )
+        self.actionGUI.setCurrentIndex( task.work - 1 )
+
+    def getTask( self, testValid=True ):
+        '''Returns an AnalysisTask instance appropriate for this type of widget.
+
+        This widget should be considered abstract and doesn't support an analysis task.
+        
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
+        '''
+        raise NotImplementedError
+        
+    def setToTask( self, task, testValid=True ):
         '''Sets the parameters in the task based on this widget.
         If there is a problem with the parameters, a ValueError exception is raised.
 
+        @param      task        Given an AnalysisTask, sets the widget's properties to
+                                the task.
+        
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
         @raises     ValueError if there is a problem in setting the parameters.
         '''
         # input scb file
         task.setTaskName( str( self.title() ) )
         # action
         actIndex = self.actionGUI.currentIndex()
+        active = True
         if ( actIndex == 0 ):
             task.setWork( AnalysisTask.COMPUTE )
         elif ( actIndex == 1 ):
@@ -580,26 +535,43 @@ class TaskWidget( QtGui.QGroupBox ):
         elif ( actIndex == 2 ):
             task.setWork( AnalysisTask.COMPUTE_VIS )
         else:
-            self.rsrc.logger.error( "Unrecognized value for task action %s for %s" % ( self.actionGUI.currentText(), self.title() ) )
-            raise ValueError
+            if ( testValid ):
+                self.rsrc.logger.error( "Unrecognized value for task action %s for %s" % ( self.actionGUI.currentText(), self.title() ) )
+                raise ValueError
+            else:
+                self.rsrc.logger.warning( "Unrecognized value for task action %s for %s -- setting the task inactive" % ( self.actionGUI.currentText(), self.title() ) )
+                active = False
         # scb file
         scbFile = str( self.scbFilePathGUI.text() ).strip()
         if ( not scbFile ):
-            self.rsrc.logger.error( "No scb file specified for analysis" )
-            raise ValueError
+            if ( testValid ):
+                self.rsrc.logger.error( "No scb file specified for analysis" )
+                raise ValueError
+            else:
+                self.rsrc.logger.warning( "No scb file specified for analysis" )
         task.setSCBFile( scbFile )
         dt = self.timeStepGui.value()
         if ( dt == 0.0 ):
-            self.rsrc.logger.error( "No time step specified!" )
-            raise ValueError
+            if ( testValid ):
+                self.rsrc.logger.error( "No time step specified!" )
+                raise ValueError
+            else:
+                self.rsrc.logger.warning( "No time step specified! - setting 0.0" )
+                dt = 0.0
         # time step
         task.setTimeStep( dt )
         # output folder
         outFldr = str( self.outPathGUI.text() )
         if ( not outFldr ):
-            self.rsrc.logger.error( "No output folder specified for %s - %s" % ( self.typeStr(), self.title() ) )
-            raise ValueError
+            if ( testValid ):
+                self.rsrc.logger.error( "No output folder specified for %s - %s" % ( self.typeStr(), self.title() ) )
+                raise ValueError
+            else:
+                self.rsrc.logger.warning( "No output folder specified for %s - %s -- setting to execution folder" % ( self.typeStr(), self.title() ) )
+                outFldr = '.'
         task.setWorkFolder( outFldr )
+        task.setActiveState( self.isChecked() and active )
+        task.setObstFile( str( self.obstFilePathGUI.text() ) )
 
 class DomainTaskWidget( TaskWidget ):
     '''A TaskWidget that requires a rectangular domain over which to perform analysis.'''
@@ -679,30 +651,6 @@ class DomainTaskWidget( TaskWidget ):
         self.bodyLayout.addWidget( self.domainBox() )
         self.bodyLayout.addWidget( self.rasterBox() )
 
-    def writeConfig( self, file ):
-        TaskWidget.writeConfig( self, file )
-        # domain extent
-        file.write( 'minPtX || %.5f\n' % ( self.domainMinXGUI.value() ) )
-        file.write( 'minPtY || %.5f\n' % ( self.domainMinYGUI.value() ) )
-        file.write( 'sizeX || %.5f\n' % ( self.domainSizeXGUI.value() ) )
-        file.write( 'sizeY || %.5f\n' % ( self.domainSizeYGUI.value() ) )
-        # raster properties
-        file.write( 'cellSize || %.5f\n' % ( self.cellSizeGUI.value() ) )
-        file.write( 'colorMap || %s\n' % ( self.colorMapGUI.currentText() ) )
-        file.write( 'imgType || %s\n' % ( self.imgFormatGUI.currentText() ) )
-
-    def readConfig( self, file ):
-        TaskWidget.readConfig( self, file )
-        # domain extent
-        self._parseConfigLine( file, 'minPtX', self.domainMinXGUI.setValue, float )
-        self._parseConfigLine( file, 'minPtY', self.domainMinYGUI.setValue, float )
-        self._parseConfigLine( file, 'sizeX', self.domainSizeXGUI.setValue, float )
-        self._parseConfigLine( file, 'sizeY', self.domainSizeYGUI.setValue, float )
-        # raster properties
-        self._parseConfigLine( file, 'cellSize', self.cellSizeGUI.setValue, float )
-        self._parseConfigLine( file, 'colorMap', self.colorMapGUI.setCurrentIndex, self.colorMapGUI.findText )
-        self._parseConfigLine( file, 'imgType', self.imgFormatGUI.setCurrentIndex, self.imgFormatGUI.findText )
-
     def copySettings( self, task ):
         '''Copy the settings from the given task into this task'''
         TaskWidget.copySettings( self, task )
@@ -715,18 +663,53 @@ class DomainTaskWidget( TaskWidget ):
             self.colorMapGUI.setCurrentIndex( task.colorMapGUI.currentIndex() )
             self.imgFormatGUI.setCurrentIndex( task.imgFormatGUI.currentIndex() )
 
-    def setTaskParameters( self, task ):
+    def setFromTask( self, task ):
+        '''Sets the task properties from the given AnalysisTask.
+
+        @param      task        An instance of AnalysisTask.
+        '''
+        assert( isinstance( task, DiscreteAnalysisTask ) )
+        TaskWidget.setFromTask( self, task )
+        self.domainMinXGUI.setValue( task.domainX[0] )
+        self.domainMinYGUI.setValue( task.domainY[0] )
+        self.domainSizeXGUI.setValue( task.domainX[1] - task.domainX[0] )
+        self.domainSizeYGUI.setValue( task.domainY[1] - task.domainY[0] )
+        self.cellSizeGUI.setValue( task.cellSize )
+        self.colorMapGUI.setCurrentIndex( self.colorMapGUI.findText( task.colorMapName ) )
+        self.imgFormatGUI.setCurrentIndex( self.imgFormatGUI.findText( task.outImgType ) )
+
+    def getTask( self, testValid=True ):
+        '''Returns an AnalysisTask instance appropriate for this type of widget.
+
+        This widget should be considered abstract and doesn't support an analysis task.
+
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
+        '''
+        raise NotImplementedError
+        
+    def setToTask( self, task, testValid=True ):
         '''Sets the parameters in the task based on this widget.
         If there is a problem with the parameters, a ValueError exception is raised.
 
+        @param      task        Given an AnalysisTask, sets the widget's properties to
+                                the task.
+        
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
         @raises     ValueError if there is a problem in setting the parameters.
         '''
-        TaskWidget.setTaskParameters( self, task )
+        TaskWidget.setToTask( self, task, testValid )
         w = self.domainSizeXGUI.value()
         h = self.domainSizeYGUI.value()
         if ( w <= 0.0 or h <= 0.0 ):
-            self.rsrc.logger.error( "Invalid domain defined for analysis - zero area" )
-            raise ValueError
+            if ( testValid ):
+                self.rsrc.logger.error( "Invalid domain defined for analysis - zero area" )
+                raise ValueError
+            else:
+                self.rsrc.logger.warning( "Invalid domain defined for analysis - zero area" )
         minX = self.domainMinXGUI.value()
         minY = self.domainMinYGUI.value()
         task.setDomain( minX, minY, minX + w, minY + h )
@@ -756,30 +739,10 @@ class DensityTaskWidget( DomainTaskWidget ):
         DomainTaskWidget.body( self )
         self.bodyLayout.addWidget( self.kernelBox() )
 
-    def readConfig( self, file ):
-        '''Reads the widget state from the given file'''
-        DomainTaskWidget.readConfig( self, file )
-        self._parseConfigLine( file, 'smoothParam', self.kernelSizeGUI.setValue, float )
-
-    def writeConfig( self, file ):
-        '''Writes the widget state to the given file'''
-        DomainTaskWidget.writeConfig( self, file )
-        file.write( 'smoothParam || %.5f\n' % ( self.kernelSizeGUI.value() ) )
-    
     @staticmethod
     def typeStr():
         '''Returns a string representation of this task'''
         return 'DENSITY'
-
-    def getTask( self ):
-        '''Returns a task for this widget.
-
-        @return     An instance of DensityAnalysisTask.
-        @raises     ValueError if there is a problem in instantiating the task.addLine
-        '''
-        task = DensityAnalysisTask()
-        self.setTaskParameters( task )
-        return task
 
     def copySettings( self, task ):
         '''Copy the settings from the given task into this task'''
@@ -787,13 +750,41 @@ class DensityTaskWidget( DomainTaskWidget ):
         if ( isinstance( task, DensityTaskWidget ) ):
             self.kernelSizeGUI.setValue( task.kernelSizeGUI.value() )
 
-    def setTaskParameters( self, task ):
+    def setFromTask( self, task ):
+        '''Sets the task properties from the given DensityAnalysisTask.
+
+        @param      task        An instance of DensityAnalysisTask.
+        '''
+        assert( isinstance( task, DensityAnalysisTask ) )
+        DomainTaskWidget.setFromTask( self, task )
+        self.kernelSizeGUI.setValue( task.smoothParam )
+        
+    def getTask( self, testValid=True ):
+        '''Returns a task for this widget.
+
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
+        @return     An instance of DensityAnalysisTask.
+        @raises     ValueError if there is a problem in instantiating the task.addLine
+        '''
+        task = DensityAnalysisTask()
+        self.setToTask( task, testValid )
+        return task
+
+    def setToTask( self, task, testValid=True ):
         '''Sets the parameters in the task based on this widget.
         If there is a problem with the parameters, a ValueError exception is raised.
 
+        @param      task        Given an AnalysisTask, sets the widget's properties to
+                                the task.
+        
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
         @raises     ValueError if there is a problem in setting the parameters.
         '''
-        DomainTaskWidget.setTaskParameters( self, task )
+        DomainTaskWidget.setToTask( self, task, testValid )
         task.setSmoothParam( self.kernelSizeGUI.value() )
 
 class SpeedTaskWidget( DomainTaskWidget ):
@@ -805,22 +796,17 @@ class SpeedTaskWidget( DomainTaskWidget ):
         '''Returns a string representation of this task'''
         return 'SPEED'
 
-    def readConfig( self, file ):
-        '''Reads the widget state from the given file'''
-        DomainTaskWidget.readConfig( self, file )
-
-    def writeConfig( self, file ):
-        '''Writes the widget state to the given file'''
-        DomainTaskWidget.writeConfig( self, file )
-
-    def getTask( self ):
+    def getTask( self, testValid=True ):
         '''Returns a task for this widget.
 
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
         @return     An instance of SpeedAnalysisTask.
         @raises     ValueError if there is a problem in instantiating the task.addLine
         '''
         task = SpeedAnalysisTask()
-        self.setTaskParameters( task )
+        self.setToTask( task, testValid=True )
         return task
 
 class FlowTaskWidget( TaskWidget ):
@@ -952,39 +938,8 @@ class FlowTaskWidget( TaskWidget ):
         '''Returns a string representation of this task'''
         return 'FLOW'
     
-    def readConfig( self, file ):
-        '''Reads the widget state from the given file'''
-        self.linesGUI.clear()
-        TaskWidget.readConfig( self, file )
-        self.context.setFromString( file.readline() )
-        if ( self.context.lineCount() ):
-            self.linesGUI.addItems( [ '%d' % i for i in xrange( self.context.lineCount() ) ] )
-            self.linesGUI.setEnabled( True )
-            self.linesGUI.setCurrentIndex( 0 )
-
-    def writeConfig( self, file ):
-        '''Writes the widget state to the given file'''
-        TaskWidget.writeConfig( self, file )
-        lineData = self.context.toConfigString()
-        file.write( '%s\n' % lineData )
-
-    def getTask( self ):
-        '''Returns a task for this widget.
-
-        @return     An instance of FlowAnalysisTask.
-        @raises     ValueError if there is a problem in instantiating the task.addLine
-        '''
-        LINE_COUNT = self.context.lineCount()
-        if ( LINE_COUNT == 0 ):
-            self.rsrc.logger.error( "No flow lines defined for FLOW task %s" % ( self.title() ) )
-            raise ValueError
-        
-        task = FlowAnalysisTask()
-        self.setTaskParameters( task )
-        return task
-
     def copySettings( self, task ):
-        '''Copy the settings from the given task into this task'''
+        '''Copy the settings from the given task widget into this task widget'''
         TaskWidget.copySettings( self, task )
         if ( isinstance( task, FlowTaskWidget ) ):
             self.context.copy( task.context )
@@ -998,13 +953,56 @@ class FlowTaskWidget( TaskWidget ):
             if ( hasItems ):
                 self.linesGUI.setCurrentIndex( 0 )
 
-    def setTaskParameters( self, task ):
+    def setFromTask( self, task ):
+        '''Sets the task properties from the given FlowAnalysisTask.
+
+        @param      task        An instance of FlowAnalysisTask.
+        '''
+        assert( isinstance( task, FlowAnalysisTask ) )
+        TaskWidget.setFromTask( self, task )
+        self.context.setMultiLines( task.lineNames, task.lines )
+        lines = task.lines
+        hasItems = len( lines ) > 0
+        if ( hasItems ):            
+            items = [ '%d' % i for i in xrange( len( lines ) ) ]
+            self.linesGUI.addItems( items )
+            self.linesGUI.setCurrentIndex( 0 )
+            self.linesGUI.setEnabled( hasItems )
+            self.delFlowLineBtn.setEnabled( hasItems )
+            self.flipFlowLineBtn.setEnabled( hasItems )
+            self.editFlowLineBtn.setEnabled( hasItems )
+        
+    def getTask( self, testValid=True ):
+        '''Returns a task for this widget.
+
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
+        @return     An instance of FlowAnalysisTask.
+        @raises     ValueError if there is a problem in instantiating the task.addLine
+        '''
+        LINE_COUNT = self.context.lineCount()
+        if ( LINE_COUNT == 0 ):
+            self.rsrc.logger.error( "No flow lines defined for FLOW task %s" % ( self.title() ) )
+            raise ValueError
+        
+        task = FlowAnalysisTask()
+        self.setToTask( task, testValid )
+        return task
+
+    def setToTask( self, task, testValid=True ):
         '''Sets the parameters in the task based on this widget.
         If there is a problem with the parameters, a ValueError exception is raised.
 
+        @param      task        Given an AnalysisTask, sets the widget's properties to
+                                the task.
+        
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
         @raises     ValueError if there is a problem in setting the parameters.
         '''
-        TaskWidget.setTaskParameters( self, task )
+        TaskWidget.setToTask( self, task, testValid )
         LINE_COUNT = self.context.lineCount()
         for i in xrange( LINE_COUNT ):
             task.addFlowLine( self.context.getLine( i ), self.context.getName( i ) )
@@ -1127,46 +1125,11 @@ class RectRegionTaskWidget( TaskWidget ):
     def typeStr():
         '''Returns a string representation of this task'''
         return 'RectRegion'
-    
-    def readConfig( self, file ):
-        '''Reads the widget state from the given file'''
-        self.rectsGUI.clear()
-        TaskWidget.readConfig( self, file )
-        self.context.setFromString( file.readline() )
-        if ( self.context.rectCount() ):
-            self.rectsGUI.addItems( [ '%d' % i for i in xrange( self.context.rectCount() ) ] )
-            self.rectsGUI.setEnabled( True )
-            self.rectsGUI.setCurrentIndex( 0 )
-
-    def writeConfig( self, file ):
-        '''Writes the widget state to the given file'''
-        TaskWidget.writeConfig( self, file )
-        rectData = self.context.toConfigString()
-        file.write( '%s\n' % rectData )
-
-    def getTask( self ):
-        '''Returns a task for this widget.
-
-        @return     An instance of PopulationAnalysisTask.
-        @raises     ValueError if there is a problem in instantiating the task.
-        '''
-        raise NotImplementedError
-
-    def setTaskParameters( self, task ):
-        '''Sets the parameters in the task based on this widget.
-        If there is a problem with the parameters, a ValueError exception is raised.
-
-        @raises     ValueError if there is a problem in setting the parameters.
-        '''
-        TaskWidget.setTaskParameters( self, task )
-        RECT_COUNT = self.context.rectCount()
-        for i in xrange( RECT_COUNT ):
-            task.addRectDomain( self.context.getRect( i ), self.context.getName( i ) )
 
     def copySettings( self, task ):
         '''Copy the settings from the given task into this task'''
         TaskWidget.copySettings( self, task )
-        if ( isinstance( task, PopulationTaskWidget ) ):
+        if ( isinstance( task, RectRegionTaskWidget ) ):
             self.context.copy( task.context )
             self.rectsGUI.clear()
             items = [ task.rectsGUI.itemText( i ) for i in xrange( task.rectsGUI.count() ) ]
@@ -1176,6 +1139,53 @@ class RectRegionTaskWidget( TaskWidget ):
             self.editRectBtn.setEnabled( hasItems )
             if ( hasItems ):
                 self.rectsGUI.setCurrentIndex( 0 )
+                self.rectsGUI.setEnabled( True )
+    
+    def setFromTask( self, task ):
+        '''Sets the task properties from the given RectRegionAnalysisTask.
+
+        @param      task        An instance of RectRegionAnalysisTask.
+        '''
+        assert( isinstance( task, RectRegionAnalysisTask ) )
+        TaskWidget.setFromTask( self, task )
+        self.context.setMultiRects( task.rectNames, task.rects )
+        rects = task.rects
+        hasItems = len( rects ) > 0
+        if ( hasItems ):            
+            items = [ '%d' % i for i in xrange( len( rects ) ) ]
+            self.rectsGUI.addItems( items )
+            self.rectsGUI.setCurrentIndex( 0 )
+            self.rectsGUI.setEnabled( hasItems )
+            self.delRectBtn.setEnabled( hasItems )
+            self.editRectBtn.setEnabled( hasItems )
+        
+    def getTask( self, testValid=True ):
+        '''Returns a task for this widget.
+
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
+        @return     An instance of PopulationAnalysisTask.
+        @raises     ValueError if there is a problem in instantiating the task.
+        '''
+        raise NotImplementedError
+
+    def setToTask( self, task, testValid=True ):
+        '''Sets the parameters in the task based on this widget.
+        If there is a problem with the parameters, a ValueError exception is raised.
+
+        @param      task        Given an AnalysisTask, sets the widget's properties to
+                                the task.
+        
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
+        @raises     ValueError if there is a problem in setting the parameters.
+        '''
+        TaskWidget.setToTask( self, task, testValid )
+        RECT_COUNT = self.context.rectCount()
+        for i in xrange( RECT_COUNT ):
+            task.addRectDomain( self.context.getRect( i ), self.context.getName( i ) )
 
 class PopulationTaskWidget( RectRegionTaskWidget ):
     '''Widget for computing the population in rectangular regions'''
@@ -1187,9 +1197,12 @@ class PopulationTaskWidget( RectRegionTaskWidget ):
         '''Returns a string representation of this task'''
         return 'POPULATION'
 
-    def getTask( self ):
+    def getTask( self, testValid=True ):
         '''Returns a task for this widget.
 
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
         @return     An instance of PopulationAnalysisTask.
         @raises     ValueError if there is a problem in instantiating the task.
         '''
@@ -1199,7 +1212,7 @@ class PopulationTaskWidget( RectRegionTaskWidget ):
             raise ValueError
         
         task = PopulationAnalysisTask()
-        self.setTaskParameters( task )
+        self.setToTask( task, testValid )
         return task
     
 class FundDiagTaskWidget( RectRegionTaskWidget ):
@@ -1212,9 +1225,12 @@ class FundDiagTaskWidget( RectRegionTaskWidget ):
         '''Returns a string representation of this task'''
         return 'FUND DIAG'
 
-    def getTask( self ):
+    def getTask( self, testValid=True ):
         '''Returns a task for this widget.
 
+        @param          testValid       A boolean.  If True, the function (and those called)
+                                        will test the widget state to make sure the task is
+                                        valid.  If False, empty fields will be propagated.
         @return     An instance of FundDiagAnalysisTask.
         @raises     ValueError if there is a problem in instantiating the task.
         '''
@@ -1224,6 +1240,6 @@ class FundDiagTaskWidget( RectRegionTaskWidget ):
             raise ValueError
         
         task = FundDiagAnalysisTask()
-        self.setTaskParameters( task )
+        self.setToTask( task, testValid )
         return task
     

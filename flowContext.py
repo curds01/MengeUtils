@@ -2,7 +2,6 @@
 from Context import *
 from primitives import Vector2, Segment
 from OpenGL.GL import *
-import flowUtils
 from copy import deepcopy
 
 class GLFlowSegment( Segment ):
@@ -159,26 +158,17 @@ class FlowLineContext( BaseContext ):
         """Returns the number of defined lines"""
         return len( self.lines )
 
-    def toConfigString( self ):
-        """Creates a parseable config string so that the context can be reconsituted"""
-        s = ''
-        # TODO: This is fragile, it assumes that a comma never appears in the names
-        #   I should add a validator to the line editor to guarantee no commas are allowed.
-        names = self.names
-        while ( len( names ) > len( self.lines ) ):
-            assert( self.editState == self.ADD )
-            names = names[:-1]
-        s = ','.join( names ) + "~"
-        for i, line in enumerate( self.lines ):
-            s += ' %.5f %.5f %.5f %.5f' % ( line.p1.x, line.p1.y, line.p2.x, line.p2.y )
-        return s
+    def setMultiLines( self, names, lines ):
+        '''Sets the lines in the context with the given names and lines.
+        It is asserted that len( names ) == len( lines ).
 
-    def setFromString( self, s ):
-        '''Parses the string created by toConfigString into a set of lines'''
-        self.lines = []
+        @param      names       A list of strings.  One name per line.
+        @param      lines       A list of Segment instaces.  One line per name.
+        '''
+        self.lines = map( lambda x: GLFlowSegment( x.p1, x.p2 ), lines )
+        self.names = names
         self.activeID = -1
         self.editState = self.NO_EDIT
-        self.names, self.lines = flowUtils.flowLinesFromString( s, GLFlowSegment )
 
     def handleMouse ( self, evt, view ):
         """Detects click, drag, release and creates a line"""

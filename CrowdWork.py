@@ -1,17 +1,6 @@
 # Class for performing the work of crowd analysis
 
-import time
 from PyQt4 import QtGui, QtCore
-from primitives import Vector2, Segment
-import flowUtils
-from trajectory.scbData import FrameSet, NPFrameSet
-
-import Crowd
-import os, sys
-from GFSVis import visualizeGFS
-import Kernels
-import Signals
-from Grid import makeDomain
 
 class CrowdAnalyzeThread( QtCore.QThread ):
     '''Class to perform the crowd analysis'''
