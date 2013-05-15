@@ -5,6 +5,7 @@ import os
 from GLWidget import *
 import sys
 from analyzeWidgets import AnlaysisWidget, SystemResource
+from AnalysisTask import readAnalysisProject
 
 class ConsoleFile( QtCore.QObject ):
     processMessage = QtCore.pyqtSignal(str)
@@ -202,14 +203,72 @@ class CrowdWindow( QtGui.QMainWindow):
         maxVal = sb.maximum()
         sb.setSliderPosition( maxVal )
         
+
+def main():
+    def taskListArg( option, opt_str, value, parser, *args, **kwargs ):
+        '''Having seen the flag to indicate a list of task indices, parses a list of non-negative ints
+        of unknown length.
+
+        See definition of optparser callbacks for explanation of parameters.
+        '''
+        tasks = []
+        while ( parser.rargs ):
+            try:
+                taskID = int( parser.rargs[0] )
+            except ValueError:
+                break
+            else:
+                tasks.append( taskID )
+                parser.rargs.pop( 0 )
+        parser.values.tasks = tasks
+    
+    parser = optparse.OptionParser()
+    parser.set_description( 'Perform analysis on pedestrian trajectory data - using the scb file format' )
+    parser.add_option( '-n', '--noGui', help='If this argument is provided, the given analysis project file will be run without the gui.  It does require a project file to be specified.',
+                       action='store_true', dest='noGui', default=False )
+    parser.add_option( '-p', '--project', help='An optional project file.  If --noGui/-n is specified, this is required.  If not, the gui will be initialized with the project data',
+                       action='store', dest='projFile', default=None )
+    parser.add_option( '-t', '--tasks', help='A list of task indices (starting at zero) to explicitly run.  Only works in conjunction with the --noGui flag.  This list replaces the active state indicated in the analysis configuration file',
+                       action='callback', callback=taskListArg, dest='tasks', default=None )
+
+    options, args = parser.parse_args()
+    
+    if ( options.noGui ):
+        print "No gui!"
+
+        if ( not options.projFile ):
+            parser.print_help()
+            print "\n*** When running in no gui mode, you must specify a project file"
+            sys.exit( 1 )
+            
+        # load tasks
+        print "\tProject file:", options.projFile
+        tasks = readAnalysisProject( options.projFile )
+        # if tasks exists, reset activity
+        if ( options.tasks ):
+            print "\t\tExecuting user-specified tasks:", options.tasks
+            for taskID in options.tasks:
+                try:
+                    task = tasks[ taskID ]
+                except IndexError:
+                    print "\t\t\tThe project file doesn't have task %d" % taskID
+                    print '\t\t\t\tProject only has %d tasks.  Valid ids are in the range: [%d, %d].' % ( len( tasks ), -len( tasks ), len( tasks ) - 1 )
+                else:
+                    task.execute()
+        else:
+            print "\t\tExecuting active tasks in project file"
+    else:
+        pygame.init()
+        app = QtGui.QApplication( sys.argv )
+        configName = options.projFile
+        gui = CrowdWindow( configName )
+        gui.show()
+        gui.resize( 1024, 480 )
+        app.exec_()        
+    
 if __name__ == '__main__':
+    import optparse
     import pygame
-    pygame.init()
-    app = QtGui.QApplication( sys.argv )
-    configName = ''
-    if ( len( sys.argv ) > 1 ):
-        configName = sys.argv[1]
-    gui = CrowdWindow( configName )
-    gui.show()
-    gui.resize( 1024, 480 )
-    app.exec_()
+    main()
+
+    
