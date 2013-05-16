@@ -257,6 +257,8 @@ def main():
                     task.execute()
         else:
             print "\t\tExecuting active tasks in project file"
+            for task in tasks:
+                task.execute()
     else:
         pygame.init()
         app = QtGui.QApplication( sys.argv )
