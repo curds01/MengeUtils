@@ -552,7 +552,7 @@ class FlowAnalysisTask( AnalysisTask ):
             print 'Flow analysis: %s' % ( self.workName )
             print "\tAccessing scb file:", self.scbName
             frameSet = NPFrameSet( self.scbName )
-            names = self.names
+            names = self.lineNames
             lines = self.lines
             workPath = self.getWorkPath( 'flow' )
             tempFile = os.path.join( workPath, self.workName )
@@ -662,7 +662,7 @@ class PopulationAnalysisTask( RectRegionAnalysisTask ):
             print 'Population analysis: %s' % ( self.workName )
             print "\tAccessing scb file:", self.scbName
             frameSet = NPFrameSet( self.scbName )
-            names = self.names
+            names = self.rectNames
             rects = self.rects
             workPath = self.getWorkPath( 'population' )
             tempFile = os.path.join( workPath, self.workName )
