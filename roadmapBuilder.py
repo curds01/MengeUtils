@@ -1,5 +1,4 @@
 import sys, pygame
-from math import sqrt
 
 from OpenGL.GL import *
 from OpenGL.GLU import *
@@ -42,11 +41,13 @@ def handleKey( event, context, view, graph, obstacles, agents, field ):
             print graph
         elif ( event.key == pygame.K_s and hasCtrl ):
             if ( editState == GRAPH_EDIT ):
-                f = open( paths( 'graph.txt', False ), 'w' )
+                fileName = paths.getPath( 'graph.txt', False )
+                f = open( fileName, 'w' )
                 f.write( '%s\n' % graph )
                 f.close()
+                print "Graph saved!", fileName
             elif ( editState == OBSTACLE_EDIT ):
-                f = open( paths( 'obstacles.txt', False ), 'w' )
+                f = open( paths.getPath( 'obstacles.txt', False ), 'w' )
                 f.write( '%s' % obstacles.sjguy() )
                 f.close()
         elif ( event.key == pygame.K_e ):
@@ -433,7 +434,9 @@ def main():
                 try:
                     result = handleKey( event, context, view, graph, obstacles, agents, field  )
                     redraw |= result.needsRedraw()
-                except Exception:
+                except Exception as e:
+                    print "Error with keyboard event"
+                    print "\t", e
                     running = False
             elif ( event.type == pygame.VIDEORESIZE ):
                 view.resizeGL( event.size )
