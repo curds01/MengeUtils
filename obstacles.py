@@ -198,7 +198,26 @@ def readObstacles( fileName, yFlip=False ):
                 o.flipY()
             obstHandler.bb.flipY()
     elif ( fileName[ -3: ] == 'txt' ):
-        raise Exception, "Invalid obstacle extension: %s" % ( fileName )
+		f = open( fileName, 'r' )
+		try:
+			oCount = int( f.readline() )
+		except ValueError:
+			raise Exception, "Tried to parse Stephen's file format, but the first line was not edge count"
+		bb = AABB()
+		obstacles = ObstacleSet()
+		for o in xrange( oCount ):
+			try:
+				x0, y0, x1, y1 = map( lambda x: float(x), f.readline().split() )
+			except:
+				raise Exception, "Error trying to parse the sjguy obstacle file -- didn't find the specified number of edges"
+			obst = GLPoly()
+			obst.closed = False
+			obst.vertices.append( Vector3( x0, y0, 0 ) )
+			obst.vertices.append( Vector3( x1, y1, 0 ) )
+			bb.expand( obst.vertices )
+			obstacles.append( obst )
+		f.close()
+		return obstacles, bb
     else:
         raise Exception, "Invalid obstacle extension: %s" % ( fileName )
     return obstHandler.obstacles, obstHandler.bb
