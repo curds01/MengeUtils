@@ -234,7 +234,7 @@ class FrameSet:
         f = open( fileName, 'rb' )
         data = f.read( 4 )
         version = data[:-1]
-        valid = version in ( '1.0', '2.0', '2.1', '2.2', '3.0' ) and data[-1] == '\x00'
+        valid = version in ( '1.0', '2.0', '2.1', '2.2', '2.3' ) and data[-1] == '\x00'
         f.close()
         return valid
 
@@ -254,7 +254,13 @@ class FrameSet:
         self.agentByteSize = 12
 
     def readHeader2_0( self, scbFile ):
-        '''Reads the header for a version 2.0 scb file'''
+        '''The 2.1 version is just like the 2.0 version.  However, the per-agent data consists of FOUR values:
+            1. float: x position
+            2. float: y position
+            3. float: orientation
+            
+            The header information is exactly the same.
+        '''
         data = self.file.read( 4 )
         self.agtCount = struct.unpack( 'i', data )[0]
         self.ids = [ 0 for i in range( self.agtCount ) ]
@@ -295,7 +301,8 @@ class FrameSet:
 
     
     def readHeader2_3( self, scbFile ):
-        '''The 2.3 changes orientation representation.
+        '''The 2.3 header is the same as 2.0.  But the per-agent data is a bit different
+        from 2.0.  The orientation orientation representation is changed.
         Instead of an angle, it's a normalized direction vector.
         The per-agent data consists of FOUR values:
             1. float: x position
@@ -409,8 +416,8 @@ class FrameSet:
             return self.getHeader2_1( targetAgent )
         elif ( self.version == '2.2' ):
             return self.getHeader2_2( targetAgent )
-        elif ( self.version == '3.0' ):
-            return self.getHeader3_0( targetAgent )
+        elif ( self.version == '2.3' ):
+            return self.getHeader2_3( targetAgent )
 
     def getHeader1_0( self, targetAgent ):
         '''Produces a header for version 1.0 of this data'''
@@ -446,12 +453,12 @@ class FrameSet:
         return self.getHeader2Style( '2.1\x00', targetAgent )
 
     def getHeader2_2( self, targetAgent ):
-        '''Produces a header for version 2.1 of this data'''
+        '''Produces a header for version 2.2 of this data'''
         return self.getHeader2Style( '2.2\x00', targetAgent )
 
-    def getHeader3_0( self, targetAgent ):
-        '''Produces a header for version 3.0 of this data'''
-        return self.getHeader2Style( '3.0\x00', targetAgent )
+    def getHeader2_3( self, targetAgent ):
+        '''Produces a header for version 2.3 of this data'''
+        return self.getHeader2Style( '2.3\x00', targetAgent )
 
     def write( self, output ):
         '''Writes this data to the target file'''
