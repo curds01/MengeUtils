@@ -601,6 +601,11 @@ class SCBDataMemory:
             if ( len( self.ids ) != data.shape[0] ):
                 raise AttributeError, "The agent class id list doesn't match the number of agents in the data.  Data has %d, ids has %d" % ( len( self.ids ), data.shape[0] )
 
+    def fullData( self ):
+        """Returns an N X M X K array consisting of all trajectory info for the frame set, for
+        N agents, M floats per agent and K time steps"""
+        return self.data
+    
     def setNext( self, frameIdx ):
         '''Sets the next frame to be retrieved to the given index.
 
@@ -631,6 +636,13 @@ class SCBDataMemory:
         data = self.data[ :, :, self.nextFrame ]
         self.nextFrame += 1
         return data
+    
+    def getType( self ):
+        '''Returns the identifier for this type of trajectory data.
+
+        @returns        An enumeration representing the Julichd ata.
+        '''
+        return commonData.SCB_DATA
     
     def write( self, output ):
         '''Writes the associated data out to a file.
