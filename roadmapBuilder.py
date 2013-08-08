@@ -340,6 +340,8 @@ def main():
                        action="store", dest='inDir', default='.' )
     parser.add_option( "-o", "--outDir", help="Optional directory to write output files - only applied to file names with relative paths",
                        action="store", dest='outDir', default='.' )
+    parser.add_option( '-r', '--region', help='Specify the bounding region of the action.  If provided, it will set the initial camera properties.  Format is minX minY maxX maxY',
+                       nargs=4, type='float', dest='boundRegion', default=None )
     options, args = parser.parse_args()
 
     paths.setInDir( options.inDir )
@@ -362,8 +364,13 @@ def main():
     else:
         obstacles = ObstacleSet()
         bb = AABB()
-        bb.min = Vector3( -100, -100, 0 )
-        bb.max = Vector3( 100, 100, 0 )
+        if ( not options.boundRegion is None ):
+            bb.min = Vector3( options.boundRegion[0], options.boundRegion[1], 0 )
+            bb.max = Vector3( options.boundRegion[2], options.boundRegion[3], 0 )
+            print bb
+        else:
+            bb.min = Vector3( -100, -100, 0 )
+            bb.max = Vector3( 100, 100, 0 )
 
     agents = AgentSet( 0.23 )
     if ( agtName ):
