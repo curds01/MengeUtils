@@ -342,8 +342,8 @@ def main():
                        action="store", dest='outDir', default='.' )
     options, args = parser.parse_args()
 
-    paths.IN_DIR = options.inDir
-    paths.OUT_DIR = options.outDir
+    paths.setInDir( options.inDir )
+    paths.setOutDir( options.outDir )
     obstName = paths.getPath( options.obstName )
     agtName = paths.getPath( options.agtName )
     graphName = paths.getPath( options.graphName )
