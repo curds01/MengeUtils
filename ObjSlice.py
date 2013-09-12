@@ -2,6 +2,7 @@ from ObjReader import ObjFile
 from math import sqrt, atan2, acos
 from primitives import Vector3, Vector2
 from primitives import Segment as AltSegment    # I need to merge my segments
+import sys
 
 class Plane:
     """The definition of a plane in R3 -- evaluating the plane returns distance"""
@@ -10,6 +11,9 @@ class Plane:
         mag = self.norm.length()
         self.norm.normalize_ip()
         self.D = D / mag
+
+    def __str__( self ):
+        return "Plane: <%f %f %f %f>" % ( self.norm.x, self.norm.y, self.norm.z, self.D )
 
     def __repr__( self ):
         return "Plane: <%f %f %f %f>" % ( self.norm.x, self.norm.y, self.norm.z, self.D )
@@ -557,64 +561,48 @@ def slice( obj, plane, findPolys, scale = 1.0, flip = 0 ):
         polys = buildPolygons( tempSegments, plane.norm )
     return segments, polys
 
-def usage():
-    print "ObjSlice -- slices a wavefront .obj file by a plane"
-    print
-    print "Usage: python ObjSlice -arg1 value1 -arg2 value2 ..."
-    print "Options:"
-    print "   -in file.obj  - the wavefront obj file to operate on"
-    print "                   if argument not provided, program does nothing"
-    print "   -A <float>    - "
-    print "   -B <float>    - "
-    print "   -C <float>    - "
-    print "   -D <float>    - Defines the plane by the implicit equation"
-    print "                   Ax + By + Cz + D = 0"
-    print "                   Missing parameters are assumed to be zero."
-    print "   -out file.txt - Outputs the results to this file, otherwise"
-    print "                   to the console."
-    print "   -flip [1|0]   - Determines if the vertices are flipped across the x-axis"
-    print "                   (i.e. along the z-axis) -- defaults to 0"
-    print "   -scale float  - scales the vertices around the origin"
-    print "   -outData [seg|poly]"
-    print "                 - determines the output data."
-    print "                 - output data can be a list of individual line segments (seg)"
-    print "                 - or a list of polygons made up of connected segments (poly)"
-    print "                 - Default will output segments"
-
 if __name__ == "__main__":
-    import sys, os, getopt
+    import optparse
+    parser = optparse.OptionParser()
+
+    parser.add_option( '-i', '--in', help='The waveforont obj file to operate on.  Required',
+                       action='store', dest='inFileName', default='' )
+    parser.add_option( '-p', '--plane', help='The coefficients of the implicit equation of the slicing plane (Ax + By + Cz + D = 0).  If not defined, the coefficients A=0, B=1, C=0, D=0 are used.',
+                       nargs=4, action='store', type='float', dest='coef', default=(0.0, 1.0, 0.0, 0.0 ) )
+    parser.add_option( '-o', '--out', help='The name of the output file to create.  If not provided, the result is printed to the console.',
+                       action='store', dest='outFileName', default='' )
+    parser.add_option( '--flip', help='If given, causes the vertices to be flipped across the x-axis',
+                       action='store_true', dest='flip', default=False )
+    parser.add_option( '--segment', help='If given, each segment is a unique obstacle.  Default behavior is to connect them as polygons.',
+                       action='store_true', dest='segment', default=False )
+    parser.add_option( '-s', '--scale', help='The scale factor for the vertex data',
+                       action='store', default=1.0, type='float', dest='scale' )
+    options, args = parser.parse_args()
+
+    if ( options.inFileName == '' ):
+        parser.print_help()
+        print '\n*** You must specify an input obj file'
+        sys.exit(1)
+
+    try:
+        plane = Plane( options.coef[0], options.coef[1], options.coef[2], options.coef[3] )
+    except ZeroDivisionError:
+        print "Inavlid plane definition: %s" % options.coef
+        sys.exit(1)
 
     SEGMENT = 'seg'
     POLY = 'poly'
-    
-    from commandline import SimpleParamManager
-    pMan = SimpleParamManager( sys.argv[1:], {'A':0.0, 'B':0.0, 'C':0.0, 'D':0.0, 'flip':0, 'scale':1.0 } )
-    inputName = pMan[ 'in' ]
-    if ( inputName == None ):
-        usage()
-        sys.exit(1)
-    try:
-        A = float( pMan['A'] )
-        B = float( pMan['B'] )
-        C = float( pMan['C'] )
-        D = float( pMan['D'] )
-        plane = Plane( A, B, C, D )
-    except ValueError:
-        print "Invalid argument for plane value"
-        sys.exit(2)
-    except ZeroDivisionError:
-        print "Inavlid plane definition: %f, %f, %f, %f" % (A, B, C, D)
-        sys.exit(3)
-    outFile = pMan['out']
-    flip = pMan['flip']
-    scale = float( pMan['scale'] )
-    outData = pMan['outData']
-    if ( outData == None ):
+
+    inputName = options.inFileName
+    outFile = options.outFileName
+    flip = options.flip
+    scale = options.scale
+    outData = POLY
+    if ( options.segment ):
         outData = SEGMENT
+
     print "outData:", outData
-    if ( not( outData == SEGMENT or outData == POLY ) ):
-        print 'Invalid value for outData argument: "%s".  Should be "seg" or "poly"' % outData
-        sys.exit( 4 )
+
     out = sys.stdout
 
     if ( outFile ):
@@ -624,7 +612,7 @@ if __name__ == "__main__":
             print "Error opening file %s" % (outFile)
             print "Writing to console"
 
-    print 'Opened %s with plane: %f, %f, %f, %f\n' % (inputName, A, B, C, D)  
+    print 'Opened %s with plane: %s\n' % (inputName, plane)  
 
     obj = ObjFile( inputName )
 
@@ -641,7 +629,8 @@ if __name__ == "__main__":
 
     out.write("""<?xml version="1.0"?>
 
-<Experiment time_step="0.25" num_samples="250" visualization="1" useProxies="1" neighbor_dist="5">
+<Experiment version="2.0">
+    <Common time_step="0.1" visible_neighbors="1" />
 """)
     if ( findPolys ):
         for poly in polys:
