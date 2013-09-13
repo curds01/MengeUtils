@@ -41,13 +41,16 @@ class Edge:
 class Graph:
     """Simple graph class"""
     def __init__( self ):
+        self.clear()
+        
+    def clear( self ):
         self.vertices = []
         self.edges = []
         self.activeEdge = None
         self.fromID = None
         self.toID = None
         self.testEdge = Edge()
-
+        
     def initFromFile( self, fileName ):
         print "Roadmap initfromFile", fileName
         f = open( fileName, 'r' )
@@ -55,8 +58,16 @@ class Graph:
         for i in range( vertCount ):
             line = f.readline()
             tokens = line.strip().split()
-            x = float( tokens[2] )
-            y = float( tokens[3] )
+            if ( len( tokens ) == 3 ):
+                x = float( tokens[1] )
+                y = float( tokens[2] )
+            elif ( len( tokens ) == 4 ):
+                x = float( tokens[2] )
+                y = float( tokens[3] )
+            else:
+                self.clear()
+                print "Error reading input file:", fileName
+                return
             self.addVertex( (x, y ) )
         edgeCount = int( f.readline() )
         for i in range( edgeCount ):
@@ -79,6 +90,16 @@ class Graph:
             dist = sqrt( dx * dx + dy * dy )
             s += '%d %d %f\n' % ( e.start.id, e.end.id, dist )
         return s
+
+    def newAscii( self ):
+        '''Writes the graph to the new ascii file format.  Returns the string.'''
+        s = "%d\n" % ( len (self.vertices ) )
+        for i, v in enumerate( self.vertices ):
+            s += '%s\n' % ( v )
+        s += '%d\n' % ( len( self.edges ) )
+        for i, e in enumerate( self.edges ):
+            s += '%d %d\n' % ( e.start.id, e.end.id )
+        return s        
 
     def lastVertex( self ):
         """Returns the index of the last vertex"""

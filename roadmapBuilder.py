@@ -24,7 +24,7 @@ OBSTACLE_EDIT = 2
 EDIT_STATE_COUNT = 3
 editState = NO_EDIT
 
-def handleKey( event, context, view, graph, obstacles, agents, field ):
+def handleKey( event, context, view, theGraph, obstacles, agents, field ):
     global editState
     result = ContextResult()
     if ( context ):
@@ -39,14 +39,14 @@ def handleKey( event, context, view, graph, obstacles, agents, field ):
 
     if ( event.type == pygame.KEYDOWN ):
         if ( event.key == pygame.K_p ):
-            print graph
+            print theGraph
         elif ( event.key == pygame.K_s and hasCtrl ):
             if ( editState == GRAPH_EDIT ):
-                f = open( paths( 'graph.txt', False ), 'w' )
-                f.write( '%s\n' % graph )
+                f = open( paths.getPath( 'graph.txt', False ), 'w' )
+                f.write( '%s\n' % theGraph.newAscii() )
                 f.close()
             elif ( editState == OBSTACLE_EDIT ):
-                f = open( paths( 'obstacles.txt', False ), 'w' )
+                f = open( paths.getPath( 'obstacles.txt', False ), 'w' )
                 f.write( '%s' % obstacles.sjguy() )
                 f.close()
         elif ( event.key == pygame.K_e ):
@@ -54,13 +54,13 @@ def handleKey( event, context, view, graph, obstacles, agents, field ):
             result.setNeedsRedraw( True )
         elif ( event.key == pygame.K_DELETE ):
             if ( editState == GRAPH_EDIT ):
-                if ( graph.fromID != None ):
-                    graph.deleteVertex( graph.fromID )
-                    graph.fromID = None
+                if ( theGraph.fromID != None ):
+                    theGraph.deleteVertex( theGraph.fromID )
+                    theGraph.fromID = None
                     result.setNeedsRedraw( True )
-                elif ( graph.activeEdge != None ):
-                    graph.deleteEdge( graph.activeEdge )
-                    graph.activeEdge = None
+                elif ( theGraph.activeEdge != None ):
+                    theGraph.deleteEdge( theGraph.activeEdge )
+                    theGraph.activeEdge = None
                     result.setNeedsRedraw( True )
         elif ( hasAlt and event.key == pygame.K_F4 ):
             raise Exception
