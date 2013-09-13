@@ -1,5 +1,6 @@
 # All of the data structures for the road map (basically, a graph structure
 from OpenGL.GL import *
+from math import sqrt
 
 class Vertex:
     """Graph vertex"""

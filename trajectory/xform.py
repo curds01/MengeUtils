@@ -12,6 +12,9 @@ class TrajXform:
         self.ty = 0.0
         self.tz = 0.0
 
+    def __str__( self ):
+        return "Xform: trans( %.3f, %.3f, %.3f )" % ( self.tx, self.ty, self.tz )
+
     def setTranslate( self, x=0.0, y=0.0, z=0.0 ):
         '''Sets the translation properties of the transformation.
 
