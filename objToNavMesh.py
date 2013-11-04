@@ -2,7 +2,7 @@
 #   - see navMesh.py for the definition of that file format
 
 from ObjReader import ObjFile
-from navMesh import Node, Edge, NavMesh
+from navMesh import Node, Edge, Obstacle, NavMesh
 import numpy as np
 from primitives import Vector2
 
@@ -122,45 +122,66 @@ def startObstacle( vertMap, edges, obstacles ):
     obstacles.append( o )
     return o, e
 
-def processObstacles( edges, navMesh ):
-    '''Given a list of external edges (represented by a 2-tuple, (v0, v1), creates a
-    list of obstacles'''
-    # The obstacle is simply an ordered list of vertex indices
-    #   The order depends on which side of the obstacle is free space
-    #   Counter-clockwise --> outside is freespace, clockwise --> inside is freespace
-    #   It is assumed that all obstacles are closed
-    vertMap = {}
-    for i, edge in enumerate( edges ):
-        v0, v1 = edge
-        if ( vertMap.has_key( v0 ) ):
-            vertMap[ v0 ].append( i )
-        else:
-            vertMap[ v0 ] = [ i ]
-        if ( vertMap.has_key( v1 ) ):
-            vertMap[ v1 ].append( i )
-        else:
-            vertMap[ v1 ] = [ i ]
-    # furthermore, every vertex should have an EVEN number of incident edges
-    #   Each obstacle boundary is a unique loop.  An edge in requires a unique
-    #   edge out.  The only way out of that is if a single edge was used in two
-    #   loops, which is impossible as that would require an edge connected to NO
-    #   faces (or badly constructed geometry)
-    #
-    # This implicitly catches the case where there is an open vertex (i.e.
-    #   degree == 1 --> degree is odd
-    # And I'm not testing for the case where degree is zero, because that is
-    #   impossible.  A vertex wouldn't be entered into the list if it wasn't part
-    #   of an edge
-    degrees = map( lambda x: len( x ), vertMap.values() )
+def processObstacles( obstacles, vertObstMap, navMesh ):
+    '''Given a list of Obstacle instances, connects the obstacles into sequences such that each obstacle
+    points to the appropriate "next" obstacle.  Finally, sets the obstacles to the navigation mesh.'''
+##    # The obstacle is simply an ordered list of vertex indices
+##    #   The order depends on which side of the obstacle is free space
+##    #   Counter-clockwise --> outside is freespace, clockwise --> inside is freespace
+##    #   It is assumed that all obstacles are closed
+##    vertMap = {}
+##    for i, edge in enumerate( edges ):
+##        v0, v1 = edge
+##        if ( vertMap.has_key( v0 ) ):
+##            vertMap[ v0 ].append( i )
+##        else:
+##            vertMap[ v0 ] = [ i ]
+##        if ( vertMap.has_key( v1 ) ):
+##            vertMap[ v1 ].append( i )
+##        else:
+##            vertMap[ v1 ] = [ i ]
+##    # furthermore, every vertex should have an EVEN number of incident edges
+##    #   Each obstacle boundary is a unique loop.  An edge in requires a unique
+##    #   edge out.  The only way out of that is if a single edge was used in two
+##    #   loops, which is impossible as that would require an edge connected to NO
+##    #   faces (or badly constructed geometry)
+##    #
+##    # This implicitly catches the case where there is an open vertex (i.e.
+##    #   degree == 1 --> degree is odd
+##    # And I'm not testing for the case where degree is zero, because that is
+##    #   impossible.  A vertex wouldn't be entered into the list if it wasn't part
+##    #   of an edge
+##    degrees = map( lambda x: len( x ), vertMap.values() )
+##    assert( sum( map( lambda x: x % 2, degrees ) ) == 0 )
+##
+##    obstacles = []
+##
+##    while ( vertMap ):
+##        o, e = startObstacle( vertMap, edges, obstacles )
+##        assert( growObstacle( o, [e], edges, vertMap ) )
+##
+##    return obstacles
+    # I'm assuming that the external edges form perfect, closed loops
+    #   That means if a vertex is incident to an obstacle, then it must be incident to two and only
+    #   two obstacles.  This tests that assumption
+    degrees = map( lambda x: len( x ), vertObstMap.values() )
     assert( sum( map( lambda x: x % 2, degrees ) ) == 0 )
 
-    obstacles = []
+    # now connect them up
+    #   - this assumes that they are all wound properly
+    for vertID in vertObstMap.keys():
+        o0, o1 = vertObstMap[ vertID ]
+        obst0 = obstacles[ o0 ]
+        obst1 = obstacles[ o1 ]
+        if ( obst0.v0 == vertID ):
+            obst1.next = o0
+        else:
+            obst0.next = o1
 
-    while ( vertMap ):
-        o, e = startObstacle( vertMap, edges, obstacles )
-        assert( growObstacle( o, [e], edges, vertMap ) )
-
-    return obstacles
+    # all obstacles now have a "next" obstacle
+    assert( len( filter( lambda x: x.next == -1, obstacles ) ) == 0 )            
+        
+    navMesh.obstacles = obstacles
     
 
 def projectVertices( vertexList ):
@@ -242,37 +263,47 @@ def buildNavMesh( objFile ):
         nb = navMesh.nodes[ b ]
         nb.addEdge( i )
         edge = Edge()
-        edge.node0 = a
-        edge.node1 = b
-        edge.dist = (na.center - nb.center).magnitude()
-        # I need the geometry of the edge (the vertices)
-        v0 = navMesh.vertices[ v0 ]
-        v0 = Vector2( v0[0], v0[1] )
-        edge.point = v0
-        v1 = navMesh.vertices[ v1 ]
-        v1 = Vector2( v1[0], v1[1] )
-        edge.disp = v1 - v0
+        edge.v0 = v0
+        edge.v1 = v1
+        edge.n0 = na
+        edge.n1 = nb
         navMesh.addEdge( edge )
 
-    # process the external edges
+    # process the external edges (obstacles)
     # for each external edge, make sure the "winding" is opposite that of the face
-    tempEdges = []
+    obstacles = []
+    vertObstMap = {}    # mapping from vertex to the obstacles that are incident to the vertex
     for e in external:
         f, face = edgeMap[ e ][0]
         v0, v1 = e
+
+        oID = len( obstacles )
+        o = Obstacle()
+        o.n0 = navMesh.nodes[ f ]
+        if ( vertObstMap.has_key( v0 ) ):
+            vertObstMap[ v0 ].append( oID )
+        else:
+            vertObstMap[ v0 ] = [ oID ]
+        if ( vertObstMap.has_key( v1 ) ):
+            vertObstMap[ v1 ].append( oID )
+        else:
+            vertObstMap[ v1 ] = [ oID ]
+
         i0 = face.verts.index( v0 + 1 )
         vCount = len( face.verts )
         if ( face.verts[ ( i0 + 1 ) % vCount ] == (v1+1) ):
-            tempEdges.append( e )
+            o.v0 = v0
+            o.v1 = v1
         else:
-            tempEdges.append( ( v1, v0 ) )
+            o.v0 = v1
+            o.v1 = v0
+        obstacles.append( o )
              
-    obstacles = processObstacles( tempEdges, navMesh )
-    navMesh.extendObstacles( obstacles )
-    print "Found %d obstacles" % len( obstacles )
+    processObstacles( obstacles, vertObstMap, navMesh )
 
-    for o in obstacles:
-        print '\t', ' '.join( map( lambda x: str(x), o ) )
+    print "Found %d obstacles" % len( obstacles )
+##    for o in obstacles:
+##        print '\t', ' '.join( map( lambda x: str(x), o ) )
     
         
     return navMesh
@@ -285,8 +316,8 @@ def main():
                        action="store", dest="objFileName", default='' )
     parser.add_option( "-o", "--output", help="The name of the output file. The extension will automatically be added (.nav for ascii, .nbv for binary).",
                        action="store", dest="navFileName", default='output' )
-    parser.add_option( "-b", "--binary", help="Determines if the navigation mesh file is saved as a binary (by default, it saves an ascii file.",
-                       action="store_false", dest="outAscii", default=True )
+##    parser.add_option( "-b", "--binary", help="Determines if the navigation mesh file is saved as a binary (by default, it saves an ascii file.",
+##                       action="store_false", dest="outAscii", default=True )
     options, args = parser.parse_args()
 
     objFileName = options.objFileName
@@ -303,7 +334,9 @@ def main():
     mesh = buildNavMesh( obj )
 
     outName = options.navFileName
-    mesh.writeNavFile( outName, options.outAscii )
+##    ascii = options.outAscii
+    ascii = True
+    mesh.writeNavFile( outName, ascii )
         
 
 if __name__ == '__main__':

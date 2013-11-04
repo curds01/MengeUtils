@@ -15,6 +15,7 @@ class Node:
 
         self.center = Vector2(0.0, 0.0)
         self.edges = []
+        self.obstacles = []
 
     def addEdge( self, edgeID ):
         '''Given the index of an internal edge, adds the edge to the definition'''
@@ -27,17 +28,30 @@ class Node:
         else:
             return self.binaryString()
 
-    def asciiString( self ):
+    def asciiString( self, indent='' ):
         '''Output the node data to an ascii string'''
-        s = '\n%d' % len( self.poly.verts )
+        s = '%s%.5f %.5f' % ( indent, self.center.x, self.center.y )
+        s += '\n%s%d' % ( indent, len( self.poly.verts ) )
         for v in self.poly.verts:
             s += ' %d' % ( v - 1 )
-        s += '\n\t%.5f %.5f %.5f' % ( self.A, self.B, self.C )
-        s += '\n\t%.5f %.5f' % ( self.center.x, self.center.y )
-        s += '\n\t%d' % len( self.edges )
+        s += '\n%s%.5f %.5f %.5f' % ( indent, self.A, self.B, self.C )
+        s += '\n%s%d' % ( indent, len( self.edges ) )
         for edge in self.edges:
             s += ' %d' % ( edge )
+        s += '\n%s%d' % ( indent, len( self.obstacles ) )
+        for obst in self.obstacles:
+            s += ' %d' % ( obst )
         return s
+        
+##        s = '\n%d' % len( self.poly.verts )
+##        for v in self.poly.verts:
+##            s += ' %d' % ( v - 1 )
+##        s += '\n\t%.5f %.5f %.5f' % ( self.A, self.B, self.C )
+##        s += '\n\t%.5f %.5f' % ( self.center.x, self.center.y )
+##        s += '\n\t%d' % len( self.edges )
+##        for edge in self.edges:
+##            s += ' %d' % ( edge )
+##        return s
 
     def binaryString( self ):
         '''Output the node data to a binary string'''
@@ -51,43 +65,99 @@ class Node:
         return s
 
 class Edge:
-    '''The edge of a navigation mesh'''
+    '''The edge of a navigation mesh - an edge that is shared by two polygons'''
     def __init__( self ):
-        # geometry of the portal
-        self.point = Vector2(0.0, 0.0)
-        self.disp = Vector2(0.0, 0.0)
+        self.v0 = -1        # index of the first vertex
+        self.v1 = -1        # index of the second vertex
+        self.n0 = None      # the first adjacent node
+        self.n1 = None      # the second adjacent node
 
-        # logical graph
-        self.dist = 0.0
-        self.node0 = -1
-        self.node1 = -1
+    def asciiString( self, nodeMap ):
+        '''Writes out the edge as an ascii string.
 
-    def asciiString( self ):
-        '''Writes out the edge as an ascii string'''
-        s = '\n%.5f %.5f' % ( self.point.x, self.point.y )
-        s += '\n\t%.5f %.5f' % ( self.disp.x, self.disp.y )
-        s += '\n\t%.5f %d %d' % ( self.dist, self.node0, self.node1 )
-        return s
+        @param  nodeMap     A mapping from a node instance to its file index'''
+        return '%d %d %d %d' % ( self.v0, self.v1, nodeMap[ self.n0 ], nodeMap[ self.n1 ] )
 
-    def binaryString( self ):
-        '''Writes out a binary string representation of the string'''
-        s = struct.pack( 'ff', self.point.x, self.point.y )
-        s += struct.pack( 'ff', self.disp.x, self.disp.y )
-        s += struct.pack( 'fii', self.dist, self.node0, self.node1 )
-        return s
+    def binaryString( self, nodeMap ):
+        '''Writes out the edge as a binary string
+
+        @param  nodeMap     A mapping from a node instance to its file index'''
+        #TODO: Enforce fixed endianness
+        return struct.pack( 'iiii', self.v0, self.v1, nodeMap[ self.n0 ], nodeMap[ self.n1 ] )
+
+class Obstacle:
+    '''The obstacle of a navigation mesh -- otherwise known as an edge with only a single adjacent polygon'''
+    def __init__( self ):
+        self.v0 = -1    # index of the first vertex
+        self.v1 = -1    # index of the second vertex
+        self.n0 = None    # The adjacent node
+        self.next = -1    # index of the next obstacle in sequence
+        
+    def asciiString( self, nodeMap ):
+        '''Writes out the edge as an ascii string
+
+        @param  nodeMap     A mapping from a node instance to its file index'''
+        return '%d %d %d %d' % ( self.v0, self.v1, nodeMap[ self.n0 ], self.next )
+
+    def binaryString( self, nodeMap ):
+        '''Writes out the edge as a binary string
+
+        @param  nodeMap     A mapping from a node instance to its file index'''
+        #TODO: Enforce fixed endianness
+        return struct.pack( 'iiii', self.v0, self.v1, nodeMap[ self.n0 ], self.next )
+    
 
 class NavMesh:
     '''A simple navigation mesh'''
+    class NodeIterator:
+        '''An iterator for iterating across the nodes of the navigation mesh for output
+        strings.  It respects the node groups.'''
+        def __init__( self, navMesh ):
+            self.groupNames = navMesh.groups.keys()
+            assert( len( self.groupNames ) > 0 )
+            self.groupNames.sort()
+            self.currGroupID = 0   # the current group to operate on
+            self.currGroup = navMesh.groups[ self.groupNames[ 0 ] ]
+            self.currNode = 0    # the next face in the group to return
+            self.groups = navMesh.groups
+
+        def __iter__( self ):
+            return self
+        
+        def next( self ):
+            '''Returns a group name and a node'''
+            if ( self.currNode >= len( self.currGroup ) ):
+                self.currGroupID += 1
+                if ( self.currGroupID >= len( self.groups ) ):
+                    raise StopIteration
+                else:
+                    self.currGroup = self.groups[ self.groupNames[ self.currGroupID ] ]
+                    self.currNode = 0
+
+            node = self.currGroup[ self.currNode ]
+            self.currNode += 1
+            return self.groupNames[ self.currGroupID ], node
+        
     def __init__( self ):
         self.vertices = []  # the set of vertices in the mesh
+        self.groups = {} # a mapping from node group names to its nodes
         self.nodes = []
         self.edges = []
         self.obstacles = []
 
-    def addNode( self, node ):
+    def getNodeIterator( self ):
+        '''Returns an iterator for passing through all of the nodes in a fixed,
+        repeatable order'''
+        return NavMesh.NodeIterator( self )
+    
+    def addNode( self, node, nodeGrp='defaultGrp' ):
         '''Adds a node to the mesh and returns the index'''
         idx = len( self.nodes )
         self.nodes.append( node )
+        if ( self.groups.has_key( nodeGrp ) ):
+            self.groups[ nodeGrp ].append( node )
+        else:
+            self.groups[ nodeGrp ] = [ node ]
         return idx
 
     def addEdge( self, edge ):
@@ -96,16 +166,17 @@ class NavMesh:
         self.edges.append( edge )
         return idx
 
-    def addObstacle( self, o ):
-        '''Adds an obstacle (a list of vertex indices) to the obstacle list'''
-        idx = len( self.obstacles )
-        self.obstacles.append( o )
-        return idx
-
-    def extendObstacles( self, obstList ):
-        '''Extends the obstacles with the list of obstacles'''
-        self.obstacles.extend( obstList )
-        
+    def groupOrder( self ):
+        '''Returns a dictionary which maps each node to its final
+        file output index.  Used to connect edges and obstacles to
+        nodes.'''
+        count = 0
+        nodeMap = {}
+        for group, node in self.getNodeIterator():
+            nodeMap[ node ] = count
+            count += 1
+        return nodeMap    
+    
     def writeNavFile( self, fileName, ascii=True ):
         '''Outputs the navigation mesh into a .nav file'''
         if ( ascii ):
@@ -119,45 +190,56 @@ class NavMesh:
 
     def writeNavFileAscii( self, fileName ):
         '''Writes the ascii navigation mesh file'''
-        f = open ( fileName, 'w' )
+        f = open( fileName, 'w' )
         # vertices
-        f.write( '%d' % len( self.vertices) )
-        for x,y in self.vertices:
+        f.write( '%d' % len( self.vertices ) )
+        for x, y in self.vertices:
             f.write( '\n\t%.5f %.5f' % ( x, y ) )
-        #edges
+
+        nodeMap = self.groupOrder()
+        # edges
         f.write( '\n%d' % len( self.edges ) )
         for e in self.edges:
-            f.write( e.asciiString() )
-        # nodes
-        f.write( '\n%d' % len( self.nodes ) )
-        for n in self.nodes:
-            f.write( n.asciiString() )            
+            f.write( '\n\t%s' % e.asciiString( nodeMap ) )
+
         # obstacles
         f.write( '\n%d' % len( self.obstacles ) )
         for o in self.obstacles:
-            f.write( '\n\t%d %s' % ( len( o ), ' '.join( map( lambda x: str(x), o ) ) ) )
+            f.write( '\n\t%s' % o.asciiString( nodeMap ) )
+
+        # node groups
+        currGrp = ''
+        for group, node in self.getNodeIterator():
+            if ( group != currGrp ):
+                f.write( '\n%s' % group )
+                f.write( '\n%d' % ( len( self.groups[ group ] ) ) )
+                currGrp = group
+            f.write( '\n%s\n' % ( node.asciiString( '\t') ) )
+        
         f.close()
 
     def writeNavFileBinary( self, fileName ):
         '''Writes the ascii navigation mesh file'''
-        f = open( fileName, 'wb' )
-        # vertices
-        f.write( struct.pack('i', len( self.vertices ) ) )
-        for x,y in self.vertices:
-            f.write( struct.pack('ff', x, y ) )
-        # edges
-        f.write( struct.pack('i', len( self.edges ) ) )
-        for e in self.edges:
-            f.write( e.binaryString() )
-        # nodes
-        f.write( struct.pack('i', len( self.nodes ) ) )
-        for n in self.nodes:
-            f.write( n.binaryString() )            
-        # obstacles
-        f.write( struct.pack( 'i', len( self.obstacles ) ) )
-        for o in self.obstacles:
-            f.write( struct.pack('i', len( o ) ) )
-            f.write( ''.join( map( lambda x: struct.pack( 'i',x ), o ) ) )
-        f.close()
+        # TODO: Make this valid
+        pass
+##        f = open( fileName, 'wb' )
+##        # vertices
+##        f.write( struct.pack('i', len( self.vertices ) ) )
+##        for x,y in self.vertices:
+##            f.write( struct.pack('ff', x, y ) )
+##        # edges
+##        f.write( struct.pack('i', len( self.edges ) ) )
+##        for e in self.edges:
+##            f.write( e.binaryString() )
+##        # nodes
+##        f.write( struct.pack('i', len( self.nodes ) ) )
+##        for n in self.nodes:
+##            f.write( n.binaryString() )            
+##        # obstacles
+##        f.write( struct.pack( 'i', len( self.obstacles ) ) )
+##        for o in self.obstacles:
+##            f.write( struct.pack('i', len( o ) ) )
+##            f.write( ''.join( map( lambda x: struct.pack( 'i',x ), o ) ) )
+##        f.close()
         
 
