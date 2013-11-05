@@ -122,45 +122,11 @@ def startObstacle( vertMap, edges, obstacles ):
     obstacles.append( o )
     return o, e
 
-def processObstacles( obstacles, vertObstMap, navMesh ):
+def processObstacles( obstacles, vertObstMap, vertNodeMap, navMesh ):
     '''Given a list of Obstacle instances, connects the obstacles into sequences such that each obstacle
-    points to the appropriate "next" obstacle.  Finally, sets the obstacles to the navigation mesh.'''
-##    # The obstacle is simply an ordered list of vertex indices
-##    #   The order depends on which side of the obstacle is free space
-##    #   Counter-clockwise --> outside is freespace, clockwise --> inside is freespace
-##    #   It is assumed that all obstacles are closed
-##    vertMap = {}
-##    for i, edge in enumerate( edges ):
-##        v0, v1 = edge
-##        if ( vertMap.has_key( v0 ) ):
-##            vertMap[ v0 ].append( i )
-##        else:
-##            vertMap[ v0 ] = [ i ]
-##        if ( vertMap.has_key( v1 ) ):
-##            vertMap[ v1 ].append( i )
-##        else:
-##            vertMap[ v1 ] = [ i ]
-##    # furthermore, every vertex should have an EVEN number of incident edges
-##    #   Each obstacle boundary is a unique loop.  An edge in requires a unique
-##    #   edge out.  The only way out of that is if a single edge was used in two
-##    #   loops, which is impossible as that would require an edge connected to NO
-##    #   faces (or badly constructed geometry)
-##    #
-##    # This implicitly catches the case where there is an open vertex (i.e.
-##    #   degree == 1 --> degree is odd
-##    # And I'm not testing for the case where degree is zero, because that is
-##    #   impossible.  A vertex wouldn't be entered into the list if it wasn't part
-##    #   of an edge
-##    degrees = map( lambda x: len( x ), vertMap.values() )
-##    assert( sum( map( lambda x: x % 2, degrees ) ) == 0 )
-##
-##    obstacles = []
-##
-##    while ( vertMap ):
-##        o, e = startObstacle( vertMap, edges, obstacles )
-##        assert( growObstacle( o, [e], edges, vertMap ) )
-##
-##    return obstacles
+    points to the appropriate "next" obstacle.  Assigns obstacles to nodes based on vertex.
+    Finally, sets the obstacles to the navigation mesh.'''
+
     # I'm assuming that the external edges form perfect, closed loops
     #   That means if a vertex is incident to an obstacle, then it must be incident to two and only
     #   two obstacles.  This tests that assumption
@@ -177,9 +143,13 @@ def processObstacles( obstacles, vertObstMap, navMesh ):
             obst1.next = o0
         else:
             obst0.next = o1
+        # The obstacle should be in the set of every node built on this vertex
+        for node in vertNodeMap[ vertID ]:
+            node.addObstacle( o0 )
+            node.addObstacle( o1 )
 
     # all obstacles now have a "next" obstacle
-    assert( len( filter( lambda x: x.next == -1, obstacles ) ) == 0 )            
+    assert( len( filter( lambda x: x.next == -1, obstacles ) ) == 0 )
         
     navMesh.obstacles = obstacles
     
@@ -195,6 +165,7 @@ def buildNavMesh( objFile ):
     navMesh = NavMesh()
     V = objFile.vertSet
     navMesh.vertices = projectVertices( V )
+    vertNodeMap = {}    # maps a vertex index to all nodes that are incident to it
     edges = []
     # a dicitionary mapping an edge definition to the faces that are incident to it
     #   an "edge definition" is a two tuple of ints (a, b) such that:
@@ -217,6 +188,10 @@ def buildNavMesh( objFile ):
         for v in xrange( vCount ):
             # build the matrix for this mesh
             vIdx = face.verts[ v ] - 1
+            if ( not vertNodeMap.has_key( vIdx ) ):
+                vertNodeMap[ vIdx ] = [ node ]
+            else:
+                vertNodeMap[ vIdx ].append( node )
             vert = V[ vIdx ]
             X += vert.x
             Z += vert.z
@@ -273,7 +248,7 @@ def buildNavMesh( objFile ):
     # for each external edge, make sure the "winding" is opposite that of the face
     obstacles = []
     vertObstMap = {}    # mapping from vertex to the obstacles that are incident to the vertex
-    for e in external:
+    for i, e in enumerate( external ):
         f, face = edgeMap[ e ][0]
         v0, v1 = e
 
@@ -299,7 +274,7 @@ def buildNavMesh( objFile ):
             o.v1 = v0
         obstacles.append( o )
              
-    processObstacles( obstacles, vertObstMap, navMesh )
+    processObstacles( obstacles, vertObstMap, vertNodeMap, navMesh )
 
     print "Found %d obstacles" % len( obstacles )
 ##    for o in obstacles:

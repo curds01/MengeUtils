@@ -21,6 +21,11 @@ class Node:
         '''Given the index of an internal edge, adds the edge to the definition'''
         self.edges.append( edgeID )
 
+    def addObstacle( self, obstID ):
+        '''Given the index of an obstacle edge, adds the obstacle to the definition'''
+        if ( obstID not in self.obstacles ):
+            self.obstacles.append( obstID )
+
     def toString( self, ascii=True ):
         '''Output the node data to a string'''
         if ( ascii ):
@@ -42,16 +47,6 @@ class Node:
         for obst in self.obstacles:
             s += ' %d' % ( obst )
         return s
-        
-##        s = '\n%d' % len( self.poly.verts )
-##        for v in self.poly.verts:
-##            s += ' %d' % ( v - 1 )
-##        s += '\n\t%.5f %.5f %.5f' % ( self.A, self.B, self.C )
-##        s += '\n\t%.5f %.5f' % ( self.center.x, self.center.y )
-##        s += '\n\t%d' % len( self.edges )
-##        for edge in self.edges:
-##            s += ' %d' % ( edge )
-##        return s
 
     def binaryString( self ):
         '''Output the node data to a binary string'''
