@@ -846,9 +846,8 @@ class FieldStrokeContext( VFieldContext ):
                         self.setBrushSize( self.brushSize + 0.5 )
                         result.set( True, True )
                     elif ( event.key == pygame.K_DOWN ):
-                        if ( self.brushSize > 0.5 ):
-                            self.setBrushSize( self.brushSize - 0.5 )
-                            result.set( True, True )
+                        self.setBrushSize( max( self.brushSize - 0.5, 0.1 ) )
+                        result.set( True, True )
         return result
 
     def handleMouse( self, event, view ):
