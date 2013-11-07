@@ -323,7 +323,10 @@ def computeFlow( frameSet, segments, outFileName, names=None ):
     # note: I'm doing this strange syntax so that they are Nx1 arrays (instead of just N arrays)
     #   this makes the broadcasting work better.
     pX = frame[:, :1 ]
-    pY = frame[:, 1:2 ]
+    if ( frameSet.is3D ):
+        pY = frame[:, 2:3 ]
+    else:
+        pY = frame[:, 1:2 ]
 
     # SDIST: an N x M array.  The cell[i, j] reports if agent i is on the right side of
     #   segment j to cross it (according to indicated flow direction)
@@ -350,7 +353,10 @@ def computeFlow( frameSet, segments, outFileName, names=None ):
             frameIDs = map( lambda x: ids[ x ], xrange( frame.shape[0] ) )
         # compute crossability for the current frame
         pX = frame[:, :1 ]
-        pY = frame[:, 1:2 ]
+        if ( frameSet.is3D ):
+            pY = frame[:, 2:3 ]
+        else:
+            pY = frame[:, 1:2 ]
 ##        if ( idx > 30 and idx < 40 ):
 ##            print "Frame:", idx
 ##            print "\tAgents in frame: ", frameIDs
@@ -402,6 +408,10 @@ def computePopulation( frameSet, rectDomains, outFileName, names=None ):
     # write names
     outFile.write( '# %s\n' % '~'.join( names ) )
     frameSet.setNext( 0 )
+    X_COL_LIMIT = 1
+    Y_COL = 1
+    if ( frameSet.is3D ):
+        Y_COL = 2
     
     # pre-compute max corner to facilitate the test    
     for i, rect in enumerate( rectDomains ):
@@ -419,8 +429,8 @@ def computePopulation( frameSet, rectDomains, outFileName, names=None ):
             frameIDs = map( lambda x: ids[ x ], xrange( frame.shape[0] ) )
         # compute crossability for the current frame
         
-        pX = frame[:, :1 ]
-        pY = frame[:, 1:2 ]
+        pX = frame[:, :X_COL_LIMIT ]
+        pY = frame[:, Y_COL:Y_COL+1 ]
 
         # the number of agents in each rect
         population = np.zeros( rectCount, dtype=np.int )
@@ -466,20 +476,23 @@ def framesInRegion( region, data ):
         except StopIteration:
             break
         IDs = data.getFrameIds()  # a mapping from frame ID to data ID
-        isInside = region.pointsInside( frame[:, :2 ] )
+        posData = frame[:, :2 ]
+        if ( data.is3D ):
+            posData = frame[:, :3:2 ]
+        isInside = region.pointsInside( posData )
         for fID, state in enumerate( isInside ):
             simID = IDs[ fID ]
             if ( state ):
                 if ( not inRegion.has_key( simID ) ):
                     inRegion[ simID ] = idx
-                    enterPt[ simID, : ] = frame[ fID, :2 ]
+                    enterPt[ simID, : ] = posData[ fID, : ]
             else:
                 if ( inRegion.has_key( simID ) ):
                     enter = inRegion.pop( simID )
                     elapsed = idx - enter
                     if ( elapsed > agtTime[ simID, 1 ] ):
                         agtTime[ simID, : ] = ( enter, elapsed )
-                        exit = frame[ fID, :2 ]
+                        exit = posData[ fID, : ]
                         delta = exit - enterPt[ simID, : ]
                         distSq = np.dot( delta, delta )
                         distance[ simID ] = distSq
@@ -613,18 +626,44 @@ def plotFundDiag( outFileName, rectDomains, names=None ):
         plt.xlabel( 'Density (people/m$^2$)' )
         plt.ylabel( 'Speed (m/s)' )
         figName, ext = os.path.splitext( fdFileName )
+        plt.ylim( (0.0, 2.0) )
         plt.savefig( figName + '.eps' )
         plt.savefig( figName + '.png' )
         plt.clf()
+
+        plt.title( 'Fundamental Diagram - %s' % displayNames[ i ] )
+        plt.plot( fdData[:,0], fdData[:,0] * fdData[:,1], 'ob' )
+        plt.xlabel( 'Density (people/m$^2$)' )
+        plt.ylabel( 'Flow (speed * density)' )
+        figName, ext = os.path.splitext( fdFileName )
+        plt.savefig( figName + '_flow_.eps' )
+        plt.savefig( figName + '_flow_.png' )
+        plt.clf()
+        
     plt.title( 'Fundamental Diagram - All Regions' )
     plt.xlabel( 'Density (people/m$^2$)' )
     plt.ylabel( 'Speed (m/s)' )
+    plt.ylim( (0.0, 2.0) )
     if ( len( rectDomains ) > 0 ):
         for data in regions:
             plt.plot( data[:,0], data[:,1], 'o' )
         plt.legend( legendStr )
         plt.savefig( outFileName + '.eps' )
         plt.savefig( outFileName + '.png' )
+
+    plt.clf()
+    plt.title( 'Fundamental Diagram - All Regions' )
+    plt.xlabel( 'Density (people/m$^2$)' )
+    plt.ylabel( 'Flow (speed * density)' )
+##    plt.ylim( (0.0, 2.0) )
+    if ( len( rectDomains ) > 0 ):
+        for data in regions:
+            plt.plot( data[:,0], data[:,0] * data[:,1], 'o' )
+        plt.legend( legendStr )
+        plt.savefig( outFileName + '_flow_.eps' )
+        plt.savefig( outFileName + '_flow_.png' )
+
+
     
 def computeFlowLines( center, lines, frameSet ):
     """Computes the flow of agents past the various lines"""
