@@ -235,6 +235,7 @@ class SCBContext( PGContext ):
             self.scbData = scbData.NPFrameSet( fileName )
             self.currFrame, self.currFrameID = self.scbData.next()
             self.classes = self.scbData.getClasses()
+            self.is3D = self.scbData.is3D
 
     def drawAgents( self, view ):
         if ( self.scbData ):
@@ -268,14 +269,21 @@ class SCBContext( PGContext ):
         COLOR_STRIDE = self.COLOR_COUNT / CLASS_COUNT
         keys = self.classes.keys()
         keys.sort()
+        
+        if ( self.is3D ):
+            pos = self.currFrame[ :, :3:2 ]
+        else:
+            pos = self.currFrame[ :, :2 ]
+
         for i, idClass in enumerate( keys ):
             color = self.COLORS[ ( i * COLOR_STRIDE ) % self.COLOR_COUNT ]
             glColor3f( color[0], color[1], color[2] )
             glBegin( GL_POINTS )
             for idx in self.classes[ idClass ]:
-                x, y = self.currFrame[ idx, :2 ]
+                x, y = pos[ idx, : ]
                 glVertex2f( x, y )
             glEnd()
+
         self.drawHighlighted( view )
         glPopAttrib()
 
