@@ -17,7 +17,8 @@ class SCBVersion:
     V2_1 = '2.1'
     V2_2 = '2.2'
     V2_3 = '2.3'
-    VERSIONS = [ V1, V2_0, V2_1, V2_2, V2_3 ]
+    V2_4 = '2.4'
+    VERSIONS = [ V1, V2_0, V2_1, V2_2, V2_3, V2_4 ]
 
     @staticmethod
     def versionList():
@@ -162,6 +163,8 @@ class FrameSet:
         frameStep dictates the stride of between returned frames."""
         # TODO: self.maxFrames isn't currently USED!!!
         # version 2.0 data
+        self.is3D = False
+        self.hasScalarOrient = True
         if ( not self.isValid( scbFile ) ):
             raise SCBError
         self.ids = []       # in scb2.0 we support ids for each agent.
@@ -176,16 +179,18 @@ class FrameSet:
         self.version = self.file.read( 4 )[:-1]
         if verbose:
             print "SCB file version:", self.version
-        if ( self.version == '1.0' ):
+        if ( self.version == SCBVersion.V1 ):
             self.readHeader1_0( scbFile )
-        elif ( self.version == '2.0' ):
+        elif ( self.version == SCBVersion.V2_0 ):
             self.readHeader2_0( scbFile )
-        elif ( self.version == '2.1' ):
+        elif ( self.version == SCBVersion.V2_1 ):
             self.readHeader2_1( scbFile )
-        elif ( self.version == '2.2' ):
+        elif ( self.version == SCBVersion.V2_2 ):
             self.readHeader2_2( scbFile )
-        elif ( self.version == '2.3' ):
+        elif ( self.version == SCBVersion.V2_3 ):
             self.readHeader2_3( scbFile )
+        elif ( self.version == SCBVersion.V2_4 ):
+            self.readHeader2_4( scbFile )
         else:
             raise AttributeError, "Unrecognized scb version: %s" % ( version )
 
@@ -234,7 +239,7 @@ class FrameSet:
         f = open( fileName, 'rb' )
         data = f.read( 4 )
         version = data[:-1]
-        valid = version in ( '1.0', '2.0', '2.1', '2.2', '2.3' ) and data[-1] == '\x00'
+        valid = version in SCBVersion.VERSIONS and data[-1] == '\x00'
         f.close()
         return valid
 
@@ -312,6 +317,22 @@ class FrameSet:
             
             The header information is exactly the same.
         '''
+        self.hasScalarOrient = False
+        self.readHeader2_0( scbFile )
+        self.agentByteSize = 16
+
+    def readHeader2_4( self, scbFile ):
+        '''The 2.4 header is the same as 2.0.  But the per-agent data is a bit different
+        from 2.0; the trajectory is 3D.  The trajectories are defined in a y-up world.
+        The per-agent data consists of FOUR values:
+            1. float: x position
+            2. float: y position    (the elevation)
+            3. float: z position    (the y position in previous versions)
+            4. float: orientation   (in radians)
+            
+            The header information is exactly the same.
+        '''
+        self.is3D = True
         self.readHeader2_0( scbFile )
         self.agentByteSize = 16
 
@@ -404,20 +425,22 @@ class FrameSet:
     def hasStateData( self ):
         '''Reports if the scb data contains state data'''
         #TODO: This might evolve
-        return self.version == '2.1' or self.version == '2.2'
+        return self.version == SCBVersion.V2_1 or self.version == SCBVersion.V2_2
 
     def getHeader( self, targetAgent=-1 ):
         '''Returns a binary string representing the header of this data set'''
-        if ( self.version == '1.0' ):
+        if ( self.version == SCBVersion.V1 ):
             return self.getHeader1_0( targetAgent )
-        elif ( self.version == '2.0' ):
+        elif ( self.version == SCBVersion.V2_0 ):
             return self.getHeader2_0( targetAgent )
-        elif ( self.version == '2.1' ):
+        elif ( self.version == SCBVersion.V2_1 ):
             return self.getHeader2_1( targetAgent )
-        elif ( self.version == '2.2' ):
+        elif ( self.version == SCBVersion.V2_2 ):
             return self.getHeader2_2( targetAgent )
-        elif ( self.version == '2.3' ):
+        elif ( self.version == SCBVersion.V2_3 ):
             return self.getHeader2_3( targetAgent )
+        elif ( self.version == SCBVersion.V2_4 ):
+            return self.getHeader2_4( targetAgent )
 
     def getHeader1_0( self, targetAgent ):
         '''Produces a header for version 1.0 of this data'''
@@ -450,15 +473,19 @@ class FrameSet:
 
     def getHeader2_1( self, targetAgent ):
         '''Produces a header for version 2.1 of this data'''
-        return self.getHeader2Style( '2.1\x00', targetAgent )
+        return self.getHeader2Style( '%s\x00' % SCBVersion.V2_1, targetAgent )
 
     def getHeader2_2( self, targetAgent ):
         '''Produces a header for version 2.2 of this data'''
-        return self.getHeader2Style( '2.2\x00', targetAgent )
+        return self.getHeader2Style( '%s\x00' % SCBVersion.V2_2, targetAgent )
 
     def getHeader2_3( self, targetAgent ):
         '''Produces a header for version 2.3 of this data'''
-        return self.getHeader2Style( '2.3\x00', targetAgent )
+        return self.getHeader2Style( '%s\x00' % SCBVersion.V2_3, targetAgent )
+
+    def getHeader2_4( self, targetAgent ):
+        '''Produces a header for version 2.4 of this data'''
+        return self.getHeader2Style( '%s\x00' % SCBVersion.V2_4, targetAgent )
 
     def write( self, output ):
         '''Writes this data to the target file'''
@@ -661,16 +688,18 @@ def writeNPSCB( fileName, array, frameSet, version='1.0' ):
     isn't satisifed by M, an exception (ValueError) is raised."""
     print "Writing %s with %d agents and %d frames" % ( fileName, array.shape[0], array.shape[2] )
     print "Writing version %s" % ( version )
-    if ( version == '1.0' ):
+    if ( version == SCBVersion.V1 ):
         _writeNPSCB_1_0( fileName, array )
-    elif ( version == '2.0' ):
+    elif ( version == SCBVersion.V2_0 ):
         _writeNPSCB_2_0( fileName, array, frameSet )
-    elif ( version == '2.1' ):
+    elif ( version == SCBVersion.V2_1 ):
         _writeNPSCB_2_1( fileName, array, frameSet )
-    elif ( version == '2.2' ):
+    elif ( version == SCBVersion.V2_2 ):
         _writeNPSCB_2_2( fileName, array, frameSet )
-    elif ( version == '2.3' ):
+    elif ( version == SCBVersion.V2_3 ):
         _writeNPSCB_2_3( fileName, array, frameSet )
+    elif ( version == SCBVersion.V2_4 ):
+        _writeNPSCB_2_4( fileName, array, frameSet )
     else:
         raise Exception, "Invalid write version for data: %s" % ( version )
     
@@ -680,7 +709,7 @@ def _writeNPSCB_1_0( fileName, array ):
     if ( array.shape[1] < 3 ):
         raise ValueError, "Version 1.0 requires three floats per agent"
     f = open( fileName, 'wb' )
-    f.write( '1.0\x00' )
+    f.write( '%s\x00' % SCBVersion.V1 )
     f.write( struct.pack( 'i', array.shape[0] ) )
     for frame in range( array.shape[2] ):
         f.write( array[:,:3,frame].tostring() )
@@ -720,19 +749,23 @@ def _writeNPSCB_2( fileName, array, frameSet, version, fieldCount ):
 
 def _writeNPSCB_2_0( fileName, array, frameSet ):
     """Given an N X 3 X K array, writes out a version 1.0 scb file with the given data"""
-    _writeNPSCB_2( fileName, array, frameSet, '2.0\x00', 3 )
+    _writeNPSCB_2( fileName, array, frameSet, '%s\x00' % SCBVersion.V2_0, 3 )
   
 def _writeNPSCB_2_1( fileName, array, frameSet ):
     """Given an N X 4 X K array, writes out a version 1.0 scb file with the given data"""
-    _writeNPSCB_2( fileName, array, frameSet, '2.1\x00', 4 )
+    _writeNPSCB_2( fileName, array, frameSet, '%s\x00' % SCBVersion.V2_1, 4 )
 
 def _writeNPSCB_2_2( fileName, array, frameSet ):
     """Given an N X 8 X K array, writes out a version 1.0 scb file with the given data"""
-    _writeNPSCB_2( fileName, array, frameSet, '2.2\x00', 8 )
+    _writeNPSCB_2( fileName, array, frameSet, '%s\x00' % SCBVersion.V2_2, 8 )
 
 def _writeNPSCB_2_3( fileName, array, frameSet ):
     """Given an N X 4 X K array, writes out a version 1.0 scb file with the given data"""
-    _writeNPSCB_2( fileName, array, frameSet, '2.3\x00', 4 )
+    _writeNPSCB_2( fileName, array, frameSet, '%s\x00' % SCBVersion.V2_3, 4 )
+
+def _writeNPSCB_2_4( fileName, array, frameSet ):
+    """Given an N X 4 X K array, writes out a version 1.0 scb file with the given data"""
+    _writeNPSCB_2( fileName, array, frameSet, '%s\x00' % SCBVersion.V2_4, 4 )
 
     
 def testNP():
