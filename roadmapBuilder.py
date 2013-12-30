@@ -14,7 +14,7 @@ from obstacles import *
 from vField import GLVectorField
 
 # contexts
-from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext
+from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext, PositionContext
 from Context import ContextResult
 
 NO_EDIT = 0
@@ -41,7 +41,8 @@ def handleKey( event, context, view, theGraph, obstacles, agents, field ):
             print theGraph
         elif ( event.key == pygame.K_s and hasCtrl ):
             if ( editState == GRAPH_EDIT ):
-                f = open( paths.getPath( 'graph.txt', False ), 'w' )
+                fileName = paths.getPath( 'graph.txt', False )
+                f = open( fileName, 'w' )
                 f.write( '%s\n' % theGraph.newAscii() )
                 f.close()
                 print "Graph saved!", fileName
@@ -418,6 +419,7 @@ def main():
 ##    field = None
 
     context = ContextSwitcher()
+    context.addContext( PositionContext(), pygame.K_q )
     context.addContext( AgentContext( agents, obstacles ), pygame.K_a )
     if ( field ):
         context.addContext( FieldEditContext( field ), pygame.K_f )

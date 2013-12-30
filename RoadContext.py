@@ -516,7 +516,24 @@ class SCBContext( PGContext ):
         surface.write_to_png( fName + '.png' )
         cr.show_page()
         surface.finish()
-        
+
+class PositionContext( PGContext, MouseEnabled ):
+    '''A context for determining positions in the scene'''
+    HELP_TEXT = ''
+    def __init__( self ):
+        PGContext.__init__( self )
+        MouseEnabled.__init__( self )
+
+    def handleMouse( self, event, view ):
+        """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
+        result = ContextResult()
+        if ( event.type == pygame.MOUSEBUTTONDOWN ):
+            if ( event.button == LEFT ):
+                self.downX, self.downY = event.pos
+                dX, dY = view.screenToWorld( ( self.downX, self.downY ) )
+                print "World position: %f %f" % ( dX, dY )        
+        return result
+
 class AgentContext( PGContext, MouseEnabled ):
     '''A context for adding agents-goal pairs and editing existing pairs'''
     HELP_TEXT = 'Agent context' + \
