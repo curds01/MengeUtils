@@ -14,7 +14,7 @@ from obstacles import *
 from vField import GLVectorField
 
 # contexts
-from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext, PositionContext
+from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext, PositionContext, GoalContext
 from Context import ContextResult
 
 NO_EDIT = 0
@@ -420,6 +420,7 @@ def main():
 
     context = ContextSwitcher()
     context.addContext( PositionContext(), pygame.K_q )
+    context.addContext( GoalContext(), pygame.K_g )
     context.addContext( AgentContext( agents, obstacles ), pygame.K_a )
     if ( field ):
         context.addContext( FieldEditContext( field ), pygame.K_f )
