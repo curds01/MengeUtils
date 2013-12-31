@@ -171,8 +171,8 @@ class ContextSwitcher( PGContext ):
 class MouseEnabled:
     '''A set of functionality for context which use the mouse'''
     def __init__( self ):
-        self.downX = 0
-        self.downY = 0
+        self.downX = 0      # the screen space coordinates where the mouse was pressed (x)
+        self.downY = 0      # the screen space coordinates where the mouse was pressed (x)
         self.dragging = False
 
 class SCBContext( PGContext ):
@@ -519,7 +519,11 @@ class SCBContext( PGContext ):
 
 class PositionContext( PGContext, MouseEnabled ):
     '''A context for determining positions in the scene'''
-    HELP_TEXT = ''
+    HELP_TEXT = 'Position Context' + \
+                '\n\tAllows the user to query world space coordinates' + \
+                '\n\tSimply click on the window, the world space coordinates' + \
+                '\n\twill be printed to the console'
+    
     def __init__( self ):
         PGContext.__init__( self )
         MouseEnabled.__init__( self )
@@ -531,7 +535,7 @@ class PositionContext( PGContext, MouseEnabled ):
             if ( event.button == LEFT ):
                 self.downX, self.downY = event.pos
                 dX, dY = view.screenToWorld( ( self.downX, self.downY ) )
-                print "World position: %f %f" % ( dX, dY )        
+                print "World position: %f %f" % ( dX, dY )
         return result
 
 class AgentContext( PGContext, MouseEnabled ):
