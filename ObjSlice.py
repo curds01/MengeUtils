@@ -1,5 +1,5 @@
 from ObjReader import ObjFile
-from math import sqrt, atan2, acos
+from math import sqrt, atan2, acos, asin
 from primitives import Vector3, Vector2
 from primitives import Segment as AltSegment    # I need to merge my segments
 import sys
@@ -200,6 +200,11 @@ class Segment:
         
 class Polygon:
     """A polygon -- i.e. shape made up of segments with common vertices"""
+    #winding
+    NO_WINDING = 0
+    CCW = 1
+    CW = 2
+    
     class SegmentIterator:
         '''An iterator through the segments of this polygon'''
         def __init__( self, poly ):
@@ -226,6 +231,17 @@ class Polygon:
         # TODO: A polygon that isn't closed isn't a polygon
         #   I should have two different constructs: polyline (for open) and polygon (for closed)
         self.closed = False
+        self.winding = self.NO_WINDING
+
+    def setWinding( self, upDirection ):
+        '''Sets the winding parameter.
+
+        @param      upDirection         
+        '''
+        if ( self.isCCW( upDirection ) ):
+            self.winding = self.CCW
+        else:
+            self.winding = self.CW
 
     def __str__( self ):
         s = "Polygon"
@@ -250,7 +266,7 @@ class Polygon:
         pass
 
     def flipY( self ):
-        """Flips the y-values of the polygon (and reverses the order"""
+        """Flips the y-values of the polygon (and reverses the order)"""
         newVerts = []
         while ( self.vertices ):
             v = self.vertices.pop( -1 )
@@ -283,19 +299,38 @@ class Polygon:
             # winding doesn't matter for line segments
             return True
         turning = 0
-        for i in range( -2, len( self.vertices ) - 2 ):
-            v1 = self.vertices[ i + 1 ] - self.vertices[ i ]
-            v2 = self.vertices[ i + 2 ] - self.vertices[i + 1]
-            dot = v1.dot( v2 )
-            c = v1.cross( v2 ).dot( upDirection )
-            turning += atan2( c, dot )
+        if ( isinstance( self.vertices[ 0 ], Vector2 ) ):
+            for i in range( -2, len( self.vertices ) - 2 ):
+                v1 = self.vertices[ i + 1 ] - self.vertices[ i ]
+                v1.normalize_ip()
+                v2 = self.vertices[ i + 2 ] - self.vertices[i + 1]
+                v2.normalize_ip()
+                turning += asin( v1.det(v2) )
+        else:
+            for i in range( -2, len( self.vertices ) - 2 ):
+                v1 = self.vertices[ i + 1 ] - self.vertices[ i ]
+                v1.normalize_ip()
+                v2 = self.vertices[ i + 2 ] - self.vertices[i + 1]
+                v2.normalize_ip()
+                dot = v1.dot( v2 )
+                c = v1.cross( v2 ).dot( upDirection )
+                turning += atan2( c, dot )
         return turning < 0
         
     
     def fixWinding( self, upDirection ):
         """Forces the vertices to be ordered in counter-clockwise order"""
         if ( not self.isCCW( upDirection ) ):
+            self.winding = self.CCW
             self.vertices = self.vertices[ ::-1 ]
+
+    def reverseWinding( self ):
+        '''Reverses the winding of the polygon'''
+        self.vertices = self.vertices[ ::-1 ]
+        if ( self.winding == self.CCW ):
+            self.winding = self.CW
+        elif ( self.winding == self.CW ):
+            self.winding = self.CCW
 
     def merge( self ):
         """Removes co-linear vertices from polygon"""
