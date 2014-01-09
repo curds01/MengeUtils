@@ -11,9 +11,10 @@ class GLPoly ( Polygon ):
         self.vStart = 0         # the index at which select values for vertices starts
         self.eStart = 0         # the index at which select values for edges starts
 
-    def drawGL( self, select=False, selectEdges=False, editable=False ):
+    def drawGL( self, select=False, selectEdges=False, editable=False, drawNormals=False ):
         if ( self.winding == Polygon.NO_WINDING ):
             self.updateWinding()
+
         if ( self.closed == False ):
             if ( editable ):
                 glColor3f( 0.0, 0.8, 0.0 )
@@ -65,7 +66,7 @@ class GLPoly ( Polygon ):
                 glVertex3f( v.x, v.y, 0 )
                 glEnd()   
         # normals
-        if ( not select ):
+        if ( drawNormals and not select ):
             glColor3f( normColor[0], normColor[1], normColor[2] )
             glBegin( GL_LINES )
             for i in range( self.vertCount() - 1):
@@ -86,7 +87,12 @@ class GLPoly ( Polygon ):
                 glVertex3f( end.x, end.y, 0 )
                 glVertex3f( mid.x, mid.y, 0 )
             glEnd()
+
+    def updateWinding( self ):
+        '''Updates the winding'''
+        self.setWinding( Vector3( 0.0, 1.0, 0.0 ) )
         
+    
 Obstacle = GLPoly
 
 class ObstacleSet:
@@ -95,7 +101,8 @@ class ObstacleSet:
         self.vertCount = 0
         self.polys = []
         self.activeVert = None
-        self.activeEdge = None        
+        self.activeEdge = None
+        self.visibleNormals = False
 
     def sjguy( self ):
         s = '%d\n' % ( self.edgeCount )
@@ -148,7 +155,7 @@ class ObstacleSet:
         glDisable( GL_DEPTH_TEST )
         
         for o in self.polys:
-            o.drawGL( select, selectEdges, editable )
+            o.drawGL( select, selectEdges, editable, self.visibleNormals )
         # now highlight selected elements
         if ( self.activeVert or self.activeEdge ):
             if ( self.activeVert ):
