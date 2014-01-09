@@ -1,5 +1,5 @@
 from ObjSlice import AABB, Segment, Polygon
-from primitives import Vector3
+from primitives import Vector3, Vector2
 # sax parser for obstacles
 from xml.sax import make_parser, handler
 
@@ -14,8 +14,10 @@ class GLPoly ( Polygon ):
     def drawGL( self, select=False, selectEdges=False, editable=False ):
         if ( editable ):
             glColor3f( 0.8, 0.0, 0.0 )
+            normColor = ( 0.1, 0.5, 0.5 )
         else:
             glColor3f( 0.4, 0.0, 0.0 )
+            normColor = ( 0.05, 0.25, 0.25 )
 
         if ( selectEdges or not select or editable ):        
             for i in range( self.vertCount() - 1):
@@ -45,7 +47,29 @@ class GLPoly ( Polygon ):
                 glBegin( GL_POINTS )
                 glVertex3f( v.x, v.y, 0 )
                 glEnd()   
+        # normals
+        if ( not select ):
+            glColor3f( normColor[0], normColor[1], normColor[2] )
+            glBegin( GL_LINES )
+            for i in range( self.vertCount() - 1):
+                v1 = self.vertices[i]
+                v2 = self.vertices[i+1]
+                mid = ( v1 + v2 ) / 2.0
+                dir = v2 - v1
+                end = Vector2( dir.y, -dir.x ).normalize() + mid
+                glVertex3f( end.x, end.y, 0 )
+                glVertex3f( mid.x, mid.y, 0 )
 
+            if ( self.closed ):
+                v1 = self.vertices[-1]
+                v2 = self.vertices[0]
+                mid = ( v1 + v2 ) / 2.0
+                dir = v2 - v1
+                end = Vector2( dir.y, -dir.x ).normalize() + mid
+                glVertex3f( end.x, end.y, 0 )
+                glVertex3f( mid.x, mid.y, 0 )
+            glEnd()
+        
 Obstacle = GLPoly
 
 class ObstacleSet:
