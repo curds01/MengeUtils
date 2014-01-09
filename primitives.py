@@ -44,6 +44,11 @@ class Vector2:
     def __rmul__( self, s ):
         return Vector2( self.x * s, self.y * s )
 
+    def normalize_ip( self ):
+        lenRecip = 1.0 / self.magnitude()
+        self.x *= lenRecip
+        self.y *= lenRecip
+
     def normalize( self ):
         """Returns a normalized version of the vector"""
         mag = self.magnitude()
