@@ -148,6 +148,9 @@ class Vector3:
         self.y *= s
         self.z *= s
         return self
+
+    def __add__( self, v ):
+        return Vector3( self.x + v.x, self.y + v.y, self.z + v.z )
     
     def __iadd__( self, v ):
         self.x += v.x
