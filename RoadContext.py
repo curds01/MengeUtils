@@ -7,6 +7,7 @@ import numpy as np
 from OpenGL.GL import *
 import trajectory.scbData as scbData
 from primitives import Vector2
+from obstacles import GLPoly
 import paths
 try:
     import cairo
@@ -538,6 +539,263 @@ class PositionContext( PGContext, MouseEnabled ):
                 print "World position: %f %f" % ( dX, dY )
         return result
 
+# Ideas
+#   1) Load a reference obj that can be drawn on top
+#   2) Create multiple obstacle sets (using one as reference to the other)
+#   3) Display grid, snap to grid
+#
+# Plan
+#
+#   Create polygons/polylines
+#       polygons are, defacto closed
+#       switch modes between polygons/lines
+#       Start polygon, left-click, left-click, right to end
+#
+#   Edit obstacles
+#       - delete vertex
+#       - delete edge (connection)
+#       - connect vertices (make edge)
+#       - create vertex
+#       - create and connect
+class ObstacleContext( PGContext, MouseEnabled ):
+    '''A context for creating and editing obstacles'''
+    BASE_TEXT = 'Obstacle Context' + \
+                '\n\tAllows the creation and editing of obstacles\n' + \
+                '\n\tn            Toggle normal drawing' + \
+                '\n\t0            Do nothing' + \
+                '\n\t1            Create polygons' + \
+                '\n\tCtrl+s       Save the obstacle file to "obstacles.xml"'
+
+    NO_ACTION = 0
+    NEW_POLY = 1
+    NEW_LINE = 2
+    
+    def __init__( self, obstacleSet ):
+        '''Constructor.
+
+        @param obstacleSet          An instance of an ObstacleSet.  
+        '''        
+        PGContext.__init__( self )
+        MouseEnabled.__init__( self )
+        self.obstacleSet = obstacleSet
+        self.state = self.NEW_POLY
+        self.contexts = { self.NO_ACTION:ObstacleNullContext(),
+                          self.NEW_POLY:DrawPolygonContext(),
+                          }
+        self.drawNormal = False     # determines if normals are drawn on the obstacles
+
+    def activate( self ):
+        '''Called when the context is first activated'''
+        self.setState( self.state, True )
+        
+    def drawGL( self, view ):
+        '''Draws the current rectangle to the open gl context'''
+        # assumes obstacles are already being drawn by the scene -
+        #   merely needs to draw current obstacle and decorations
+        PGContext.drawGL( self, view )
+        self.contexts[ self.state ].drawGL( view, self.drawNormal )
+
+    def setState( self, newState, force=False ):
+        '''Sets the contexts new activity state'''
+        if ( self.state != newState or force ):
+            self.contexts[ self.state ].deactivate()
+            self.state = newState
+            self.contexts[ self.state ].activate()
+            self.HELP_TEXT = self.BASE_TEXT + '\n\n' + self.contexts[ self.state ].HELP_TEXT
+            
+        
+    def handleKeyboard( self, event, view ):
+        """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
+        result = PGContext.handleKeyboard( self, event, view )
+        
+        if ( not result.isHandled() ):
+            result = self.contexts[ self.state ].handleKeyboard( event, view )
+            if ( not result.isHandled() ):
+                mods = pygame.key.get_mods()
+                hasCtrl = mods & pygame.KMOD_CTRL
+                hasAlt = mods & pygame.KMOD_ALT
+                hasShift = mods & pygame.KMOD_SHIFT
+                noMods = not( hasShift or hasCtrl or hasAlt )
+
+                if ( event.type == pygame.KEYDOWN ):
+                    if ( event.key == pygame.K_0 and noMods ):
+                        result.set( True, self.state != self.NO_ACTION )
+                        self.setState( self.NO_ACTION )
+                    elif ( event.key == pygame.K_1 and noMods ):
+                        result.set( True, self.state != self.NEW_POLY )
+                        self.setState( self.NEW_POLY )
+                    elif ( event.key == pygame.K_n and noMods ):
+                        self.drawNormal = not self.drawNormal
+                        self.obstacleSet.visibleNormals = self.drawNormal
+                        result.set( True, True )
+                    elif ( self.obstacleSet and event.key == pygame.K_s and hasCtrl ):
+                        path = paths.getPath( 'obstacles.xml', False )
+                        print "Writing obstacles to:", path
+                        f = open( path, 'w' )
+                        f.write ('''<?xml version="1.0"?>
+<Experiment time_step="0.05" >
+''')
+                        f.write( '%s' % self.obstacleSet.xml() )
+                        f.write( '\n</Experiment>' )
+                        f.close()
+                        result.set( True, False )
+        return result    
+
+    def handleMouse( self, event, view ):
+        """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
+        result = PGContext.handleMouse( self, event, view )
+
+        if ( not result.isHandled() ):
+            result = self.contexts[ self.state ].handleMouse( event, view )
+            if ( result.isFinished() ):
+                print "Action finished!\n"
+                if ( self.state == self.NEW_POLY ):
+                    print "Adding polygon to obstacle set:", self.contexts[ self.state ].polygon
+                    self.obstacleSet.append( self.contexts[ self.state ].polygon )
+                    
+        return result
+
+class ObstacleNullContext( PGContext ):
+    '''A simple context for indicating no action is being taken'''
+    HELP_TEXT = 'No action'
+
+    def drawGL( self, view, visNormals ):
+        '''Draws the agent context into the view'''
+        PGContext.drawGL( self, view )
+        view.printText( "No action",  (10,30) )
+    
+class DrawPolygonContext( PGContext, MouseEnabled ):
+    '''A context for drawing a closed polygon'''
+    HELP_TEXT = 'Draw polygon' + \
+                '\n\tAllows the creation of a polygonal shape' + \
+                '\n\tLeft-click        Create a vertex' + \
+                '\n\t                  It will be connected to previous vertices in a' + \
+                '\n\t                  closed polygon' + \
+                '\n\tRight click       Finish polygon and add to obstacle set' + \
+                '\n\tDelete            Cancel current polygon' + \
+                '\n\tCtrl-z            Remove the last vertex added' + \
+                '\n\tf                 Flip obstacle sinding' + \
+                '\n\n\tYou must define a polygon with at least three vertices'
+
+    # states for drawing
+    WAITING = 0
+    DRAWING = 1
+    
+    def __init__( self ):
+        '''Constructor. '''        
+        PGContext.__init__( self )
+        MouseEnabled.__init__( self )
+        self.activate()
+
+    def activate( self ):
+        '''Called when the context is first activated'''
+        self.state = self.WAITING
+        self.polygon = None
+
+    def handleKeyboard( self, event, view ):
+        """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
+        result = PGContext.handleKeyboard( self, event, view )
+        
+        if ( not result.isHandled() ):
+            mods = pygame.key.get_mods()
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            hasShift = mods & pygame.KMOD_SHIFT
+            noMods = not( hasShift or hasCtrl or hasAlt )
+
+            if ( event.type == pygame.KEYDOWN ):
+                if ( event.key == pygame.K_z and hasCtrl ):
+                    result.setHandled( True )
+                    result.setNeedsRedraw( self.popVertex() )
+                elif ( event.key == pygame.K_DELETE and noMods ):
+                    result.set( True, self.polygon is not None )
+                    self.activate()
+                elif ( event.key == pygame.K_f and noMods ):
+                    result.set( True, self.reverseWinding() )
+                    
+        return result
+
+    def reverseWinding( self ):
+        '''Reverses the winding of the active polygon.
+
+        @returns        True if the polygon reversed, false otherwise.
+        '''
+        reversed = False
+        if ( self.polygon.vertCount() > 1 ):
+            self.polygon.reverseWinding()
+            reversed = True
+        return reversed
+    
+    def popVertex( self ):
+        '''Removes the last vertex from the polygon (essentially undo the last).
+
+        If there are no vertices left, the polygon is cleared and the draw state changes.
+
+        @returns        True if a redraw is necessary, false if not.
+        '''
+        needsRedraw = self.polygon is not None
+        if ( self.polygon ):
+            self.polygon.vertices.pop( -1 )
+            if ( self.polygon.vertCount() == 0 ):
+                self.polygon = None
+                self.state = self.WAITING
+            else:
+                self.polygon.updateWinding()
+                        
+        return needsRedraw
+                    
+    def handleMouse( self, event, view ):
+        """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
+        result = PGContext.handleMouse( self, event, view )
+
+        if ( not result.isHandled() ):
+        
+            mods = pygame.key.get_mods()
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            hasShift = mods & pygame.KMOD_SHIFT
+            noMods = not( hasShift or hasCtrl or hasAlt )
+
+            if ( noMods ):
+                if ( event.type == pygame.MOUSEBUTTONDOWN ):
+                    if ( event.button == LEFT ):
+                        if ( self.state == self.WAITING ):
+                            # initialize a polygon
+                            self.polygon = GLPoly()
+                            self.polygon.closed = True
+                            self.state = self.DRAWING
+                        self.downX, self.downY = event.pos
+                        p = view.screenToWorld( ( self.downX, self.downY ) )
+                        self.polygon.vertices.append( Vector2( p[0], p[1] ) )
+                        self.polygon.updateWinding()
+                        self.dragging = True
+                        result.set( True, True )
+                    elif ( event.button == RIGHT and self.state == self.DRAWING ):
+                        if ( self.polygon.vertCount() < 3 ):
+                            self.polygon = None
+                        self.dragging = False
+                        self.state = self.WAITING
+                        result.set( True, True, self.polygon is not None )
+                elif ( event.type == pygame.MOUSEBUTTONUP ):
+                    if ( event.button == LEFT and self.dragging ):
+                        self.dragging = False
+                elif ( event.type == pygame.MOUSEMOTION ):
+                    if ( self.dragging  ):
+                        self.downX, self.downY = event.pos
+                        p = view.screenToWorld( ( self.downX, self.downY ) )
+                        self.polygon.vertices[ -1 ] = Vector2( p[0], p[1] )
+                        result.set( True, True )
+                        
+                    
+        return result
+
+    def drawGL( self, view, visNormals=False ):
+        '''Draws the current rectangle to the open gl context'''
+        PGContext.drawGL( self, view )
+        view.printText( 'New polygon',  (10,30) )
+        if ( self.state == self.DRAWING ):
+            self.polygon.drawGL( editable=True, drawNormals=visNormals )
+     
 class GoalContext( PGContext, MouseEnabled ):
     '''A context for drawing goal regions (for now just AABB)'''
     #TODO: Add other goal types
@@ -719,7 +977,7 @@ class AgentContext( PGContext, MouseEnabled ):
 
     def handleMouse( self, event, view ):
         """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
-        result = ContextResult()
+        result = PGContext.handleKeyboard( self, event, view )
         mods = pygame.key.get_mods()
         hasCtrl = mods & pygame.KMOD_CTRL
         hasAlt = mods & pygame.KMOD_ALT

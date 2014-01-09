@@ -14,7 +14,7 @@ from obstacles import *
 from vField import GLVectorField
 
 # contexts
-from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext, PositionContext, GoalContext
+from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext, PositionContext, GoalContext, ObstacleContext
 from Context import ContextResult
 
 NO_EDIT = 0
@@ -422,6 +422,7 @@ def main():
     context.addContext( PositionContext(), pygame.K_q )
     context.addContext( GoalContext(), pygame.K_g )
     context.addContext( AgentContext( agents, obstacles ), pygame.K_a )
+    context.addContext( ObstacleContext( obstacles ), pygame.K_o )
     if ( field ):
         context.addContext( FieldEditContext( field ), pygame.K_f )
     if ( scbName != '' ):
