@@ -265,6 +265,14 @@ class Polygon:
         '''Creates an iterator over the segments of this polygon'''
         pass
 
+    def getEdgeVertices( self, i ):
+        '''Returns the two vertices that form the ith edge'''
+        assert( i >= 0 and ( i < len( self.vertices ) or ( i <= len( self.vertices ) and self.closed ) ) )
+        if ( i == len( self.vertices ) - 1 ):
+            return self.vertices[ i ], self.vertices[ 0 ]
+        else:
+            return self.vertices[ i ], self.vertices[ i + 1 ]
+
     def flipY( self ):
         """Flips the y-values of the polygon (and reverses the order)"""
         newVerts = []
@@ -316,7 +324,6 @@ class Polygon:
                 c = v1.cross( v2 ).dot( upDirection )
                 turning += atan2( c, dot )
         return turning < 0
-        
     
     def fixWinding( self, upDirection ):
         """Forces the vertices to be ordered in counter-clockwise order"""

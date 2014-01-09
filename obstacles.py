@@ -140,7 +140,7 @@ class ObstacleSet:
             tempSum = count + o.edgeCount()
             if ( tempSum > i ):
                 localI = i - count
-                return ( o.vertices[ localI ], o.vertices[ localI + 1 ] )
+                return o.getEdgeVertices( localI )
             count = tempSum
 
     def append( self, poly ):
