@@ -401,7 +401,7 @@ def main():
     # create viewer
     pygame.init()
     fontname = pygame.font.get_default_font()
-    font = pygame.font.Font( fontname, 18 )
+    font = pygame.font.Font( fontname, 12 )
 
     w = bb.max.x - bb.min.x
     h = bb.max.y - bb.min.y
