@@ -104,6 +104,7 @@ class ObstacleSet:
         self.activeVert = None
         self.activeEdge = None
         self.visibleNormals = False
+        self.activeEdit = False
 
     def sjguy( self ):
         s = '%d\n' % ( self.edgeCount )
@@ -144,6 +145,40 @@ class ObstacleSet:
                 return o.getEdgeVertices( localI )
             count = tempSum
 
+    def removeVert( self, index ):
+        '''Removes the vertex with the given global index from the obstacle set.add
+        This may cause an obstacle to disappear completely (if it drops to less than three
+        vertices).
+
+        @param      index       A non-negative integer.  A valid index into the set of vertices.
+        '''
+        # first find the obstacle and the local index
+        count = 0
+        loss = 0
+        for oIdx, o in enumerate( self.polys ):
+            tempSum = count + o.vertCount()
+            if ( tempSum > index ):
+                localI = index - count
+                o.vertices.pop( localI )
+                self.vertCount -= 1
+##                self.edgeCount -= 1
+                loss = 1
+                if ( o.vertCount() < 3 ):
+                    self.polys.pop( oIdx )
+                    self.vertCount -= 2
+##                    self.edgeCount -= 2
+                    loss = 3
+                    oIdx -= 1
+                break
+            count = tempSum
+        print
+        for i in xrange( oIdx + 1, len( self.polys ) ):
+            p = self.polys[ i ]
+            print "polygon i:", p.vStart, "-->", 
+            p.vStart -= loss
+            print p.vStart
+        
+
     def append( self, poly ):
         poly.vStart = self.vertCount
         poly.eStart = self.edgeCount
@@ -151,12 +186,12 @@ class ObstacleSet:
         self.edgeCount += poly.edgeCount()
         self.polys.append( poly )
 
-    def drawGL( self, select=False, selectEdges = False, editable=False ):
+    def drawGL( self, select=False, selectEdges=False ):
         glPushAttrib( GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT )
         glDisable( GL_DEPTH_TEST )
         
         for o in self.polys:
-            o.drawGL( select, selectEdges, editable, self.visibleNormals )
+            o.drawGL( select, selectEdges, self.activeEdit, self.visibleNormals )
         # now highlight selected elements
         if ( self.activeVert or self.activeEdge ):
             if ( self.activeVert ):
