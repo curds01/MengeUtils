@@ -19,8 +19,7 @@ from Context import ContextResult
 
 NO_EDIT = 0
 GRAPH_EDIT = 1
-OBSTACLE_EDIT = 2
-EDIT_STATE_COUNT = 3
+EDIT_STATE_COUNT = 2
 editState = NO_EDIT
 
 def handleKey( event, context, view, theGraph, obstacles, agents, field ):
@@ -46,10 +45,6 @@ def handleKey( event, context, view, theGraph, obstacles, agents, field ):
                 f.write( '%s\n' % theGraph.newAscii() )
                 f.close()
                 print "Graph saved!", fileName
-            elif ( editState == OBSTACLE_EDIT ):
-                f = open( paths.getPath( 'obstacles.txt', False ), 'w' )
-                f.write( '%s' % obstacles.sjguy() )
-                f.close()
         elif ( event.key == pygame.K_e ):
             editState = ( editState + 1 ) % EDIT_STATE_COUNT
             result.setNeedsRedraw( True )
@@ -130,16 +125,6 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
             newY = downPos[1] + ( pY - dY )
             if ( editState == GRAPH_EDIT ):
                 graph.fromID.setPosition( (newX, newY ) )
-            elif ( editState == OBSTACLE_EDIT ):
-                if ( obstacles.activeVert ):
-                    obstacles.activeVert.x = newX
-                    obstacles.activeVert.y = newY
-                elif ( obstacles.activeEdge ):
-                    v1, v2 = obstacles.activeEdge
-                    v1.x = newX
-                    v1.y = newY
-                    v2.x = v1.x + edgeDir[0]
-                    v2.y = v1.y + edgeDir[1]
             result.setNeedsRedraw( True )
         else:
             pX, pY = event.pos
@@ -163,27 +148,6 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
                         if ( graph.fromID != selVert ):
                             result.setNeedsRedraw( True )
                             graph.fromID = selVert
-            elif ( editState == OBSTACLE_EDIT ):
-                selected = view.select( pX, pY, obstacles, hasShift )
-                print "selected:", selected
-                if ( selected == -1 ):
-                    obstacles.activeEdge = None
-                    obstacles.activeVert = None
-                    result.setNeedsRedraw( True )
-                else:
-                    if ( hasShift ):
-                        selEdge = obstacles.selectEdge( selected )
-                        obstacles.activeVert = None
-                        # select edges
-                        if ( selEdge != obstacles.activeEdge ):
-                            obstacles.activeEdge = selEdge
-                            result.setNeedsRedraw( True )
-                    else:
-                        obstacles.activeEdge = None
-                        selVert = obstacles.selectVertex( selected )
-                        if ( selVert != obstacles.activeVert ):
-                            obstacles.activeVert = selVert
-                            result.setNeedsRedraw( True )
     elif ( event.type == pygame.MOUSEBUTTONUP ):
         if ( event.button == LEFT ):
             if ( dragging == RECT ):
@@ -218,15 +182,6 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
                         graph.addVertex( p )
                         graph.fromID = graph.lastVertex()
                         result.setNeedsRedraw( True )
-                elif( editState == OBSTACLE_EDIT ):
-                    if ( obstacles.activeVert != None ):
-                        downPos = ( obstacles.activeVert.x, obstacles.activeVert.y )
-                        dragging = MOVE
-                    elif ( obstacles.activeEdge != None ):
-                        v1, v2 = obstacles.activeEdge
-                        downPos = ( v1.x, v1.y )
-                        edgeDir = ( v2.x - v1.x, v2.y - v1.y )
-                        dragging = MOVE
 ##            elif ( hasAlt ):
 ##                dragging = RECT
 ##            else:
@@ -240,16 +195,6 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
             elif ( dragging == MOVE ):
                 if ( editState == GRAPH_EDIT ):
                     graph.fromID.setPosition( downPos )
-                elif ( editState == OBSTACLE_EDIT ):
-                    if ( obstacles.activeVert ):
-                        obstacles.activeVert.x = downPos[0]
-                        obstacles.activeVert.y = downPos[1]
-                    elif ( obstacles.activeEdge ):
-                        v1, v2 = obstacles.activeEdge
-                        v1.x = downPos[0]
-                        v1.y = downPos[1]
-                        v2.x = v1.x + edgeDir[0]
-                        v2.y = v1.y + edgeDir[1]
                 result.setNeedsRedraw( True )
             elif ( dragging == PAN ):
                 view.cancelPan()
@@ -270,7 +215,7 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
             result.setNeedsRedraw( True )
         elif ( event.button == MIDDLE ):
             downX, downY = event.pos
-            if ( graph.fromID == None ):
+            if ( editState == GRAPH_EDIT and graph.fromID == None ):
                 p = view.screenToWorld( event.pos )
                 graph.addVertex( p )
                 graph.fromID = graph.lastVertex()
@@ -298,8 +243,6 @@ def updateMsg( agtCount ):
         return "Hit the 'e' key to enter edit mode."
     elif ( editState == GRAPH_EDIT ):
         return "Edit roadmap"
-    elif ( editState == OBSTACLE_EDIT ):
-        return "Edit obstacle"
     else:
         return "Invalid edit state"
 
