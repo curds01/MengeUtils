@@ -145,6 +145,35 @@ class ObstacleSet:
                 return o.getEdgeVertices( localI )
             count = tempSum
 
+    def insertVertex( self, vert, edgeID ):
+        '''Inserts the given vertex into the edge indicated by edge id.
+
+        @param      vert        A 2-tuple of values.  The vertex position.
+        @param      edgeID      The globally unique identifier for the obstacle edge
+                                into which the vertex is inserted.
+        @returns    The global index of the vertex.
+        '''
+        # find the vertex
+        count = 0
+        vertID = -1
+        for oIdx, o in enumerate( self.polys ):
+            tempSum = count + o.edgeCount()
+            if ( tempSum > edgeID ):
+                localI = edgeID - count + 1
+                o.vertices.insert( localI, vert )
+                vertID = count + localI 
+                self.vertCount += 1
+                self.edgeCount += 1
+                break
+            count = tempSum
+            
+        for i in xrange( oIdx + 1, len( self.polys ) ):
+            p = self.polys[ i ]
+            p.vStart += 1
+            p.eStart += 1
+            
+        return vertID
+    
     def removeVert( self, index ):
         '''Removes the vertex with the given global index from the obstacle set.add
         This may cause an obstacle to disappear completely (if it drops to less than three
@@ -161,22 +190,21 @@ class ObstacleSet:
                 localI = index - count
                 o.vertices.pop( localI )
                 self.vertCount -= 1
-##                self.edgeCount -= 1
+                self.edgeCount -= 1
                 loss = 1
                 if ( o.vertCount() < 3 ):
                     self.polys.pop( oIdx )
                     self.vertCount -= 2
-##                    self.edgeCount -= 2
+                    self.edgeCount -= 2
                     loss = 3
                     oIdx -= 1
                 break
             count = tempSum
-        print
+
         for i in xrange( oIdx + 1, len( self.polys ) ):
             p = self.polys[ i ]
-            print "polygon i:", p.vStart, "-->", 
             p.vStart -= loss
-            print p.vStart
+            p.eStart -= loss
         
 
     def append( self, poly ):

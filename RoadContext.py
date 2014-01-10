@@ -95,7 +95,7 @@ class ContextSwitcher( PGContext ):
         noMods = not( hasShift or hasCtrl or hasAlt )
         if ( event.type == pygame.KEYDOWN ):
             if ( event.key == pygame.K_ESCAPE and noMods ):
-                changed = self.activeContext != None
+                changed = self.activeContext is not None
                 self.switchContexts( None )
                 result.set( True, changed )
             if ( not result.isHandled() ):
@@ -459,7 +459,7 @@ class SCBContext( PGContext ):
     def saveFramePDF( self ):
         '''Save the current frame as a pdf file for visualization'''
         # assumes this is only called if cairo has been successfully installed
-        assert( self.view != None )
+        assert( self.view is not None )
         fName = paths.getPath( 'scb%05d' % ( self.currFrameID ), False )
         surface = cairo.SVGSurface( fName + '.svg', self.view.wWidth, self.view.wHeight )
         cr = cairo.Context( surface )
@@ -691,7 +691,13 @@ class EditPolygonContext( PGContext, MouseEnabled ):
     HELP_TEXT = 'Edit polygon' + \
                 '\n\tEdit the properties of a polygonal shape\n' + \
                 '\n\tv      Edit vertices' + \
+                '\n\t\tLeft-click and drag           Move highlighted vertex' +\
+                '\n\t\tDelete                       Delete highlighted vertex' + \
+                '\n\t\t                             Removes polygons with < 3 vertices' + \
                 '\n\te      Edit edges' + \
+                '\n\t\tMiddle-click and drag        Insert vertex into highlighted edge' + \
+                '\n\t\tRight-click to cancel insertion' + \
+                '\n\t\t                             Removes polygon when it has < 3 vertices' + \
                 '\n\tp      Edit polygons' + \
                 ''
     #states for editing
@@ -744,12 +750,12 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                     result.set( True, self.state != self.POLY )
                     self.state = self.POLY
                 elif ( event.key == pygame.K_DELETE and noMods ):
-                    if ( self.obstacles.activeVert != None ):
+                    if ( self.obstacles.activeVert is not None ):
                         self.obstacles.removeVert( self.activeID )
                         self.activeID = -1
                         self.obstacles.activeVert = None
                         result.set( True, True )
-                    elif ( self.obstacles.activeEdge != None ):
+                    elif ( self.obstacles.activeEdge is not None ):
                         self.obstacles.removeEdge( self.activeID )
                         result.set( True, True )
         return result
@@ -780,20 +786,20 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                 if ( event.type == pygame.MOUSEBUTTONDOWN ):
                     if ( event.button == LEFT ):
                         self.downX, self.downY = view.screenToWorld( event.pos )
-                        if ( self.obstacles.activeVert != None ):
+                        if ( self.obstacles.activeVert is not None ):
                             self.origin = ( self.obstacles.activeVert.x, self.obstacles.activeVert.y )
                             self.dragging = True
-                        elif ( self.obstacles.activeEdge != None ):
+                        elif ( self.obstacles.activeEdge is not None ):
                             
                             v1, v2 = self.obstacles.activeEdge
                             self.origin = ( v1.x, v1.y )
                             self.edgeDir = ( v2.x - v1.x, v2.y - v1.y )
                             self.dragging = True
                     elif ( event.button == RIGHT and self.dragging ):
-                        if ( self.obstacles.activeVert != None ):
+                        if ( self.obstacles.activeVert is not None ):
                             self.obstacles.activeVert.x = self.origin[0]
                             self.obstacles.activeVert.y = self.origin[1]
-                        elif ( self.obstacles.activeEdge != None ):
+                        elif ( self.obstacles.activeEdge is not None ):
                             v1, v2 = self.obstacles.activeEdge
                             v1.x = self.origin[0]
                             v1.y = self.origin[1]
@@ -801,8 +807,19 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                             v2.y = v1.y + self.edgeDir[1]
                         self.dragging = False
                         result.set( True, True )
+                    elif ( event.button == MIDDLE and ( self.state == self.EDGE or self.state == self.POLY ) ):
+                        if ( self.obstacles.activeEdge is not None ):
+                            self.downX, self.downY = view.screenToWorld( event.pos )
+                            # insert vertex
+                            self.obstacles.activeVert = Vector2( self.downX, self.downY )
+                            self.activeID = self.obstacles.insertVertex( self.obstacles.activeVert, self.activeID )
+                            self.origin = ( self.obstacles.activeVert.x, self.obstacles.activeVert.y )
+                            # temporarily change to dragging vertex
+                            self.obstacles.activeEdge = None
+                            self.dragging = True
+                            result.set( True, True )
                 elif ( event.type == pygame.MOUSEBUTTONUP ):
-                    if ( event.button == LEFT ):
+                    if ( event.button == LEFT or event.button == MIDDLE):
                         self.dragging = False
                 elif ( event.type == pygame.MOUSEMOTION ):
                     if ( self.dragging ):
@@ -1743,7 +1760,7 @@ class FieldDomainContext( VFieldContext, MouseEnabled ):
                     result.redraw = True
                     self.activeEdge = newIdx
         elif ( event.type == pygame.MOUSEBUTTONDOWN ):
-            if ( noMods and event.button == LEFT and self.activeEdge != None ):
+            if ( noMods and event.button == LEFT and self.activeEdge is not None ):
                 self.downX, self.downY = view.screenToWorld( event.pos )
                 if ( self.activeEdge % 2 ): # vertical line
                     self.startVal = self.corners[ self.activeEdge ][ 0 ]
@@ -1827,7 +1844,7 @@ class FieldDomainContext( VFieldContext, MouseEnabled ):
             glVertex3f( self.corners[ i ][0], self.corners[ i ][1] , 0 )
             glVertex3f( self.corners[ i+1 ][0], self.corners[ i+1 ][1] , 0 )
         glEnd()
-        if ( self.activeEdge != None ):
+        if ( self.activeEdge is not None ):
             i = self.activeEdge
             glColor3f( 0.5, 1.0, 0.5 )
             glLineWidth( 2.0 )
