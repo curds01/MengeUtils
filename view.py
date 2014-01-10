@@ -106,7 +106,7 @@ class View:
         self.pixelSize = self.vWidth / float( self.wWidth )
         glMatrixMode( GL_PROJECTION )
         if ( select ):
-            SEL_WINDOW = 9
+            SEL_WINDOW = 25
             glPushMatrix()        
             glLoadIdentity()
             viewport = glGetIntegerv( GL_VIEWPORT )
