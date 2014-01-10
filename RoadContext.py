@@ -1105,15 +1105,20 @@ class GoalContext( PGContext, MouseEnabled ):
                     self.p0 = view.screenToWorld( ( self.downX, self.downY ) )
                     self.dragging = True
                     result.setHandled( True )
+                elif ( event.button == RIGHT and self.dragging ):
+                    self.dragging = False
+                    self.p0 = self.p1 = None
+                    result.set( True, True )
             elif ( event.type == pygame.MOUSEMOTION and self.dragging ):
                 self.downX, self.downY = event.pos
                 self.p1 = view.screenToWorld( ( self.downX, self.downY ) )
                 result.set( True, True )
             elif ( event.type == pygame.MOUSEBUTTONUP ):
-                if ( event.button == LEFT ):
+                if ( event.button == LEFT and self.dragging ):
                     self.printGoalBox()
                     self.dragging = False
-                    result.set( True, True )            
+                    result.set( True, True )
+
         return result
 
     def printGoalBox( self ):
