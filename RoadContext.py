@@ -564,11 +564,13 @@ class ObstacleContext( PGContext, MouseEnabled ):
                 '\n\tn            Toggle normal drawing' + \
                 '\n\t0            Do nothing' + \
                 '\n\t1            Create polygons' + \
+                '\n\t2            Edit polygons' + \
                 '\n\tCtrl+s       Save the obstacle file to "obstacles.xml"'
 
     NO_ACTION = 0
     NEW_POLY = 1
     NEW_LINE = 2
+    EDIT_POLY = 3
     
     def __init__( self, obstacleSet ):
         '''Constructor.
@@ -581,12 +583,17 @@ class ObstacleContext( PGContext, MouseEnabled ):
         self.state = self.NEW_POLY
         self.contexts = { self.NO_ACTION:ObstacleNullContext(),
                           self.NEW_POLY:DrawPolygonContext(),
+                          self.EDIT_POLY:EditPolygonContext( obstacleSet )
                           }
         self.drawNormal = False     # determines if normals are drawn on the obstacles
 
     def activate( self ):
         '''Called when the context is first activated'''
         self.setState( self.state, True )
+
+    def deactivate( self ):
+        '''Called when the context is deactivated'''
+        self.contexts[ self.state ].deactivate()
         
     def drawGL( self, view ):
         '''Draws the current rectangle to the open gl context'''
@@ -624,6 +631,9 @@ class ObstacleContext( PGContext, MouseEnabled ):
                     elif ( event.key == pygame.K_1 and noMods ):
                         result.set( True, self.state != self.NEW_POLY )
                         self.setState( self.NEW_POLY )
+                    elif ( event.key == pygame.K_2 and noMods ):
+                        result.set( True, self.state != self.EDIT_POLY )
+                        self.setState( self.EDIT_POLY )
                     elif ( event.key == pygame.K_n and noMods ):
                         self.drawNormal = not self.drawNormal
                         self.obstacleSet.visibleNormals = self.drawNormal
@@ -648,7 +658,6 @@ class ObstacleContext( PGContext, MouseEnabled ):
         if ( not result.isHandled() ):
             result = self.contexts[ self.state ].handleMouse( event, view )
             if ( result.isFinished() ):
-                print "Action finished!\n"
                 if ( self.state == self.NEW_POLY ):
                     print "Adding polygon to obstacle set:", self.contexts[ self.state ].polygon
                     self.obstacleSet.append( self.contexts[ self.state ].polygon )
@@ -663,7 +672,185 @@ class ObstacleNullContext( PGContext ):
         '''Draws the agent context into the view'''
         PGContext.drawGL( self, view )
         view.printText( "No action",  (10,30) )
+
+# Actions
+#   Vertices
+#       1) Move
+#       2) Delete
+#   Edges
+#       1) Move
+#       2) Delete
+#       3) Insert vertex
+#   Polygon
+#       1) Delete
+#       2) Move
+#       3) Flip
+
+class EditPolygonContext( PGContext, MouseEnabled ):
+    '''A context for editing obstacles'''
+    HELP_TEXT = 'Edit polygon' + \
+                '\n\tEdit the properties of a polygonal shape\n' + \
+                '\n\tv      Edit vertices' + \
+                '\n\te      Edit edges' + \
+                '\n\tp      Edit polygons' + \
+                ''
+    #states for editing
+    NO_EDIT = 0
+    VERTEX = 1
+    EDGE = 2
+    POLY = 3
     
+    def __init__( self, obstacles ):
+        '''Constructor.
+
+        @param      obstacles       An instance of ObstacleSet
+        '''        
+        PGContext.__init__( self )
+        MouseEnabled.__init__( self )
+        self.obstacles = obstacles
+        self.state = self.NO_EDIT
+        self.edgeDir = None
+        self.activeID = -1
+        
+    def activate( self ):
+        '''Called when the context is first activated'''
+        self.obstacles.activeEdit = True
+
+    def deactivate( self ):
+        '''Called when the context is deactivated'''
+        self.obstacles.activeEdit = False
+        self.obstacles.activeEdge = None
+        self.obstacles.activeVert = None
+
+    def handleKeyboard( self, event, view ):
+        """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
+        result = PGContext.handleKeyboard( self, event, view )
+        
+        if ( not result.isHandled() ):
+            mods = pygame.key.get_mods()
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            hasShift = mods & pygame.KMOD_SHIFT
+            noMods = not( hasShift or hasCtrl or hasAlt )
+
+            if ( event.type == pygame.KEYDOWN ):
+                if ( event.key == pygame.K_v and noMods ):
+                    result.set( True, self.state != self.VERTEX )
+                    self.state = self.VERTEX
+                elif ( event.key == pygame.K_e and noMods ):
+                    result.set( True, self.state != self.EDGE )
+                    self.state = self.EDGE
+                elif ( event.key == pygame.K_p and noMods ):
+                    result.set( True, self.state != self.POLY )
+                    self.state = self.POLY
+                elif ( event.key == pygame.K_DELETE and noMods ):
+                    if ( self.obstacles.activeVert != None ):
+                        self.obstacles.removeVert( self.activeID )
+                        self.activeID = -1
+                        self.obstacles.activeVert = None
+                        result.set( True, True )
+                    elif ( self.obstacles.activeEdge != None ):
+                        self.obstacles.removeEdge( self.activeID )
+                        result.set( True, True )
+        return result
+
+    def modeLabel( self ):
+        '''Returns a string reporting on the editing mode'''
+        if ( self.state == self.VERTEX ):
+            return "Edit vertex"
+        elif ( self.state == self.EDGE ):
+            return "Edit edge"
+        elif ( self.state == self.POLY ):
+            return "Edit polygon"
+        else:
+            return "Hit v, e, or p to edit vertices, edges, or polygons"
+
+    def handleMouse( self, event, view ):
+        """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
+        result = PGContext.handleMouse( self, event, view )
+
+        if ( not result.isHandled() ):
+            mods = pygame.key.get_mods()
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            hasShift = mods & pygame.KMOD_SHIFT
+            noMods = not( hasShift or hasCtrl or hasAlt )
+
+            if ( noMods ):
+                if ( event.type == pygame.MOUSEBUTTONDOWN ):
+                    if ( event.button == LEFT ):
+                        self.downX, self.downY = view.screenToWorld( event.pos )
+                        if ( self.obstacles.activeVert != None ):
+                            self.origin = ( self.obstacles.activeVert.x, self.obstacles.activeVert.y )
+                            self.dragging = True
+                        elif ( self.obstacles.activeEdge != None ):
+                            
+                            v1, v2 = self.obstacles.activeEdge
+                            self.origin = ( v1.x, v1.y )
+                            self.edgeDir = ( v2.x - v1.x, v2.y - v1.y )
+                            self.dragging = True
+                    elif ( event.button == RIGHT and self.dragging ):
+                        if ( self.obstacles.activeVert != None ):
+                            self.obstacles.activeVert.x = self.origin[0]
+                            self.obstacles.activeVert.y = self.origin[1]
+                        elif ( self.obstacles.activeEdge != None ):
+                            v1, v2 = self.obstacles.activeEdge
+                            v1.x = self.origin[0]
+                            v1.y = self.origin[1]
+                            v2.x = v1.x + self.edgeDir[0]
+                            v2.y = v1.y + self.edgeDir[1]
+                        self.dragging = False
+                        result.set( True, True )
+                elif ( event.type == pygame.MOUSEBUTTONUP ):
+                    if ( event.button == LEFT ):
+                        self.dragging = False
+                elif ( event.type == pygame.MOUSEMOTION ):
+                    if ( self.dragging ):
+                        pX, pY = view.screenToWorld( event.pos )
+                        newX = self.origin[0] + ( pX - self.downX )
+                        newY = self.origin[1] + ( pY - self.downY )
+                        if ( self.obstacles.activeVert ):
+                            self.obstacles.activeVert.x = newX
+                            self.obstacles.activeVert.y = newY
+                        elif ( self.obstacles.activeEdge ):
+                            v1, v2 = self.obstacles.activeEdge
+                            v1.x = newX
+                            v1.y = newY
+                            v2.x = v1.x + self.edgeDir[0]
+                            v2.y = v1.y + self.edgeDir[1]
+                        result.set( True, True )
+                    elif ( self.state != self.NO_EDIT ):
+                        pX, pY = event.pos
+                        keyEdges = self.state == self.EDGE or self.state == self.POLY
+                        self.activeID = view.select( pX, pY, self.obstacles, keyEdges )
+                        
+                        result.setHandled( True )
+                        if ( self.activeID == -1 ):
+                            self.obstacles.activeEdge = None
+                            self.obstacles.activeVert = None
+                            result.setNeedsRedraw( True )
+                        else:
+                            if ( keyEdges ):
+                                selEdge = self.obstacles.selectEdge( self.activeID )
+                                self.obstacles.activeVert = None
+                                # select edges
+                                if ( selEdge != self.obstacles.activeEdge ):
+                                    self.obstacles.activeEdge = selEdge
+                                    result.setNeedsRedraw( True )
+                            else:
+                                self.obstacles.activeEdge = None
+                                selVert = self.obstacles.selectVertex( self.activeID )
+                                if ( selVert != self.obstacles.activeVert ):
+                                    self.obstacles.activeVert = selVert
+                                    result.setNeedsRedraw( True )
+        return result
+
+    def drawGL( self, view, visNormals=False ):
+        '''Draws the current rectangle to the open gl context'''
+        PGContext.drawGL( self, view )
+        view.printText( 'Edit polygon\n\t%s' % self.modeLabel(),  (10,30) )
+    
+        
 class DrawPolygonContext( PGContext, MouseEnabled ):
     '''A context for drawing a closed polygon'''
     HELP_TEXT = 'Draw polygon' + \

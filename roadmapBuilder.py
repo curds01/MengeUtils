@@ -165,6 +165,7 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
                             graph.fromID = selVert
             elif ( editState == OBSTACLE_EDIT ):
                 selected = view.select( pX, pY, obstacles, hasShift )
+                print "selected:", selected
                 if ( selected == -1 ):
                     obstacles.activeEdge = None
                     obstacles.activeVert = None
@@ -283,7 +284,7 @@ def drawGL( view, context=None, obstacles=None, graph=None, agents=None, field=N
     if ( field ):
         field.drawGL()
     if ( obstacles ):
-        obstacles.drawGL( editable=(editState == OBSTACLE_EDIT ) )
+        obstacles.drawGL()
     if ( graph ):
         graph.drawGL( editable=(editState == GRAPH_EDIT) )
     if ( agents ):
