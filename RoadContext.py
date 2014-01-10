@@ -528,16 +528,25 @@ class PositionContext( PGContext, MouseEnabled ):
     def __init__( self ):
         PGContext.__init__( self )
         MouseEnabled.__init__( self )
+        self.worldPos = [0,0]
 
     def handleMouse( self, event, view ):
         """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
         result = ContextResult()
+        self.downX, self.downY = event.pos
+        self.worldPos = view.screenToWorld( ( self.downX, self.downY ) )
         if ( event.type == pygame.MOUSEBUTTONDOWN ):
             if ( event.button == LEFT ):
-                self.downX, self.downY = event.pos
-                dX, dY = view.screenToWorld( ( self.downX, self.downY ) )
-                print "World position: %f %f" % ( dX, dY )
+                print "World position: %f %f" % ( self.worldPos[0], self.worldPos[1] )
+        elif ( event.type == pygame.MOUSEMOTION ):
+            result.set( False, True )
         return result
+
+    def drawGL( self, view ):
+        '''Draws the current rectangle to the open gl context'''
+        PGContext.drawGL( self, view )
+        posStr = '(%.3f, %.3f)' % ( self.worldPos[0], self.worldPos[1] )
+        view.printText( '%s' % posStr,  (self.downX, view.wHeight - self.downY) )
 
 # Ideas
 #   1) Load a reference obj that can be drawn on top
@@ -662,7 +671,6 @@ class ObstacleContext( PGContext, MouseEnabled ):
                     self.obstacleSet.append( self.contexts[ self.state ].polygon )
                     
         return result
-
 class ObstacleNullContext( PGContext ):
     '''A simple context for indicating no action is being taken'''
     HELP_TEXT = 'No action'
