@@ -691,12 +691,13 @@ class EditPolygonContext( PGContext, MouseEnabled ):
     HELP_TEXT = 'Edit polygon' + \
                 '\n\tEdit the properties of a polygonal shape\n' + \
                 '\n\tv      Edit vertices' + \
-                '\n\t\tLeft-click and drag           Move highlighted vertex' +\
-                '\n\t\tDelete                       Delete highlighted vertex' + \
+                '\n\t\tLeft-click and drag          Move highlighted vertex' +\
+                '\n\t\tc                            Clear highlighted vertex' + \
                 '\n\t\t                             Removes polygons with < 3 vertices' + \
                 '\n\te      Edit edges' + \
                 '\n\t\tMiddle-click and drag        Insert vertex into highlighted edge' + \
                 '\n\t\tRight-click to cancel insertion' + \
+                '\n\t\tc                            Collapse the highlighted edge' + \
                 '\n\t\t                             Removes polygon when it has < 3 vertices' + \
                 '\n\tp      Edit polygons' + \
                 ''
@@ -728,6 +729,16 @@ class EditPolygonContext( PGContext, MouseEnabled ):
         self.obstacles.activeEdge = None
         self.obstacles.activeVert = None
 
+    def setState( self, newState ):
+        '''Changes the edit state of the context.
+
+        @param      newState        A valid state enumeration.
+        '''
+        if ( self.state != newState ):
+            self.state = newState
+            self.obstacles.activeEdge = None
+            self.obstacles.activeVert = None
+
     def handleKeyboard( self, event, view ):
         """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
         result = PGContext.handleKeyboard( self, event, view )
@@ -742,21 +753,22 @@ class EditPolygonContext( PGContext, MouseEnabled ):
             if ( event.type == pygame.KEYDOWN ):
                 if ( event.key == pygame.K_v and noMods ):
                     result.set( True, self.state != self.VERTEX )
-                    self.state = self.VERTEX
+                    self.setState( self.VERTEX )
                 elif ( event.key == pygame.K_e and noMods ):
                     result.set( True, self.state != self.EDGE )
-                    self.state = self.EDGE
+                    self.setState( self.EDGE )
                 elif ( event.key == pygame.K_p and noMods ):
                     result.set( True, self.state != self.POLY )
-                    self.state = self.POLY
-                elif ( event.key == pygame.K_DELETE and noMods ):
+                    self.setState( self.POLY )
+                elif ( event.key == pygame.K_c and noMods ):
                     if ( self.obstacles.activeVert is not None ):
-                        self.obstacles.removeVert( self.activeID )
+                        self.obstacles.removeVertex( self.activeID )
                         self.activeID = -1
                         self.obstacles.activeVert = None
                         result.set( True, True )
                     elif ( self.obstacles.activeEdge is not None ):
-                        self.obstacles.removeEdge( self.activeID )
+                        self.obstacles.collapseEdge( self.activeID )
+                        self.obstacles.activeEdge = None
                         result.set( True, True )
         return result
 

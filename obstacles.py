@@ -145,6 +145,38 @@ class ObstacleSet:
                 return o.getEdgeVertices( localI )
             count = tempSum
 
+    def collapseEdge( self, index ):
+        '''Collapse the edge indicated by the given index.  If the polygon only has
+        two vertices left, it is deleted.
+
+        @param      index       The global index of the targeted edge.
+        '''
+        count = 0
+        loss = 0
+        for oIdx, o in enumerate( self.polys ):
+            tempSum = count + o.edgeCount()
+            if ( tempSum > index ):
+                if ( o.vertCount() == 3 ):
+                    self.polys.pop( oIdx )
+                    oIdx -= 1
+                    loss = 3
+                else:
+                    loss = 1
+                    localI = index - count
+                    v1, v2 = o.getEdgeVertices( localI )
+                    newVert = ( v2 + v1 ) * 0.5
+                    v2.x = newVert.x
+                    v2.y = newVert.y
+                    o.vertices.pop( localI )
+                break
+            count = tempSum
+        self.vertCount -= loss
+        self.edgeCount -= loss
+        for i in xrange( oIdx + 1, len( self.polys ) ):
+            p = self.polys[ i ]
+            p.vStart -= loss
+            p.eStart -= loss
+
     def insertVertex( self, vert, edgeID ):
         '''Inserts the given vertex into the edge indicated by edge id.
 
@@ -174,7 +206,7 @@ class ObstacleSet:
             
         return vertID
     
-    def removeVert( self, index ):
+    def removeVertex( self, index ):
         '''Removes the vertex with the given global index from the obstacle set.add
         This may cause an obstacle to disappear completely (if it drops to less than three
         vertices).
@@ -205,7 +237,6 @@ class ObstacleSet:
             p = self.polys[ i ]
             p.vStart -= loss
             p.eStart -= loss
-        
 
     def append( self, poly ):
         poly.vStart = self.vertCount
