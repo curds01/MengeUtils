@@ -659,7 +659,6 @@ class ObstacleContext( PGContext, MouseEnabled ):
             result = self.contexts[ self.state ].handleMouse( event, view )
             if ( result.isFinished() ):
                 if ( self.state == self.NEW_POLY ):
-                    print "Adding polygon to obstacle set:", self.contexts[ self.state ].polygon
                     self.obstacleSet.append( self.contexts[ self.state ].polygon )
                     
         return result
@@ -676,15 +675,15 @@ class ObstacleNullContext( PGContext ):
 # Actions
 #   Vertices
 #       1) Move
-#       2) Delete
+#       2) Delete (aka clear)
 #   Edges
 #       1) Move
-#       2) Delete
+#       2) Collapse
 #       3) Insert vertex
 #   Polygon
-#       1) Delete
+#       1) Delete (aka clear)
 #       2) Move
-#       3) Flip
+#       3) Reverse winding
 
 class EditPolygonContext( PGContext, MouseEnabled ):
     '''A context for editing obstacles'''
@@ -692,14 +691,19 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                 '\n\tEdit the properties of a polygonal shape\n' + \
                 '\n\tv      Edit vertices' + \
                 '\n\t\tLeft-click and drag          Move highlighted vertex' +\
+                '\n\t\tRight-click while dragging   Cancel move' + \
                 '\n\t\tc                            Clear highlighted vertex' + \
                 '\n\t\t                             Removes polygons with < 3 vertices' + \
                 '\n\te      Edit edges' + \
                 '\n\t\tMiddle-click and drag        Insert vertex into highlighted edge' + \
-                '\n\t\tRight-click to cancel insertion' + \
+                '\n\t\tRight-click while draggin    Cancel insertion' + \
                 '\n\t\tc                            Collapse the highlighted edge' + \
                 '\n\t\t                             Removes polygon when it has < 3 vertices' + \
                 '\n\tp      Edit polygons' + \
+                '\n\t\tLeft-click and drag          Move highlighted polygon' + \
+                '\n\t\tRight-click while dragging   Cancel move' + \
+                '\n\t\tc                            Clears the highlighted polygon' + \
+                '\n\t\tr                            Reverse winding of highlighted polygon' + \
                 ''
     #states for editing
     NO_EDIT = 0
@@ -718,16 +722,23 @@ class EditPolygonContext( PGContext, MouseEnabled ):
         self.state = self.NO_EDIT
         self.edgeDir = None
         self.activeID = -1
+        self.activePoly = None
         
     def activate( self ):
         '''Called when the context is first activated'''
         self.obstacles.activeEdit = True
+        self.obstacles.activeEdge = None
+        self.obstacles.activeVert = None
+        self.activePoly = None
+        self.activeID = -1
 
     def deactivate( self ):
         '''Called when the context is deactivated'''
         self.obstacles.activeEdit = False
         self.obstacles.activeEdge = None
         self.obstacles.activeVert = None
+        self.activePoly = None
+        self.activeID = -1
 
     def setState( self, newState ):
         '''Changes the edit state of the context.
@@ -738,6 +749,8 @@ class EditPolygonContext( PGContext, MouseEnabled ):
             self.state = newState
             self.obstacles.activeEdge = None
             self.obstacles.activeVert = None
+            self.activePoly = None
+            self.activeID = -1
 
     def handleKeyboard( self, event, view ):
         """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
@@ -760,8 +773,15 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                 elif ( event.key == pygame.K_p and noMods ):
                     result.set( True, self.state != self.POLY )
                     self.setState( self.POLY )
+                elif ( event.key == pygame.K_r and noMods and self.activePoly ):
+                    self.activePoly.reverseWinding()
+                    result.set( True, True )
                 elif ( event.key == pygame.K_c and noMods ):
-                    if ( self.obstacles.activeVert is not None ):
+                    if ( self.activePoly is not None ):
+                        self.obstacles.removePoly( self.activePoly )
+                        self.activePoly = None
+                        result.set( True, True )
+                    elif ( self.obstacles.activeVert is not None ):
                         self.obstacles.removeVertex( self.activeID )
                         self.activeID = -1
                         self.obstacles.activeVert = None
@@ -770,6 +790,7 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                         self.obstacles.collapseEdge( self.activeID )
                         self.obstacles.activeEdge = None
                         result.set( True, True )
+                    
         return result
 
     def modeLabel( self ):
@@ -798,11 +819,18 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                 if ( event.type == pygame.MOUSEBUTTONDOWN ):
                     if ( event.button == LEFT ):
                         self.downX, self.downY = view.screenToWorld( event.pos )
-                        if ( self.obstacles.activeVert is not None ):
+                        if ( self.activePoly is not None ):
+                            origin = self.activePoly.vertices[ 0 ]
+                            self.origin = ( origin.x, origin.y )
+                            self.displace = []
+                            for i in xrange( 1, len( self.activePoly.vertices ) ):
+                                delta = self.activePoly.vertices[i] - origin
+                                self.displace.append( ( delta.x, delta.y ) )
+                            self.dragging = True
+                        elif ( self.obstacles.activeVert is not None ):
                             self.origin = ( self.obstacles.activeVert.x, self.obstacles.activeVert.y )
                             self.dragging = True
                         elif ( self.obstacles.activeEdge is not None ):
-                            
                             v1, v2 = self.obstacles.activeEdge
                             self.origin = ( v1.x, v1.y )
                             self.edgeDir = ( v2.x - v1.x, v2.y - v1.y )
@@ -817,9 +845,15 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                             v1.y = self.origin[1]
                             v2.x = v1.x + self.edgeDir[0]
                             v2.y = v1.y + self.edgeDir[1]
+                        elif ( self.activePoly is not None ):
+                            self.activePoly.vertices[ 0 ].x = self.origin[0]
+                            self.activePoly.vertices[ 0 ].y = self.origin[1]
+                            for i in xrange( 1, len( self.activePoly.vertices ) ):
+                                self.activePoly.vertices[ i ].x = self.origin[0] + self.displace[i-1][0]
+                                self.activePoly.vertices[ i ].y = self.origin[1] + self.displace[i-1][1]
                         self.dragging = False
                         result.set( True, True )
-                    elif ( event.button == MIDDLE and ( self.state == self.EDGE or self.state == self.POLY ) ):
+                    elif ( event.button == MIDDLE and self.state == self.EDGE ):
                         if ( self.obstacles.activeEdge is not None ):
                             self.downX, self.downY = view.screenToWorld( event.pos )
                             # insert vertex
@@ -847,37 +881,59 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                             v1.y = newY
                             v2.x = v1.x + self.edgeDir[0]
                             v2.y = v1.y + self.edgeDir[1]
+                        elif ( self.activePoly ):
+                            self.activePoly.vertices[ 0 ].x = newX
+                            self.activePoly.vertices[ 0 ].y = newY
+                            for i in xrange( 1, len( self.activePoly.vertices ) ):
+                                self.activePoly.vertices[ i ].x = newX + self.displace[i-1][0]
+                                self.activePoly.vertices[ i ].y = newY + self.displace[i-1][1]
                         result.set( True, True )
                     elif ( self.state != self.NO_EDIT ):
+                        result.setHandled( True )
                         pX, pY = event.pos
                         keyEdges = self.state == self.EDGE or self.state == self.POLY
-                        self.activeID = view.select( pX, pY, self.obstacles, keyEdges )
                         
-                        result.setHandled( True )
-                        if ( self.activeID == -1 ):
-                            self.obstacles.activeEdge = None
-                            self.obstacles.activeVert = None
-                            result.setNeedsRedraw( True )
-                        else:
-                            if ( keyEdges ):
-                                selEdge = self.obstacles.selectEdge( self.activeID )
-                                self.obstacles.activeVert = None
-                                # select edges
-                                if ( selEdge != self.obstacles.activeEdge ):
-                                    self.obstacles.activeEdge = selEdge
-                                    result.setNeedsRedraw( True )
-                            else:
+                        selID = view.select( pX, pY, self.obstacles, keyEdges )
+                        if ( selID != self.activeID ):
+                            self.activeID = selID
+                            if ( self.activeID == -1 ):
+                                # This can only happen if it just CHANGED to -1
+                                result.setNeedsRedraw( True )
                                 self.obstacles.activeEdge = None
-                                selVert = self.obstacles.selectVertex( self.activeID )
-                                if ( selVert != self.obstacles.activeVert ):
-                                    self.obstacles.activeVert = selVert
+                                self.obstacles.activeVert = None
+                                self.activePoly = None
+                            else:
+                                if ( keyEdges ):
+                                    selEdge = self.obstacles.selectEdge( self.activeID )
+                                    self.obstacles.activeVert = None
+                                    if ( self.state == self.EDGE ):
+                                        self.obstacles.activeEdge = selEdge
+                                    elif ( self.state == self.POLY ):
+                                        self.activePoly = self.obstacles.polyFromEdge( self.activeID )
+                                        self.obstacles.activeEdge = None
                                     result.setNeedsRedraw( True )
+                                else:
+                                    self.obstacles.activeEdge = None
+                                    selVert = self.obstacles.selectVertex( self.activeID )
+                                    if ( selVert != self.obstacles.activeVert ):
+                                        self.obstacles.activeVert = selVert
+                                        result.setNeedsRedraw( True )
         return result
 
     def drawGL( self, view, visNormals=False ):
         '''Draws the current rectangle to the open gl context'''
         PGContext.drawGL( self, view )
         view.printText( 'Edit polygon\n\t%s' % self.modeLabel(),  (10,30) )
+        if ( self.activePoly ):
+            glPushAttrib( GL_COLOR_BUFFER_BIT | GL_LINE_BIT | GL_ENABLE_BIT )
+            glColor3f( 0.9, 0.9, 0.0 )
+            glDisable( GL_DEPTH_TEST )
+            glLineWidth( 3.0 )
+            glBegin( GL_LINE_LOOP )
+            for v in self.activePoly.vertices:
+                glVertex3f( v.x, v.y, 0 )
+            glEnd()
+            glPopAttrib()
     
         
 class DrawPolygonContext( PGContext, MouseEnabled ):

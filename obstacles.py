@@ -125,6 +125,39 @@ class ObstacleSet:
     def __len__( self ):
         return len( self.polys )
 
+    def removePoly( self, poly ):
+        '''Remove the given poly from the obstacle set.
+
+        @param      poly        An instance of Polygon.
+        '''
+        loss = 0
+        for i in xrange( len( self.polys ) ):
+            if ( self.polys[i] == poly ):
+                # this assumes that the polygon is closed
+                loss = len( self.polys[i].vertices )
+                self.polys.pop( i )
+                break
+        self.vertCount -= loss
+        self.edgeCount -= loss
+        for id in xrange( i, len( self.polys ) ):
+            self.polys[ id ].vStart -= loss
+            self.polys[ id ].eStart -= loss
+        if ( loss == 0 ):
+            print "Inexplicably tried to remove a polygon that doesn't belong to the set!"
+        
+    def polyFromEdge( self, edgeID ):
+        '''Returns the polygon which uses the indicated edge.
+
+        @param      edgeID          The global identifier for the edge.
+        '''
+        count = 0
+        for o in self.polys:
+            tempSum = count + o.edgeCount()
+            if ( tempSum > edgeID ):
+                return o
+            count = tempSum
+
+    
     def selectVertex( self, i ):
         """Selects the ith vertex in the obstacle set"""
         count = 0
