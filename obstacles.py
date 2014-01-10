@@ -12,32 +12,33 @@ class GLPoly ( Polygon ):
         self.eStart = 0         # the index at which select values for edges starts
 
     def drawGL( self, select=False, selectEdges=False, editable=False, drawNormals=False ):
-        if ( self.winding == Polygon.NO_WINDING ):
-            self.updateWinding()
+        if ( not select ):
+            if ( self.winding == Polygon.NO_WINDING ):
+                self.updateWinding()
 
-        if ( self.closed == False ):
-            if ( editable ):
-                glColor3f( 0.0, 0.8, 0.0 )
-                normColor = ( 0.5, 0.5, 0.1 )
+            if ( self.closed == False ):
+                if ( editable ):
+                    glColor3f( 0.0, 0.8, 0.0 )
+                    normColor = ( 0.5, 0.5, 0.1 )
+                else:
+                    glColor3f( 0.0, 0.4, 0.0 )
+                    normColor = ( 0.25, 0.25, 0.05 )
+            elif ( self.winding == Polygon.CCW ):
+                if ( editable ):
+                    glColor3f( 0.8, 0.0, 0.0 )
+                    normColor = ( 0.5, 0.5, 0.1 )
+                else:
+                    glColor3f( 0.4, 0.0, 0.0 )
+                    normColor = ( 0.25, 0.25, 0.05 )
             else:
-                glColor3f( 0.0, 0.4, 0.0 )
-                normColor = ( 0.25, 0.25, 0.05 )
-        elif ( self.winding == Polygon.CCW ):
-            if ( editable ):
-                glColor3f( 0.8, 0.0, 0.0 )
-                normColor = ( 0.5, 0.5, 0.1 )
-            else:
-                glColor3f( 0.4, 0.0, 0.0 )
-                normColor = ( 0.25, 0.25, 0.05 )
-        else:
-            if ( editable ):
-                glColor3f( 0.3, 0.3, 0.8 )
-                normColor = ( 0.5, 0.5, 0.1 )
-            else:
-                glColor3f( 0.15, 0.15, 0.4 )
-                normColor = ( 0.5, 0.25, 0.05 )
+                if ( editable ):
+                    glColor3f( 0.3, 0.3, 0.8 )
+                    normColor = ( 0.5, 0.5, 0.1 )
+                else:
+                    glColor3f( 0.15, 0.15, 0.4 )
+                    normColor = ( 0.5, 0.25, 0.05 )
 
-        if ( selectEdges or not select or editable ):        
+        if ( selectEdges or not select ):        
             for i in range( self.vertCount() - 1):
                 if ( selectEdges ):
                     glLoadName( self.eStart + i )
