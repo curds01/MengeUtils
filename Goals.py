@@ -11,7 +11,30 @@ class GoalSet:
     '''A set of goals.  Maps integer identifiers to instances of goals.'''
     # The TagName that this will process
     TAG_NAME = 'GoalSet'
-    
+
+    class GoalIterator:
+        '''An iterator through the goal set's goals.'''
+        def __init__( self, goalSet ):
+            '''Constructor.
+
+            @param      goalSet     The goal set to iterate through.
+            '''
+            self.goalSet = goalSet
+            self.goalCount = len( goalSet.goals )
+            self.nextID = 0     # the next goal to return
+
+        def __iter__( self ):
+            '''To support the iterator interface, __iter__ returns itself.'''
+            return self
+
+        def next( self ):
+            if ( self.nextID < self.goalCount ):
+                g = self.goalSet.getIthGoal( self.nextID )
+                self.nextID += 1
+                return g
+            else:
+                raise StopIteration
+        
     def __init__( self, robustParse=True ):
         '''Constructor
 
@@ -20,12 +43,21 @@ class GoalSet:
                                         in the output.
         '''
         self.id = id
-        self.goals = {}
+        self.goals = {}     # mapping from goals to ids
+        self.keys = []      # ids of goals
         self.robust = robustParse
         if ( robustParse ):
             self.unknownTags = []   # tags encountered when parsing that should be saved
                                     # out blindly, verbatim
 
+    def __iter__( self ):
+        return self.GoalIterator( self )
+    
+    def getIthGoal( self, i ):
+        '''Returns the ith goal in the set'''
+        assert( i > -len(self.goals) and i < len( self.goals ) )
+        return self.goals[ self.keys[ i ] ]
+    
     def parseXML( self, element ):
         '''Sets the goal set parameters based on the structure of an XML DOM tree.
 
@@ -63,6 +95,8 @@ class GoalSet:
         if ( self.goals.has_key( goal.id ) ):
             raise KeyError, "GoalSet already contains a goal with id %d" % ( goal.id )
         self.goals[ goal.id ] = goal
+        self.keys.append( goal.id )
+        self.keys.sort()
 
     def __len__( self ):
         '''Returns the number of goals'''
