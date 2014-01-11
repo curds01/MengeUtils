@@ -85,13 +85,14 @@ def drawGoal( goal ):
 
     @param      goal            The instance of Goals.Goal subclass to draw.
     '''
-    if ( isinstance( goal, Goals.PointGoal ) ):
-        drawPointGoal( goal )
     if ( isinstance( goal, Goals.CircleGoal ) ):
+        # this ordering is necessary because CircleGoal inherits from PointGoal
         drawCircleGoal( goal )
-    if ( isinstance( goal, Goals.AABBGoal ) ):
+    elif ( isinstance( goal, Goals.PointGoal ) ):
+        drawPointGoal( goal )
+    elif ( isinstance( goal, Goals.AABBGoal ) ):
         drawAABBGoal( goal )
-    if ( isinstance( goal, Goals.OBBGoal ) ):
+    elif ( isinstance( goal, Goals.OBBGoal ) ):
         drawOBBGoal( goal )
 
 def drawPointGoal( goal ):
