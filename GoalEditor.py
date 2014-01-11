@@ -20,6 +20,7 @@ class GoalEditor:
         self.goalSets = goalSets
         # The index of the goal set currently displayed for editing
         self.editSet = -1
+        self.activeGoal = -1
 
     def __getitem__( self, i ):
         '''Returns the ith goalset'''
@@ -57,27 +58,35 @@ class GoalEditor:
         assert( index >= -len(self.goalSets) and index < len( self.goalSets ) )
         self.goalSets.pop( index )
         
-    def drawGL( self, select=False ):
+    def drawGL( self, select=False, junk=None ):
         '''Draws the list of goal sets to the OpenGL context.
 
         @param      select          Determines if the goals are being drawn for selection
                                     purposes.
+        @param      junk            A garbage argument to make it compatible with the
+                                    view selection paradigm.
         '''
         glPushAttrib( GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT | GL_POINT_BIT | GL_LINE_BIT )
         glDisable( GL_DEPTH_TEST )
         glPointSize( 5 )
         glLineWidth( 2 )
-        gID = 0
+        glID = 0
         for i, gs in enumerate( self.goalSets ):
             if ( i == self.editSet ):
                 glColor3f( 0.7, 0.3, 0.9 )
             else:
+                if ( select ):  # don't draw goals in the uneditable set
+                    continue
                 glColor3f( 0.35, 0.15, 0.45 )
             for g in gs:
                 if ( select ):
                     glLoadName( glID )
                     glID += 1
                 drawGoal( g )
+                
+        if ( not select and self.activeGoal > -1 ):
+            glColor3f( 0.7, 0.7, 0.1 )
+            drawGoal( self.goalSets[ self.editSet ][ self.activeGoal ] )
         glPopAttrib()
 
 def drawGoal( goal ):

@@ -29,7 +29,7 @@ class GoalSet:
 
         def next( self ):
             if ( self.nextID < self.goalCount ):
-                g = self.goalSet.getIthGoal( self.nextID )
+                g = self.goalSet[ self.nextID ]
                 self.nextID += 1
                 return g
             else:
@@ -53,7 +53,7 @@ class GoalSet:
     def __iter__( self ):
         return self.GoalIterator( self )
     
-    def getIthGoal( self, i ):
+    def __getitem__( self, i ):
         '''Returns the ith goal in the set'''
         assert( i > -len(self.goals) and i < len( self.goals ) )
         return self.goals[ self.keys[ i ] ]
