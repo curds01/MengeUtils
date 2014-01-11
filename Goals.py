@@ -105,18 +105,22 @@ class GoalSet:
     def xmlElement( self ):
         '''Creates an XML Dom Element for this GoalSet.
 
-        @returns        An instnace of minidom.Element containing this node's data
+        @returns        An instnace of minidom.Element containing this node's data.
+                        If there are no goals or unknown tags, it returns None.
         '''
-        root = minidom.Element( 'GoalSet' )
-        root.setAttribute( 'id', '%d' % ( self.id ) )
-        ids = self.goals.keys()
-        ids.sort()
-        for id in ids:
-            root.appendChild( self.goals[ id ].xmlElement() )
-        if ( self.robust):
-            for tag in self.unknownTags:
-                root.appendChild( tag )
+        root = None
+        if ( len( self.goals ) or ( self.robust and len( self.unknownTags ) ) ):
+            root = minidom.Element( 'GoalSet' )
+            root.setAttribute( 'id', '%d' % ( self.id ) )
+            ids = self.goals.keys()
+            ids.sort()
+            for id in ids:
+                root.appendChild( self.goals[ id ].xmlElement() )
+            if ( self.robust):
+                for tag in self.unknownTags:
+                    root.appendChild( tag )
         return root
+        
     
     
 class Goal:
@@ -456,8 +460,9 @@ if __name__ == '__main__':
     print '\n===============================================\n'
     nodes = [ set.xmlElement() for set in goalSets ]
     for node in nodes:
-        node.writexml(sys.stdout, addindent='    ', newl='\n')
-        print
+        if node:
+            node.writexml(sys.stdout, addindent='    ', newl='\n')
+            print
     
     
 
