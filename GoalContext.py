@@ -16,7 +16,8 @@ class GoalContext( PGContext, MouseEnabled ):
                 '\n' + \
                 '\n\tLeft arrow         Select previous goal set' + \
                 '\n\tRight arrow        Select next goal set' + \
-                '\n\tCtrl-S             Save goal sets to "goals.xml"' + \
+                '\n\tCtrl-s             Save goal sets to "goals.xml"' + \
+                '\n\tCtrl-n             Create new goal set' + \
                 '\n\tDown click on one corner, drag to opposite corner' + \
                 '\n\tGoal region definition will be printed to console' + \
                 '\n\tupon mouse release.'
@@ -70,6 +71,9 @@ class GoalContext( PGContext, MouseEnabled ):
                 elif ( event.key == pygame.K_s and hasCtrl ):
                     self.saveGoals()
                     result.set( True, False )
+                elif ( event.key == pygame.K_n and hasCtrl ):
+                    self.goalEditor.editSet = self.goalEditor.newGoalSet()
+                    result.set( True, True )
         return result        
 
     def saveGoals( self, fileName='goals.txt' ):

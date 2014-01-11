@@ -42,7 +42,7 @@ class GoalSet:
                                         Tag types should simply be stored to be included
                                         in the output.
         '''
-        self.id = id
+        self.id = -1
         self.goals = {}     # mapping from goals to ids
         self.keys = []      # ids of goals
         self.robust = robustParse

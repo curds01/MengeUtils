@@ -32,6 +32,21 @@ class GoalEditor:
     def goalCount( self ):
         '''Reports the total number of goals'''
         return reduce( operator.add, map( lambda x: len(x), self.goalSets ) )
+
+    def newGoalSet( self ):
+        '''Creates a new goal set, returns its index.
+
+        @returns        The index of the new goal set.
+        '''
+        id = len( self.goalSets )
+
+        badIDs = map( lambda x: x.id, self.goalSets )
+        badIDs.sort()
+        newID = badIDs[-1] + 1
+        gs = Goals.GoalSet()
+        gs.id = newID
+        self.goalSets.append( gs )
+        return id
         
     def drawGL( self, select=False ):
         '''Draws the list of goal sets to the OpenGL context.
