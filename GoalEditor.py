@@ -57,6 +57,18 @@ class GoalEditor:
         '''
         assert( index >= -len(self.goalSets) and index < len( self.goalSets ) )
         self.goalSets.pop( index )
+
+    def deleteGoal( self, setIndex, goalIndex ):
+        '''Deletes the indicated goal from the indicated set.
+
+        @param      setIndex        The logical index of the goal set (i.e., it's position in
+                                    the list of goal sets -- not it's FSM id.
+        @param      goalIndex       The logical index of the goal inside the goal set.  Not
+                                    the FSM id.
+        '''
+        assert( setIndex >= -len(self.goalSets) and setIndex < len( self.goalSets ) )
+        assert( goalIndex >= -len( self.goalSets[ setIndex ] ) and goalIndex < len( self.goalSets[ setIndex ] ) )
+        self.goalSets[ setIndex ].pop( goalIndex )
         
     def drawGL( self, select=False, junk=None ):
         '''Draws the list of goal sets to the OpenGL context.

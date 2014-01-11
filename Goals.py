@@ -63,6 +63,13 @@ class GoalSet:
         if ( self.robust and self.unknownTags ):
             for tag in self.unknownTags:
                 tag.unlink()
+
+    def pop( self, i ):
+        '''Removes the ith goal from the goal set.'''
+        assert( i >= -len( self ) and i <= len( self ) )
+        key = self.keys[ i ]
+        self.keys.pop( i )
+        self.goals.pop( key )
     
     def parseXML( self, element ):
         '''Sets the goal set parameters based on the structure of an XML DOM tree.

@@ -11,7 +11,7 @@ import xml.dom as dom
 class GoalContext( PGContext, MouseEnabled ):
     '''A context for drawing goal regions (for now just AABB)'''
     #TODO: Add other goal types
-    HELP_TEXT = 'Goal Context' + \
+    BASE_TEXT = 'Goal Context' + \
                 '\n\tWork with Goals and GoalSets' + \
                 '\n' + \
                 '\n\tLeft arrow         Select previous goal set' + \
@@ -19,10 +19,8 @@ class GoalContext( PGContext, MouseEnabled ):
                 '\n\tCtrl-s             Save goal sets to "goals.xml"' + \
                 '\n\tCtrl-n             Create new goal set' + \
                 '\n\tCtrl-delete        Delete current goal set (and all goals)' + \
-                '\n\tDown click on one corner, drag to opposite corner' + \
-                '\n\tGoal region definition will be printed to console' + \
-                '\n\tupon mouse release.'
-
+                '\n\tCtrl-x             Delete highlighted goal' 
+    HELP_TEXT = BASE_TEXT
     def __init__( self, goalEditor ):
         '''Constructor.
 
@@ -34,11 +32,12 @@ class GoalContext( PGContext, MouseEnabled ):
         self.goalEditor = goalEditor
         self.lastActive = 0
         
-        self.p0 = None
-        self.p1 = None
-        self.goalID = 0
 
-        self.history = []
+##        self.p0 = None
+##        self.p1 = None
+##        self.goalID = 0
+##
+##        self.history = []
 
     def activate( self ):
         '''Called when the set gets activated'''
@@ -79,6 +78,11 @@ class GoalContext( PGContext, MouseEnabled ):
                     self.goalEditor.deleteSet( self.goalEditor.editSet )
                     self.goalEditor.editSet = self.goalEditor.editSet % self.goalEditor.setCount()
                     result.set( True, True )
+                elif ( event.key == pygame.K_x and hasCtrl ):
+                    if ( self.goalEditor.activeGoal > -1 ):
+                        self.goalEditor.deleteGoal( self.goalEditor.editSet, self.goalEditor.activeGoal )
+                        self.goalEditor.activeGoal = -1
+                        result.set( True, True )
         return result        
 
     def saveGoals( self, fileName='goals.txt' ):
@@ -101,16 +105,24 @@ class GoalContext( PGContext, MouseEnabled ):
         f.close()
 
         
-##    def handleMouse( self, event, view ):
-##        """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
-##        result = ContextResult()
-##        
-##        mods = pygame.key.get_mods()
-##        hasCtrl = mods & pygame.KMOD_CTRL
-##        hasAlt = mods & pygame.KMOD_ALT
-##        hasShift = mods & pygame.KMOD_SHIFT
-##        noMods = not( hasShift or hasCtrl or hasAlt )
-##
+    def handleMouse( self, event, view ):
+        """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
+        result = ContextResult()
+        
+        mods = pygame.key.get_mods()
+        hasCtrl = mods & pygame.KMOD_CTRL
+        hasAlt = mods & pygame.KMOD_ALT
+        hasShift = mods & pygame.KMOD_SHIFT
+        noMods = not( hasShift or hasCtrl or hasAlt )
+
+        if ( noMods ):
+            if ( event.type == pygame.MOUSEMOTION ):
+                result.setHandled( True )
+                pX, pY = event.pos
+                selID = view.select( pX, pY, self.goalEditor )
+                result.setNeedsRedraw( selID != self.goalEditor.activeGoal )
+                self.goalEditor.activeGoal = selID
+
 ##        if ( noMods ):
 ##            if ( event.type == pygame.MOUSEBUTTONDOWN ):
 ##                if ( event.button == PGMouse.LEFT ):
@@ -131,8 +143,8 @@ class GoalContext( PGContext, MouseEnabled ):
 ##                    self.printGoalBox()
 ##                    self.dragging = False
 ##                    result.set( True, True )
-##
-##        return result
+
+        return result
 
 ##    def printGoalBox( self ):
 ##        '''Writes the goal box xml definition to the console'''
@@ -171,19 +183,19 @@ class GoalContext( PGContext, MouseEnabled ):
 ##            
 ##            glPopAttrib()
                 
-        if ( not ( self.p0 is None or self.p1 is None ) ):
-            glPushAttrib( GL_COLOR_BUFFER_BIT | GL_LINE_BIT )
-            glColor3f( 1.0, 1.0, 0.0 )
-            glLineWidth( 2.0 )
-            
-            glBegin( GL_LINE_LOOP )
-            glVertex3f( self.p0[0], self.p0[1], 0.0 )
-            glVertex3f( self.p1[0], self.p0[1], 0.0 )
-            glVertex3f( self.p1[0], self.p1[1], 0.0 )
-            glVertex3f( self.p0[0], self.p1[1], 0.0 )
-            glEnd()
-            
-            glPopAttrib()
-            
-        PGContext.drawGL( self, view )
+##        if ( not ( self.p0 is None or self.p1 is None ) ):
+##            glPushAttrib( GL_COLOR_BUFFER_BIT | GL_LINE_BIT )
+##            glColor3f( 1.0, 1.0, 0.0 )
+##            glLineWidth( 2.0 )
+##            
+##            glBegin( GL_LINE_LOOP )
+##            glVertex3f( self.p0[0], self.p0[1], 0.0 )
+##            glVertex3f( self.p1[0], self.p0[1], 0.0 )
+##            glVertex3f( self.p1[0], self.p1[1], 0.0 )
+##            glVertex3f( self.p0[0], self.p1[1], 0.0 )
+##            glEnd()
+##            
+##            glPopAttrib()
+##            
+##        PGContext.drawGL( self, view )
     
