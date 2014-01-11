@@ -33,7 +33,7 @@ class GoalEditor:
         '''Reports the total number of goals'''
         return reduce( operator.add, map( lambda x: len(x), self.goalSets ) )
 
-    def newGoalSet( self ):
+    def newSet( self ):
         '''Creates a new goal set, returns its index.
 
         @returns        The index of the new goal set.
@@ -47,6 +47,15 @@ class GoalEditor:
         gs.id = newID
         self.goalSets.append( gs )
         return id
+
+    def deleteSet( self, index ):
+        '''Deletes the goal indicated by index.  This is not the same as the GoalSet.id, it is
+        the index in the list of goal sets.
+
+        @param      index       The index into the list of goal sets to delete.
+        '''
+        assert( index >= -len(self.goalSets) and index < len( self.goalSets ) )
+        self.goalSets.pop( index )
         
     def drawGL( self, select=False ):
         '''Draws the list of goal sets to the OpenGL context.

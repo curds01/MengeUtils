@@ -57,6 +57,12 @@ class GoalSet:
         '''Returns the ith goal in the set'''
         assert( i > -len(self.goals) and i < len( self.goals ) )
         return self.goals[ self.keys[ i ] ]
+
+    def __del__( self ):
+        # This is XML DOM stuff to make sure it gets garbage collected properly.
+        if ( self.robust and self.unknownTags ):
+            for tag in self.unknownTags:
+                tag.unlink()
     
     def parseXML( self, element ):
         '''Sets the goal set parameters based on the structure of an XML DOM tree.
