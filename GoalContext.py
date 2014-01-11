@@ -5,6 +5,8 @@ from Context import BaseContext, ContextResult
 import pygame
 from OpenGL.GL import *
 import Goals
+import paths
+import xml.dom as dom
 
 class GoalContext( PGContext, MouseEnabled ):
     '''A context for drawing goal regions (for now just AABB)'''
@@ -12,8 +14,9 @@ class GoalContext( PGContext, MouseEnabled ):
     HELP_TEXT = 'Goal Context' + \
                 '\n\tWork with Goals and GoalSets' + \
                 '\n' + \
-                '\n\tLeft arrow           Select previous goal set' + \
-                '\n\tRight arrow          Select next goal set' + \
+                '\n\tLeft arrow         Select previous goal set' + \
+                '\n\tRight arrow        Select next goal set' + \
+                '\n\tCtrl-S             Save goal sets to "goals.xml"' + \
                 '\n\tDown click on one corner, drag to opposite corner' + \
                 '\n\tGoal region definition will be printed to console' + \
                 '\n\tupon mouse release.'
@@ -64,8 +67,31 @@ class GoalContext( PGContext, MouseEnabled ):
                     oldActive = self.goalEditor.editSet
                     self.goalEditor.editSet = ( self.goalEditor.editSet -  1 ) % self.goalEditor.setCount()
                     result.set( True, oldActive != self.goalEditor.editSet )
+                elif ( event.key == pygame.K_s and hasCtrl ):
+                    self.saveGoals()
+                    result.set( True, False )
         return result        
 
+    def saveGoals( self, fileName='goals.txt' ):
+        '''Saves the goals to the specified file.
+
+        @param      fileName        The name to write the goals to.
+        '''
+        Goals.DIGITS = 2
+        path = paths.getPath( fileName, False )
+        print "Writing goals to:", path
+        f = open( path, 'w' )
+        f.write ('''<?xml version="1.0"?>
+<Population >
+''')
+        for gs in self.goalEditor:
+            node = gs.xmlElement()
+            if ( node ):
+                node.writexml( f, indent='    ', addindent='    ', newl='\n' )
+        f.write( '\n</Population>' )
+        f.close()
+
+        
 ##    def handleMouse( self, event, view ):
 ##        """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
 ##        result = ContextResult()
