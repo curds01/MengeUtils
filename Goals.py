@@ -3,6 +3,9 @@
 from primitives import Vector2
 from xml.dom import minidom
 
+# The accuracy with which the floats are pritned
+DIGITS = 5
+
 # Registration of goal types.  Used to parse goals
 class GoalSet:
     '''A set of goals.  Maps integer identifiers to instances of goals.'''
@@ -101,10 +104,10 @@ class Goal:
         @returns        An instnace of xml.minidom.Element containing this node's data
         '''
         node = minidom.Element( 'Goal' )
-        root.setAttribute( 'type', self.TYPE )
-        root.setAttribute( 'weight', '%f' % self.weight )
-        root.setAttribute( 'capacity', '%d' % self.capacity )
+        node.setAttribute( 'type', self.TYPE )
         node.setAttribute( 'id', '%d' % self.id )
+        node.setAttribute( 'weight', '{0:.{1}f}'.format( self.weight, DIGITS ) )
+        node.setAttribute( 'capacity', '%d' % self.capacity )
         return node
     
     def parseXML( self, element, robustParse ):
@@ -158,8 +161,8 @@ class PointGoal( Goal ):
         @returns        An instnace of xml.minidom.Element containing this node's data
         '''
         node = Goal.xmlElement( self )
-        root.setAttribute( 'x', '%f' % self.p.x )
-        root.setAttribute( 'y', '%f' % self.p.y )
+        node.setAttribute( 'x', '{0:.{1}f}'.format( self.p.x, DIGITS ) )
+        node.setAttribute( 'y', '{0:.{1}f}'.format( self.p.y, DIGITS ) )
         return node
 
     def parseXML( self, element, robustParse ):
@@ -195,7 +198,7 @@ class CircleGoal( PointGoal ):
         @returns        An instnace of xml.minidom.Element containing this node's data
         '''
         node = PointGoal.xmlElement( self )
-        root.setAttribute( 'radius', '%f' % self.r )
+        node.setAttribute( 'radius', '{0:.{1}f}'.format( self.r, DIGITS ) )
         return node
 
     def parseXML( self, element, robustParse ):
@@ -227,10 +230,10 @@ class AABBGoal( Goal ):
         @returns        An instnace of xml.minidom.Element containing this node's data
         '''
         node = Goal.xmlElement( self )
-        root.setAttribute( 'xmin', '%f' % self.minPt.x )
-        root.setAttribute( 'ymin', '%f' % self.minPt.y )
-        root.setAttribute( 'xmax', '%f' % self.maxPt.x )
-        root.setAttribute( 'ymax', '%f' % self.maxPt.y )
+        node.setAttribute( 'xmin', '{0:.{1}f}'.format( self.minPt.x, DIGITS ) )
+        node.setAttribute( 'ymin', '{0:.{1}f}'.format( self.minPt.y, DIGITS ) )
+        node.setAttribute( 'xmax', '{0:.{1}f}'.format( self.maxPt.x, DIGITS ) )
+        node.setAttribute( 'ymax', '{0:.{1}f}'.format( self.maxPt.y, DIGITS ) )
         return node
 
     def parseXML( self, element, robustParse ):
@@ -276,11 +279,11 @@ class OBBGoal( Goal ):
         @returns        An instnace of xml.minidom.Element containing this node's data
         '''
         node = Goal.xmlElement( self )
-        root.setAttribute( 'x', '%f' % self.pivot.x )
-        root.setAttribute( 'y', '%f' % self.pivot.y )
-        root.setAttribute( 'width', '%f' % self.size.x )
-        root.setAttribute( 'height', '%f' % self.size.y )
-        root.setAttribute( 'angle', '%f' % self.angle )
+        node.setAttribute( 'x', '{0:.{1}f}'.format( self.pivot.x, DIGITS ) )
+        node.setAttribute( 'y', '{0:.{1}f}'.format( self.pivot.y, DIGITS ) )
+        node.setAttribute( 'width', '{0:.{1}f}'.format( self.size.x, DIGITS ) )
+        node.setAttribute( 'height', '{0:.{1}f}'.format( self.size.y, DIGITS ) )
+        node.setAttribute( 'angle', '{0:.{1}f}'.format( self.angle, DIGITS ) )
         return node
 
     def parseXML( self, element, robustParse ):
@@ -398,6 +401,8 @@ if __name__ == '__main__':
                        action='store', dest='inFileName', default='' )
     parser.add_option( '-s', '--strict', help='Sets the parser to be strict.  All Goal tags must be explicitly correct.',
                        action='store_false', dest='robust', default=True )
+    parser.add_option( '-d', '--digits', help='The number of digits after the decimal point for output.  Defaults to %d.' % DIGITS,
+                       action='store', type='int', dest='digits', default=5 )
     options, args = parser.parse_args()
 
     if ( not options.inFileName ):
@@ -406,10 +411,18 @@ if __name__ == '__main__':
         sys.exit(1)
 
     goalSets = readGoals( options.inFileName, options.robust )
+
+    DIGITS = options.digits
     
-    print 'Found %d goal sets' % ( len( goalSets ) )
+    print '\nFound %d goal sets' % ( len( goalSets ) )
     for i, set in enumerate( goalSets ):
         print '\tgoal set %d has %d goals' % ( i, len( set ) )
+
+    print '\n===============================================\n'
+    nodes = [ set.xmlElement() for set in goalSets ]
+    for node in nodes:
+        node.writexml(sys.stdout, addindent='    ', newl='\n')
+        print
     
     
 
