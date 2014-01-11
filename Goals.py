@@ -367,7 +367,7 @@ def searchGoalSets( root, robustParse ):
                 goalSets.extend( searchGoalSets( child, robustParse ) )
     return goalSets
 
-def readGoals( fileName, robustParse=False ):
+def readGoals( fileName, robustParse=True ):
     '''Given a valid xml file that contains one or more GoalSet definitions, returns a list of
     goal sets.
 
@@ -417,6 +417,7 @@ if __name__ == '__main__':
     print '\nFound %d goal sets' % ( len( goalSets ) )
     for i, set in enumerate( goalSets ):
         print '\tgoal set %d has %d goals' % ( i, len( set ) )
+
 
     print '\n===============================================\n'
     nodes = [ set.xmlElement() for set in goalSets ]
