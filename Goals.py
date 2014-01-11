@@ -104,6 +104,7 @@ class Goal:
         root.setAttribute( 'type', self.TYPE )
         root.setAttribute( 'weight', '%f' % self.weight )
         root.setAttribute( 'capacity', '%d' % self.capacity )
+        node.setAttribute( 'id', '%d' % self.id )
         return node
     
     def parseXML( self, element, robustParse ):
@@ -264,7 +265,7 @@ class OBBGoal( Goal ):
     TYPE = 'OBB'
     def __init__( self ):
         '''Constructor.'''
-        Goal.__init__( self, weight, capacity )
+        Goal.__init__( self )
         self.pivot = Vector2( 0.0, 0.0 )  
         self.size = Vector2( 0.0, 0.0 )
         self.angle = 0.0
