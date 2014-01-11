@@ -19,11 +19,12 @@ except ImportError:
 # This is here instead of Context.py because this is pygame dependent and that is QT dependent.
 #   I need to unify those.
 
-LEFT = 1
-MIDDLE = 2
-RIGHT = 3
-WHEEL_UP = 4
-WHEEL_DOWN = 5
+class PGMouse:
+    LEFT = 1
+    MIDDLE = 2
+    RIGHT = 3
+    WHEEL_UP = 4
+    WHEEL_DOWN = 5
 
 class PGContext( BaseContext ):
     '''A pygame-based context'''
@@ -430,7 +431,7 @@ class SCBContext( PGContext ):
         noMods = not( hasShift or hasCtrl or hasAlt )
         
         if ( event.type == pygame.MOUSEBUTTONDOWN ):
-            if ( noMods and event.button == LEFT ):
+            if ( noMods and event.button == PGMouse.LEFT ):
                 pX, pY = view.screenToWorld( event.pos )        
                 result.setNeedsRedraw( self.findAgent( pX, pY ) )
         return result
@@ -536,7 +537,7 @@ class PositionContext( PGContext, MouseEnabled ):
         self.downX, self.downY = event.pos
         self.worldPos = view.screenToWorld( ( self.downX, self.downY ) )
         if ( event.type == pygame.MOUSEBUTTONDOWN ):
-            if ( event.button == LEFT ):
+            if ( event.button == PGMouse.LEFT ):
                 print "World position: %f %f" % ( self.worldPos[0], self.worldPos[1] )
         elif ( event.type == pygame.MOUSEMOTION ):
             result.set( False, True )
@@ -825,7 +826,7 @@ class EditPolygonContext( PGContext, MouseEnabled ):
 
             if ( noMods ):
                 if ( event.type == pygame.MOUSEBUTTONDOWN ):
-                    if ( event.button == LEFT ):
+                    if ( event.button == PGMouse.LEFT ):
                         self.downX, self.downY = view.screenToWorld( event.pos )
                         if ( self.activePoly is not None ):
                             origin = self.activePoly.vertices[ 0 ]
@@ -843,7 +844,7 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                             self.origin = ( v1.x, v1.y )
                             self.edgeDir = ( v2.x - v1.x, v2.y - v1.y )
                             self.dragging = True
-                    elif ( event.button == RIGHT and self.dragging ):
+                    elif ( event.button == PGMouse.RIGHT and self.dragging ):
                         if ( self.obstacles.activeVert is not None ):
                             self.obstacles.activeVert.x = self.origin[0]
                             self.obstacles.activeVert.y = self.origin[1]
@@ -861,7 +862,7 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                                 self.activePoly.vertices[ i ].y = self.origin[1] + self.displace[i-1][1]
                         self.dragging = False
                         result.set( True, True )
-                    elif ( event.button == MIDDLE and self.state == self.EDGE ):
+                    elif ( event.button == PGMouse.MIDDLE and self.state == self.EDGE ):
                         if ( self.obstacles.activeEdge is not None ):
                             self.downX, self.downY = view.screenToWorld( event.pos )
                             # insert vertex
@@ -873,7 +874,7 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                             self.dragging = True
                             result.set( True, True )
                 elif ( event.type == pygame.MOUSEBUTTONUP ):
-                    if ( event.button == LEFT or event.button == MIDDLE):
+                    if ( event.button == PGMouse.LEFT or event.button == PGMouse.MIDDLE):
                         self.dragging = False
                 elif ( event.type == pygame.MOUSEMOTION ):
                     if ( self.dragging ):
@@ -1038,7 +1039,7 @@ class DrawPolygonContext( PGContext, MouseEnabled ):
 
             if ( noMods ):
                 if ( event.type == pygame.MOUSEBUTTONDOWN ):
-                    if ( event.button == LEFT ):
+                    if ( event.button == PGMouse.LEFT ):
                         if ( self.state == self.WAITING ):
                             # initialize a polygon
                             self.polygon = GLPoly()
@@ -1050,14 +1051,14 @@ class DrawPolygonContext( PGContext, MouseEnabled ):
                         self.polygon.updateWinding()
                         self.dragging = True
                         result.set( True, True )
-                    elif ( event.button == RIGHT and self.state == self.DRAWING ):
+                    elif ( event.button == PGMouse.RIGHT and self.state == self.DRAWING ):
                         if ( self.polygon.vertCount() < 3 ):
                             self.polygon = None
                         self.dragging = False
                         self.state = self.WAITING
                         result.set( True, True, self.polygon is not None )
                 elif ( event.type == pygame.MOUSEBUTTONUP ):
-                    if ( event.button == LEFT and self.dragging ):
+                    if ( event.button == PGMouse.LEFT and self.dragging ):
                         self.dragging = False
                 elif ( event.type == pygame.MOUSEMOTION ):
                     if ( self.dragging  ):
@@ -1076,107 +1077,6 @@ class DrawPolygonContext( PGContext, MouseEnabled ):
         if ( self.state == self.DRAWING ):
             self.polygon.drawGL( editable=True, drawNormals=visNormals )
      
-class GoalContext( PGContext, MouseEnabled ):
-    '''A context for drawing goal regions (for now just AABB)'''
-    #TODO: Add other goal types
-    HELP_TEXT = 'Goal Context' + \
-                '\n\tDefine AABB goal regions' + \
-                '\n' + \
-                '\n\tDown click on one corner, drag to opposite corner' + \
-                '\n\tGoal region definition will be printed to console' + \
-                '\n\tupon mouse release.'
-
-    def __init__( self ):
-        PGContext.__init__( self )
-        MouseEnabled.__init__( self )
-
-        self.p0 = None
-        self.p1 = None
-        self.goalID = 0
-
-        self.history = []
-
-    def handleMouse( self, event, view ):
-        """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
-        result = ContextResult()
-        
-        mods = pygame.key.get_mods()
-        hasCtrl = mods & pygame.KMOD_CTRL
-        hasAlt = mods & pygame.KMOD_ALT
-        hasShift = mods & pygame.KMOD_SHIFT
-        noMods = not( hasShift or hasCtrl or hasAlt )
-
-        if ( noMods ):
-            if ( event.type == pygame.MOUSEBUTTONDOWN ):
-                if ( event.button == LEFT ):
-                    self.downX, self.downY = event.pos
-                    self.p0 = view.screenToWorld( ( self.downX, self.downY ) )
-                    self.dragging = True
-                    result.setHandled( True )
-                elif ( event.button == RIGHT and self.dragging ):
-                    self.dragging = False
-                    self.p0 = self.p1 = None
-                    result.set( True, True )
-            elif ( event.type == pygame.MOUSEMOTION and self.dragging ):
-                self.downX, self.downY = event.pos
-                self.p1 = view.screenToWorld( ( self.downX, self.downY ) )
-                result.set( True, True )
-            elif ( event.type == pygame.MOUSEBUTTONUP ):
-                if ( event.button == LEFT and self.dragging ):
-                    self.printGoalBox()
-                    self.dragging = False
-                    result.set( True, True )
-
-        return result
-
-    def printGoalBox( self ):
-        '''Writes the goal box xml definition to the console'''
-        # print xml
-        if ( not ( self.p0 is None or self.p1 is None ) ):
-            s = '<Goal type="AABB" id="{0}" xmin="{1:.3f}" xmax="{2:.3}" ymin="{3:.3f}" ymax="{4:.3f}" />'.format(
-                self.goalID,
-                min( self.p0[0], self.p1[0] ),
-                max( self.p0[0], self.p1[0] ),
-                min( self.p0[1], self.p1[1] ),
-                max( self.p0[1], self.p1[1] )
-                )
-            self.history.append( ( self.p0, self.p1 ) )
-            print s
-            self.goalID += 1
-            self.p0 = self.p1 = None
-    
-    def drawGL( self, view ):
-        '''Draws the current rectangle to the open gl context'''
-        if ( self.history ):
-            glPushAttrib( GL_COLOR_BUFFER_BIT | GL_LINE_BIT )
-            glColor3f( 0.1, 0.5, 0.0 )
-            glLineWidth( 2.0 )
-            for p0, p1 in self.history:
-                glBegin( GL_LINE_LOOP )
-                glVertex3f( p0[0], p0[1], 0.0 )
-                glVertex3f( p1[0], p0[1], 0.0 )
-                glVertex3f( p1[0], p1[1], 0.0 )
-                glVertex3f( p0[0], p1[1], 0.0 )
-                glEnd()
-            
-            glPopAttrib()
-                
-        if ( not ( self.p0 is None or self.p1 is None ) ):
-            glPushAttrib( GL_COLOR_BUFFER_BIT | GL_LINE_BIT )
-            glColor3f( 1.0, 1.0, 0.0 )
-            glLineWidth( 2.0 )
-            
-            glBegin( GL_LINE_LOOP )
-            glVertex3f( self.p0[0], self.p0[1], 0.0 )
-            glVertex3f( self.p1[0], self.p0[1], 0.0 )
-            glVertex3f( self.p1[0], self.p1[1], 0.0 )
-            glVertex3f( self.p0[0], self.p1[1], 0.0 )
-            glEnd()
-            
-            glPopAttrib()
-            
-        PGContext.drawGL( self, view )
-    
 class AgentContext( PGContext, MouseEnabled ):
     '''A context for adding agents-goal pairs and editing existing pairs'''
     HELP_TEXT = 'Agent context' + \
@@ -1294,10 +1194,10 @@ class AgentContext( PGContext, MouseEnabled ):
                         result.set( True, True )
                         self.agents.activeAgent = selAgt                        
         elif ( event.type == pygame.MOUSEBUTTONUP ):
-            if ( event.button == LEFT ):
+            if ( event.button == PGMouse.LEFT ):
                 self.dragging = False
         elif ( event.type == pygame.MOUSEBUTTONDOWN ):
-            if ( event.button == LEFT and noMods ):
+            if ( event.button == PGMouse.LEFT and noMods ):
                 self.downX, self.downY = event.pos
                 if ( self.agents.activeAgent ):
                     self.downPos = self.agents.activeAgent.getActivePos()
@@ -1532,11 +1432,11 @@ class FieldStrokeContext( VFieldContext ):
                 self.downY = pY
                 result.set( True, True )
         elif ( event.type == pygame.MOUSEBUTTONUP ):
-            if ( self.dragging and event.button == LEFT ):
+            if ( self.dragging and event.button == PGMouse.LEFT ):
                 self.dragging = False
                 result.set( True, True )
         elif ( event.type == pygame.MOUSEBUTTONDOWN ):
-            if ( event.button == LEFT and noMods ):
+            if ( event.button == PGMouse.LEFT and noMods ):
                 self.downX, self.downY = view.screenToWorld( event.pos )
                 self.dragging = True
                 result.set( True, True )
@@ -1721,11 +1621,11 @@ class FieldPathContext( VFieldContext ):
                 self.liveStroke.addPoint( pX, pY )
                 result.set( True, True )
         elif ( event.type == pygame.MOUSEBUTTONUP ):
-            if ( self.dragging and event.button == LEFT ):
+            if ( self.dragging and event.button == PGMouse.LEFT ):
                 self.liveStroke.endPath()
                 self.dragging = False
         elif ( event.type == pygame.MOUSEBUTTONDOWN ):
-            if ( event.button == LEFT and noMods ):
+            if ( event.button == PGMouse.LEFT and noMods ):
                 pX, pY = view.screenToWorld( event.pos )
                 self.liveStroke = Path()
                 self.liveStroke.beginPath( pX, pY )
@@ -1841,7 +1741,7 @@ class FieldDomainContext( VFieldContext, MouseEnabled ):
                     result.redraw = True
                     self.activeEdge = newIdx
         elif ( event.type == pygame.MOUSEBUTTONDOWN ):
-            if ( noMods and event.button == LEFT and self.activeEdge is not None ):
+            if ( noMods and event.button == PGMouse.LEFT and self.activeEdge is not None ):
                 self.downX, self.downY = view.screenToWorld( event.pos )
                 if ( self.activeEdge % 2 ): # vertical line
                     self.startVal = self.corners[ self.activeEdge ][ 0 ]
@@ -1849,7 +1749,7 @@ class FieldDomainContext( VFieldContext, MouseEnabled ):
                 else:
                     self.startVal = self.corners[ self.activeEdge ][ 1 ]
                     self.dragging = self.EDIT_VERT
-            elif ( event.button == RIGHT and self.dragging ):
+            elif ( event.button == PGMouse.RIGHT and self.dragging ):
                 if ( self.dragging == self.EDIT_HORZ ):
                     self.corners[ self.activeEdge ][ 0 ] = self.startVal
                     self.corners[ self.activeEdge + 1][ 0 ] = self.startVal

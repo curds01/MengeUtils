@@ -14,7 +14,8 @@ from obstacles import *
 from vField import GLVectorField
 
 # contexts
-from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext, PositionContext, GoalContext, ObstacleContext
+from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext, PositionContext, ObstacleContext
+from GoalContext import GoalContext
 from Context import ContextResult
 
 NO_EDIT = 0
