@@ -211,7 +211,10 @@ class GoalContext( PGContext, MouseEnabled ):
                     if ( self.dragging ):
                         dX, dY = view.screenToWorld( event.pos )
                         if ( self.state == self.MOVE_CIRCLE ):
-                            self.editGoal.setPos( dX, dY )
+                            dx = dX - self.downWorld[ 0 ]
+                            dy = dY - self.downWorld[ 1 ]
+                            self.editGoal.setPos( dx + self.tempValue[0],
+                                                  dy + self.tempValue[1] )
                         elif ( self.state == self.SIZE_CIRCLE ):
                             dX -= self.editGoal.p.x
                             dY -= self.editGoal.p.y
@@ -405,7 +408,7 @@ class GoalContext( PGContext, MouseEnabled ):
             self.state = self.SIZE_CIRCLE
         else:
             changed = False
-            if ( distSqd < 49 ):
+            if ( dist < radS ):
                 changed = self.state != self.MOVE_CIRCLE
                 self.state = self.MOVE_CIRCLE
             else:
@@ -521,16 +524,11 @@ class GoalContext( PGContext, MouseEnabled ):
             glDisable( GL_DEPTH_TEST )
             glPointSize( 5 )
             glLineWidth( 3 )
-            glColor3f( 0.7, 0.7, 0.1 )
+            glColor4f( 0.7, 0.7, 0.1, 0.25 )
             if ( self.state & self.EDIT_CIRCLE ):
-                if ( self.state == self.MOVE_CIRCLE ):
-                    glPointSize( 7 )
-                elif ( self.state == self.SIZE_CIRCLE ):
+                if ( self.state == self.SIZE_CIRCLE ):
                     glLineWidth( 4 )
                     GoalEditor.drawCircleGoal( self.editGoal )
-                glBegin( GL_POINTS )
-                glVertex3f( self.editGoal.p.x, self.editGoal.p.y, 0.0 )
-                glEnd()
             elif ( self.state & self.EDIT_AABB ):
                 if ( self.state == self.MIN_AABB ):
                     glPointSize( 7 )
@@ -546,11 +544,7 @@ class GoalContext( PGContext, MouseEnabled ):
                 glBegin( GL_POINTS )
                 glVertex3f( self.editGoal.maxPt.x, self.editGoal.maxPt.y, 0.0 )
                 glEnd()
-                if ( self.state == self.MOVE_AABB ):
-                    GoalEditor.drawAABBGoal( self.editGoal )
             elif ( self.state & self.EDIT_OBB ):
-                if ( self.state == self.MOVE_OBB ):
-                    GoalEditor.drawOBBGoal( self.editGoal )
                 # size widget
                 if ( self.state == self.SIZE_OBB ):
                     glPointSize( 7 )
@@ -572,7 +566,6 @@ class GoalContext( PGContext, MouseEnabled ):
                 glBegin( GL_POINTS )
                 glVertex3f( adj[0], adj[1], 0.0 )
                 glEnd()
-                
 
             glPopAttrib()
 

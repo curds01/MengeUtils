@@ -104,43 +104,49 @@ class GoalEditor:
         @param      junk            A garbage argument to make it compatible with the
                                     view selection paradigm.
         '''
-        glPushAttrib( GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT | GL_POINT_BIT | GL_LINE_BIT )
+        glPushAttrib( GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT | GL_POINT_BIT | GL_LINE_BIT | GL_POLYGON_BIT )
+        glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA )
+        glPolygonMode( GL_FRONT, GL_LINE )
         glDisable( GL_DEPTH_TEST )
         glPointSize( 5 )
         glLineWidth( 2 )
         glID = 0
         for i, gs in enumerate( self.goalSets ):
-            if ( i == self.editSet ):
-                glColor3f( 0.7, 0.3, 0.9 )
+            editable = i == self.editSet
+            if ( editable ):
+                c = ( 0.7, 0.3, 0.9, 0.25 )
+                glColor4fv( c )
             else:
                 if ( select ):  # don't draw goals in the uneditable set
                     continue
                 glColor3f( 0.35, 0.15, 0.45 )
-            for g in gs:
+            for i, g in enumerate( gs ):
                 if ( select ):
                     glLoadName( glID )
                     glID += 1
-                drawGoal( g )
+                elif ( editable and i == self.activeGoal ):
+                    continue
+                drawGoal( g, select, editable )
                 
         if ( not select and self.activeGoal > -1 ):
-            glColor3f( 0.7, 0.7, 0.1 )
-            drawGoal( self.goalSets[ self.editSet ][ self.activeGoal ] )
+            glColor4f( 0.7, 0.7, 0.1, 0.25 )
+            drawGoal( self.goalSets[ self.editSet ][ self.activeGoal ], select, True )
         glPopAttrib()
 
-def drawGoal( goal ):
+def drawGoal( goal, select, editable ):
     '''Draws a goal instance to the OpenGL context.
 
     @param      goal            The instance of Goals.Goal subclass to draw.
     '''
     if ( isinstance( goal, Goals.CircleGoal ) ):
         # this ordering is necessary because CircleGoal inherits from PointGoal
-        drawCircleGoal( goal )
+        drawCircleGoal( goal, select, editable )
     elif ( isinstance( goal, Goals.PointGoal ) ):
         drawPointGoal( goal )
     elif ( isinstance( goal, Goals.AABBGoal ) ):
-        drawAABBGoal( goal )
+        drawAABBGoal( goal, select, editable )
     elif ( isinstance( goal, Goals.OBBGoal ) ):
-        drawOBBGoal( goal )
+        drawOBBGoal( goal, select, editable )
 
 def drawPointGoal( goal ):
     '''Draws a point goal instance to the OpenGL context.
@@ -151,7 +157,7 @@ def drawPointGoal( goal ):
     glVertex3f( goal.p.x, goal.p.y, 0.0 )
     glEnd()
     
-def drawCircleGoal( goal ):
+def drawCircleGoal( goal, select=False, editable=False ):
     '''Draws a point goal instance to the OpenGL context.
 
     @param      goal            An instace of Goals.PointGoal.
@@ -159,13 +165,23 @@ def drawCircleGoal( goal ):
     glPushMatrix()
     glTranslatef( goal.p.x, goal.p.y, 0.0 )
     glScalef( goal.r, goal.r, goal.r )
-    glBegin( GL_LINE_LOOP )
-    for x, y in CIRCLE:
-        glVertex3f( x, y, 0.0 )
-    glEnd()
+    if ( editable ):
+        glEnable( GL_BLEND )
+        glPolygonMode( GL_FRONT, GL_FILL )
+        glBegin( GL_POLYGON )
+        for x, y in CIRCLE:
+            glVertex3f( x, y, 0.0 )
+        glEnd()
+        glPolygonMode( GL_FRONT, GL_LINE )
+        glDisable( GL_BLEND )
+    if ( not select ):
+        glBegin( GL_POLYGON )
+        for x, y in CIRCLE:
+            glVertex3f( x, y, 0.0 )
+        glEnd()
     glPopMatrix()
 
-def drawAABBGoal( goal ):
+def drawAABBGoal( goal, select=False, editable=False ):
     '''Draws a point goal instance to the OpenGL context.
 
     @param      goal            An instace of Goals.PointGoal.
@@ -174,13 +190,24 @@ def drawAABBGoal( goal ):
     glPushMatrix()
     glTranslatef( goal.minPt.x, goal.minPt.y, 0.0 )
     glScalef( size.x, size.y, 1.0 )
-    glBegin( GL_LINE_LOOP )
-    for x, y in SQUARE:
-        glVertex3f( x, y, 0.0 )
-    glEnd()
+    #
+    if ( editable ):
+        glEnable( GL_BLEND )
+        glPolygonMode( GL_FRONT, GL_FILL )
+        glBegin( GL_POLYGON )
+        for x, y in SQUARE:
+            glVertex3f( x, y, 0.0 )
+        glEnd()
+        glPolygonMode( GL_FRONT, GL_LINE )
+        glDisable( GL_BLEND )
+    if ( not select ):
+        glBegin( GL_POLYGON )
+        for x, y in SQUARE:
+            glVertex3f( x, y, 0.0 )
+        glEnd()
     glPopMatrix()
 
-def drawOBBGoal( goal ):
+def drawOBBGoal( goal, select=False, editable=False ):
     '''Draws a point goal instance to the OpenGL context.
 
     @param      goal            An instace of Goals.PointGoal.
@@ -189,8 +216,18 @@ def drawOBBGoal( goal ):
     glTranslatef( goal.pivot.x, goal.pivot.y, 0.0 )
     glRotatef( goal.angle, 0.0, 0.0, 1.0 )
     glScalef( goal.size.x, goal.size.y, 1.0 )
-    glBegin( GL_LINE_LOOP )
-    for x, y in SQUARE:
-        glVertex3f( x, y, 0.0 )
-    glEnd()
+    if ( editable ):
+        glEnable( GL_BLEND )
+        glPolygonMode( GL_FRONT, GL_FILL )
+        glBegin( GL_POLYGON )
+        for x, y in SQUARE:
+            glVertex3f( x, y, 0.0 )
+        glEnd()
+        glPolygonMode( GL_FRONT, GL_LINE )
+        glDisable( GL_BLEND )
+    if ( not select ):
+        glBegin( GL_LINE_LOOP )
+        for x, y in SQUARE:
+            glVertex3f( x, y, 0.0 )
+        glEnd()
     glPopMatrix()
