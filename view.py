@@ -46,6 +46,12 @@ class View:
         y_GL = (1.0 - y / float( self.wHeight ) ) * self.vHeight + self.vBottom
         return x_GL, y_GL
 
+    def worldToScreen( self, (x,y) ):
+        '''Converts world-space value into a screen-space value - the result is a 2-TUPLE'''
+        x_S = int( ( x - self.vLeft ) * self.wWidth / self.vWidth )
+        y_S = int( self.wHeight * ( 1.0 - ( y - self.vBottom ) / self.vHeight ) )
+        return x_S, y_S
+
     def initGL( self ):
         glClearColor(0.0, 0.0, 0.0, 0.0)
         glClearDepth(1.0)
