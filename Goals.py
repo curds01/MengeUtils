@@ -2,6 +2,7 @@
 
 from primitives import Vector2
 from xml.dom import minidom
+from math import cos, sin, atan2, pi
 
 # The accuracy with which the floats are pritned
 DIGITS = 5
@@ -424,6 +425,140 @@ class OBBGoal( Goal ):
         self.size = Vector2( 0.0, 0.0 )
         self.angle = 0.0
 
+    def set( self, x, y, w, h, angle ):
+        '''Sets the properties of the OBB goal.
+
+        @param      x       The x-position of the goal's pivot.
+        @param      x       The x-position of the goal's pivot.
+        @param      w       The width of the goal (along the local x-axis).
+        @param      h       The height of the goal (along the local y-axis).
+        @param      angle   The angle of the goal's rotation.
+        '''
+        self.pivot.x = x
+        self.pivot.y = y
+        self.size.x = w
+        self.size.h = h
+        self.angle = angle
+
+    def setPivot( self, x, y ):
+        '''Sets the pivot of the OBB goal.
+
+        @param      x       The x-position of the goal's pivot.
+        @param      x       The x-position of the goal's pivot.
+        '''
+        self.pivot.x = x
+        self.pivot.y = y
+
+    def adjacentCorner( self ): 
+        '''Returns the position of the corner adjacent to the pivot (used for aiming).
+
+        @returns        A 2-tuple of floats.  The position of the adjacent corner.
+        '''
+        angle = self.angle * pi / 180.0
+        c = cos( angle )
+        s = sin( angle )
+        lX = c * self.size.x 
+        lY = s * self.size.x
+        return self.pivot.x + lX, self.pivot.y + lY       
+
+    def oppositeCorner( self ):
+        '''Returns the position of the corner opposite the pivot.
+
+        @returns        A 2-tuple of floats.  The position of the opposite corner.
+        '''
+        angle = self.angle * pi / 180.0
+        c = cos( angle )
+        s = sin( angle )
+        lX = c * self.size.x - s * self.size.y
+        lY = c * self.size.y + s * self.size.x
+        return self.pivot.x + lX, self.pivot.y + lY
+        
+    def setOppositeCorner( self, x, y ):
+        '''Changes the size to cause the corner opposite the pivot to reach this point.
+        The pivot location and orientation remain fixed.
+
+        @param      x       The desired x-position of the opposite corner.
+        @param      y       The desired x-position of the opposite corner.
+        '''
+        # transform the point (x, y) back into local space
+        angle = self.angle * pi / 180.0
+        c = cos( angle )
+        s = sin( angle )
+        x -= self.pivot.x
+        y -= self.pivot.y
+        # compute size
+        self.size.x = c * x + s * y
+        self.size.y = -s * x + c * y
+
+    def aim( self, x, y ):
+        '''Orients the OBB so that the bottom edge points from the pivot to the given point.
+        The pivot location and orientation remain fixed.
+
+        @param      x       The desired x-position of the distant, adjacent corner.
+        @param      y       The desired x-position of the distant, adjacent corner.
+        '''
+        dX = x - self.pivot.x
+        dY = y - self.pivot.y
+        angle = atan2( dY, dX )
+        self.angle = angle * 180.0 / pi
+        
+    def setSize( self, w, h ):
+        '''Sets the size of the OBB goal.
+
+        @param      w       The width of the goal (along the local x-axis).
+        @param      h       The height of the goal (along the local y-axis).
+        '''
+        self.size.x = w
+        self.size.h = h
+        
+    def setAngle( self, angle ):
+        '''Sets the rotation angle of the OBB goal.
+
+        @param      angle   The angle of the goal's rotation.
+        '''
+        self.angle = angle
+
+    def isInside( self, point ):
+        '''Determines if the given point is inside the AABB.
+
+        @param      point       A 2-tuple of floats.
+        '''
+        X = point[0] - self.pivot.x
+        Y = point[1] - self.pivot.y
+        angle = self.angle * pi / 180.0
+        c = cos( angle )
+        s = sin( angle )
+        x = c * X + s * Y
+        y = -s * X + c * Y
+        return ( x >= 0 and
+                 x <= self.size.x and
+                 y >= 0 and
+                 y <= self.size.y )
+
+    def fix( self ):
+        '''Makes sure that the OBB has strictly positive size values'''
+        if ( self.size.x < 0 or self.size.y < 0 ):
+            if ( self.size.x < 0 and self.size.y < 0 ):
+                opp = self.oppositeCorner()
+                self.pivot.x = opp[0]
+                self.pivot.y = opp[1]
+                self.size.x = -self.size.x
+                self.size.y = -self.size.y
+            elif ( self.size.x < 0 ):
+                adj = self.adjacentCorner()
+                self.pivot.x = adj[0]
+                self.pivot.y = adj[1]
+                self.size.x = -self.size.x
+            elif ( self.size.y < 0 ):
+                opp = self.oppositeCorner()
+                adj = self.adjacentCorner()
+                dX = opp[0] - adj[0]
+                dY = opp[1] - adj[1]
+                self.pivot.x += dX
+                self.pivot.y += dY
+                self.size.y = -self.size.y
+            
+    
     def xmlElement( self ):
         '''Creates an XML Dom Element for this GoalSet.
 

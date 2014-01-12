@@ -63,15 +63,16 @@ class GoalContext( PGContext, MouseEnabled ):
     MIN_AABB = 0x80
     MAX_AABB = 0x100
     MOVE_AABB = 0x200
-    EDIT_OBB = 0xE00
-##    MOVE_OBB = 0x200
-##    SIZE_OBB = 0x400
-##    TURN_OBB = 0x800
+    EDIT_OBB = 0x1C00
+    MOVE_OBB = 0x400
+    SIZE_OBB = 0x800
+    TURN_OBB = 0x1000
 
     STATE_NAMES = { POINT:'point', CIRCLE:'circle', AABB:'AABB', OBB:'OBB',
                     EDIT_POINT:'point', EDIT_CIRCLE:'circle', EDIT_AABB:'AABB', EDIT_OBB:'OBB',
                     MOVE_CIRCLE:'circle', SIZE_CIRCLE:'circle',
-                    MIN_AABB:'AABB', MAX_AABB:'AABB', MOVE_AABB:'AABB'
+                    MIN_AABB:'AABB', MAX_AABB:'AABB', MOVE_AABB:'AABB',
+                    MOVE_OBB:'OBB', SIZE_OBB:'OBB', TURN_OBB:'OBB'
                     }    
     
     def __init__( self, goalEditor ):
@@ -238,6 +239,21 @@ class GoalContext( PGContext, MouseEnabled ):
                         result.set( True, True )
                     else:
                         result.setNeedsRedraw( self.setAABBEdit( event.pos, view ) )
+                elif ( self.state & self.EDIT_OBB ):
+                    result.setHandled( True )
+                    if ( self.dragging ):
+                        x, y = view.screenToWorld( event.pos )
+                        if ( self.state == self.MOVE_OBB ):
+                            dx = x - self.downWorld[ 0 ]
+                            dy = y - self.downWorld[ 1 ]
+                            self.editGoal.setPivot( dx + self.tempValue[0], dy + self.tempValue[1] )
+                        elif ( self.state == self.SIZE_OBB ):
+                            self.editGoal.setOppositeCorner( x, y )
+                        elif ( self.state == self.TURN_OBB ):
+                            self.editGoal.aim( x, y )                            
+                        result.set( True, True )
+                    else:
+                        result.setNeedsRedraw( self.setOBBEdit( event.pos, view ) )
             elif ( event.type == pygame.MOUSEBUTTONDOWN ):
                 if ( event.button == PGMouse.LEFT ):
                     self.cacheDownClick( event.pos, view.screenToWorld( event.pos ) )
@@ -274,6 +290,16 @@ class GoalContext( PGContext, MouseEnabled ):
                             self.state = self.EDIT_AABB
                             self.dragging = False
                         result.set( True, True )
+                    elif ( self.state & self.EDIT_OBB ):
+                        if ( self.state == self.EDIT_OBB ):
+                            self.editGoal = None
+                            self.goalEditor.activeGoal = -1
+                            self.state = self.OBB
+                        elif ( self.state != self.EDIT_OBB ):
+                            self.editGoal.set( self.tempValue[0], self.tempValue[1], self.tempValue[2], self.tempValue[3], self.tempValue[4] )
+                            self.state = self.EDIT_OBB
+                            self.dragging = False
+                        result.set( True, True )
             elif ( event.type == pygame.MOUSEBUTTONUP ):
                 if ( event.button == PGMouse.LEFT ):
                     if ( self.state == self.EDIT_POINT ):
@@ -286,6 +312,11 @@ class GoalContext( PGContext, MouseEnabled ):
                     elif ( self.state & self.EDIT_AABB and self.state != self.EDIT_AABB ):
                         self.editGoal.fixPoints()
                         self.state = self.EDIT_AABB
+                        self.dragging = False
+                        result.set( True, True )
+                    elif ( self.state & self.EDIT_OBB and self.state != self.EDIT_OBB ):
+                        self.editGoal.fix()
+                        self.state = self.EDIT_OBB
                         self.dragging = False
                         result.set( True, True )
         return result
@@ -321,7 +352,11 @@ class GoalContext( PGContext, MouseEnabled ):
             self.state = self.AABB
             self.startEdit( view )
         elif ( self.state == self.OBB ):
-            pass
+            self.editGoal = Goals.OBBGoal()
+            self.editGoal.set( self.downWorld[0], self.downWorld[1], 0.0, 0.0, 0.0 )
+            self.goalEditor.activeGoal = self.goalEditor.addGoal( self.goalEditor.editSet, self.editGoal )
+            self.state = self.OBB
+            self.startEdit( view )
 
     def startEdit( self, view ):
         '''Sets the state of the context to begin editing the active goal.
@@ -343,7 +378,10 @@ class GoalContext( PGContext, MouseEnabled ):
                 self.tempValue = ( self.editGoal.minPt.x, self.editGoal.minPt.y, self.editGoal.maxPt.x, self.editGoal.maxPt.y )
                 self.dragging = True
         elif ( isinstance( self.editGoal, Goals.OBBGoal ) ):
-            self.state = self.EDIT_OBB
+            self.setOBBEdit( (self.downX, self.downY ), view, self.state == self.EDIT_OBB )
+            if ( self.state & self.EDIT_OBB and self.state != self.EDIT_OBB ):
+                self.tempValue = ( self.editGoal.pivot.x, self.editGoal.pivot.y, self.editGoal.size.x, self.editGoal.size.y, self.editGoal.angle )
+                self.dragging = True
 
     def setCircleEdit( self, mousePos, view, missDeselect=False ):
         '''Sets the circle state based on the current mouse position.
@@ -421,7 +459,51 @@ class GoalContext( PGContext, MouseEnabled ):
                     else:
                         changed =  self.state != self.EDIT_AABB
                         self.state = self.EDIT_AABB
-        return changed
+        return changed    
+   
+    def setOBBEdit( self, mousePos, view, missDeselect=False ):
+        '''Sets the OBB state based on the current mouse position.
+
+        @param      mousePos        A 2-tuple of ints. The screen space coordinates of the mouse.
+        @param      view            A pointer to the OpenGL viewer.
+        @param      missDeselect    If True and the mouse isn't near the min or max corners, 
+                                    then it deselects the active object.
+        @returns    A boolean if the edit state changed.
+        '''
+        opp = self.editGoal.oppositeCorner()
+        cX, cY = view.worldToScreen( opp )
+        dX = mousePos[0] - cX
+        dY = mousePos[1] - cY
+        distSqd = dX * dX + dY * dY
+        changed = False
+        if ( distSqd < 49 ):
+            changed = self.state != self.SIZE_OBB
+            self.state = self.SIZE_OBB
+        else:
+            adj = self.editGoal.adjacentCorner()
+            cX, cY = view.worldToScreen( adj )
+            dX = mousePos[0] - cX
+            dY = mousePos[1] - cY
+            distSqd = dX * dX + dY * dY
+            if ( distSqd < 49 ):
+                changed = self.state != self.TURN_OBB
+                self.state = self.TURN_OBB
+            else:
+                # determine if it is within the distance of the segments
+                worldPos = view.screenToWorld( mousePos )
+                if ( self.editGoal.isInside( worldPos ) ):
+                    changed = self.state != self.MOVE_OBB
+                    self.state = self.MOVE_OBB
+                else:
+                    if ( missDeselect ):
+                        changed = True
+                        self.state = self.OBB
+                        self.editGoal = None
+                        self.goalEditor.activeGoal = -1
+                    else:
+                        changed =  self.state != self.EDIT_OBB
+                        self.state = self.EDIT_OBB
+        return changed    
    
     def drawGL( self, view ):
         '''Draws the current rectangle to the open gl context'''
@@ -466,5 +548,31 @@ class GoalContext( PGContext, MouseEnabled ):
                 glEnd()
                 if ( self.state == self.MOVE_AABB ):
                     GoalEditor.drawAABBGoal( self.editGoal )
+            elif ( self.state & self.EDIT_OBB ):
+                if ( self.state == self.MOVE_OBB ):
+                    GoalEditor.drawOBBGoal( self.editGoal )
+                # size widget
+                if ( self.state == self.SIZE_OBB ):
+                    glPointSize( 7 )
+                else:
+                    glPointSize( 4 )
+                glColor3f( 1.0, 0.0, 0.0 )
+                opp = self.editGoal.oppositeCorner()
+                glBegin( GL_POINTS )
+                glVertex3f( opp[0], opp[1], 0.0 )
+                glEnd()
+
+                # turn corner                
+                if ( self.state == self.TURN_OBB ):
+                    glPointSize( 7 )
+                else:
+                    glPointSize( 4 )
+                glColor3f( 0.1, 0.1, 1.0 )
+                adj = self.editGoal.adjacentCorner()
+                glBegin( GL_POINTS )
+                glVertex3f( adj[0], adj[1], 0.0 )
+                glEnd()
+                
+
             glPopAttrib()
 
