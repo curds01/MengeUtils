@@ -99,10 +99,23 @@ class GoalSet:
                 else:
                     raise ValueError, "Child tag of GoalSet unrecognized -- %s" % ( child.tagName )
 
+    def getFreeID( self ):
+        '''Returns a unique goal identifier for this goal set'''
+        testID = 0
+        idx = 0
+        while ( idx < len( self.keys ) ):
+            if ( self.keys[idx] == testID ):
+                testID += 1
+                idx += 1
+            else:
+                break
+        return testID
+    
     def addGoal( self, goal ):
         '''Adds a goal to the goal set.
 
-        @param      goal    An instance of Goal.
+        @param      goal            An instance of Goal.
+        @returns    The local index of the added goal.
         @raises     KeyError        If the id is not unique
         '''
         if ( self.goals.has_key( goal.id ) ):
@@ -110,6 +123,7 @@ class GoalSet:
         self.goals[ goal.id ] = goal
         self.keys.append( goal.id )
         self.keys.sort()
+        return self.keys.index( goal.id )
 
     def __len__( self ):
         '''Returns the number of goals'''
@@ -134,8 +148,6 @@ class GoalSet:
                     root.appendChild( tag )
         return root
         
-    
-    
 class Goal:
     '''The goal base class'''
     TYPE = 'undefined'
