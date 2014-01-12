@@ -36,10 +36,18 @@ class GoalContext( PGContext, MouseEnabled ):
                 '\n\ta                  Create AABB goals' + \
                 '\n\t\tLeft drag        In empty space to draw a new AABB goal' + \
                 '\n\t\tLeft click       On highlighted AABB to edit' + \
-                '\n\t\tLeft click       On highlighted corner to reshape AABB' + \
+                '\n\t\tLeft drag        On highlighted corner to reshape AABB' + \
+                '\n\t\tLeft drag        Inside to move the AABB' + \
                 '\n\t\tLeft click       In empty space to stop editing' + \
                 '\n\t\tRight click      To cancel movement of AABB corner or end editing' + \
                 '\n\to                 Create OBB goals' + \
+                '\n\t\tLeft drag        In empty space to draw a new OBB goal' + \
+                '\n\t\tLeft click       On highlighted OBB to edit' + \
+                '\n\t\tLeft drag        On blue corner to move OBB' + \
+                '\n\t\tLeft drag        On red corner to resize OBB' + \
+                '\n\t\tLeft drag        On arc to reorient OBB' + \
+                '\n\t\tLeft click       In empty space to stop editing' + \
+                '\n\t\tRight click      To cancel movement of OBB corner or end editing' + \
                 ''
     # state for acting on goal sets
     POINT = 1
@@ -48,18 +56,22 @@ class GoalContext( PGContext, MouseEnabled ):
     OBB = 8
     CREATE = 0xf
     EDIT_POINT = 0x10
-    EDIT_CIRCLE = 0xE0
-    MOVE_CIRCLE = 0xA0
-    SIZE_CIRCLE = 0xC0
-    EDIT_AABB = 0x700
-    MOVE_AABB = 0x600
-    SIZE_AABB = 0x500
-    EDIT_OBB = 0x800
+    EDIT_CIRCLE = 0x60
+    MOVE_CIRCLE = 0x40
+    SIZE_CIRCLE = 0x20
+    EDIT_AABB = 0x380
+    MIN_AABB = 0x80
+    MAX_AABB = 0x100
+    MOVE_AABB = 0x200
+    EDIT_OBB = 0xE00
+##    MOVE_OBB = 0x200
+##    SIZE_OBB = 0x400
+##    TURN_OBB = 0x800
 
     STATE_NAMES = { POINT:'point', CIRCLE:'circle', AABB:'AABB', OBB:'OBB',
                     EDIT_POINT:'point', EDIT_CIRCLE:'circle', EDIT_AABB:'AABB', EDIT_OBB:'OBB',
                     MOVE_CIRCLE:'circle', SIZE_CIRCLE:'circle',
-                    MOVE_AABB:'AABB', SIZE_AABB:'AABB',
+                    MIN_AABB:'AABB', MAX_AABB:'AABB', MOVE_AABB:'AABB'
                     }    
     
     def __init__( self, goalEditor ):
@@ -210,11 +222,19 @@ class GoalContext( PGContext, MouseEnabled ):
                 elif ( self.state & self.EDIT_AABB ):
                     result.setHandled( True )
                     if ( self.dragging ):
-                        dX, dY = view.screenToWorld( event.pos )
-                        if ( self.state == self.MOVE_AABB ):
-                            self.editGoal.setMin( dX, dY )
-                        elif ( self.state == self.SIZE_AABB ):
-                            self.editGoal.setMax( dX, dY )
+                        x, y = view.screenToWorld( event.pos )
+                        if ( self.state == self.MIN_AABB ):
+                            self.editGoal.setMin( x, y )
+                        elif ( self.state == self.MAX_AABB ):
+                            self.editGoal.setMax( x, y )
+                        elif ( self.state == self.MOVE_AABB ):
+                            dx = x - self.downWorld[ 0 ]
+                            dy = y - self.downWorld[ 1 ]
+                            self.editGoal.set( dx + self.tempValue[0],
+                                               dy + self.tempValue[1],
+                                               dx + self.tempValue[2],
+                                               dy + self.tempValue[3] )
+                            
                         result.set( True, True )
                     else:
                         result.setNeedsRedraw( self.setAABBEdit( event.pos, view ) )
@@ -376,26 +396,32 @@ class GoalContext( PGContext, MouseEnabled ):
         distSqd = dX * dX + dY * dY
         changed = False
         if ( distSqd < 49 ):
-            changed = self.state != self.MOVE_AABB
-            self.state = self.MOVE_AABB
+            changed = self.state != self.MIN_AABB
+            self.state = self.MIN_AABB
         else:
             cX, cY = view.worldToScreen( ( self.editGoal.maxPt.x, self.editGoal.maxPt.y ) )
             dX = mousePos[0] - cX
             dY = mousePos[1] - cY
             distSqd = dX * dX + dY * dY
             if ( distSqd < 49 ):
-                changed = self.state != self.SIZE_AABB
-                self.state = self.SIZE_AABB
+                changed = self.state != self.MAX_AABB
+                self.state = self.MAX_AABB
             else:
-                if ( missDeselect ):
-                    changed = True
-                    self.state = self.AABB
-                    self.editGoal = None
-                    self.goalEditor.activeGoal = -1
+                # determine if it is within the distance of the segments
+                worldPos = view.screenToWorld( mousePos )
+                if ( self.editGoal.isInside( worldPos ) ):
+                    changed = self.state != self.MOVE_AABB
+                    self.state = self.MOVE_AABB
                 else:
-                    changed =  self.state != self.EDIT_AABB
-                    self.state = self.EDIT_AABB
-        return changed    
+                    if ( missDeselect ):
+                        changed = True
+                        self.state = self.AABB
+                        self.editGoal = None
+                        self.goalEditor.activeGoal = -1
+                    else:
+                        changed =  self.state != self.EDIT_AABB
+                        self.state = self.EDIT_AABB
+        return changed
    
     def drawGL( self, view ):
         '''Draws the current rectangle to the open gl context'''
@@ -412,7 +438,7 @@ class GoalContext( PGContext, MouseEnabled ):
             glPushAttrib( GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT | GL_POINT_BIT | GL_LINE_BIT )
             glDisable( GL_DEPTH_TEST )
             glPointSize( 5 )
-            glLineWidth( 2 )
+            glLineWidth( 3 )
             glColor3f( 0.7, 0.7, 0.1 )
             if ( self.state & self.EDIT_CIRCLE ):
                 if ( self.state == self.MOVE_CIRCLE ):
@@ -424,19 +450,21 @@ class GoalContext( PGContext, MouseEnabled ):
                 glVertex3f( self.editGoal.p.x, self.editGoal.p.y, 0.0 )
                 glEnd()
             elif ( self.state & self.EDIT_AABB ):
-                if ( self.state == self.MOVE_AABB ):
+                if ( self.state == self.MIN_AABB ):
                     glPointSize( 7 )
                 else:
                     glPointSize( 4 )
                 glBegin( GL_POINTS )
                 glVertex3f( self.editGoal.minPt.x, self.editGoal.minPt.y, 0.0 )
                 glEnd()
-                if ( self.state == self.SIZE_AABB ):
+                if ( self.state == self.MAX_AABB ):
                     glPointSize( 7 )
                 else:
                     glPointSize( 4 )
                 glBegin( GL_POINTS )
                 glVertex3f( self.editGoal.maxPt.x, self.editGoal.maxPt.y, 0.0 )
                 glEnd()
+                if ( self.state == self.MOVE_AABB ):
+                    GoalEditor.drawAABBGoal( self.editGoal )
             glPopAttrib()
 

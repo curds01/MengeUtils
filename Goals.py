@@ -363,7 +363,18 @@ class AABBGoal( Goal ):
             tmp = self.minPt.y
             self.minPt.y = self.maxPt.y
             self.maxPt.y = tmp            
-        
+
+    def isInside( self, point ):
+        '''Determines if the given point is inside the AABB.
+
+        @param      point       A 2-tuple of floats.
+        '''
+        x, y = point
+        return ( x >= self.minPt.x and
+                 x <= self.maxPt.x and
+                 y >= self.minPt.y and
+                 y <= self.maxPt.y )
+    
     def xmlElement( self ):
         '''Creates an XML Dom Element for this GoalSet.
 
