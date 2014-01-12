@@ -342,7 +342,7 @@ class GoalContext( PGContext, MouseEnabled ):
             self.startEdit( view )
         elif ( self.state == self.CIRCLE ):
             self.editGoal = Goals.CircleGoal()
-            self.editGoal.set( self.downWorld[0], self.downWorld[1], 1.0 )
+            self.editGoal.set( self.downWorld[0], self.downWorld[1], 0.0 )
             self.goalEditor.activeGoal = self.goalEditor.addGoal( self.goalEditor.editSet, self.editGoal )
             self.startEdit( view )
         elif ( self.state == self.AABB ):
@@ -393,21 +393,21 @@ class GoalContext( PGContext, MouseEnabled ):
         @returns    A boolean if the edit state changed.
         '''
         cX, cY = view.worldToScreen( ( self.editGoal.p.x, self.editGoal.p.y ) )
+        rX, rY = view.worldToScreen( ( self.editGoal.r + self.editGoal.p.x, self.editGoal.p.y ) )
+        radS = rX - cX
         dX = mousePos[0] - cX
         dY = mousePos[1] - cY
         distSqd = dX * dX + dY * dY
-        changed = False
-        if ( distSqd < 49 ):
-            changed = self.state != self.MOVE_CIRCLE
-            self.state = self.MOVE_CIRCLE
+        dist = sqrt( distSqd )
+        delta = abs( dist - radS )
+        if ( delta < 7 ):
+            changed = self.state != self.SIZE_CIRCLE
+            self.state = self.SIZE_CIRCLE
         else:
-            rX, rY = view.worldToScreen( ( self.editGoal.r + self.editGoal.p.x, self.editGoal.p.y ) )
-            radS = rX - cX
-            dist = sqrt( distSqd )
-            delta = abs( dist - radS )
-            if ( delta < 7 ):
-                changed = self.state != self.SIZE_CIRCLE
-                self.state = self.SIZE_CIRCLE
+            changed = False
+            if ( distSqd < 49 ):
+                changed = self.state != self.MOVE_CIRCLE
+                self.state = self.MOVE_CIRCLE
             else:
                 if ( missDeselect ):
                     changed = True
