@@ -4,8 +4,8 @@ import numpy as np
 import operator
 
 # unit circle centered on radius
-CIRCLE = np.column_stack( (np.cos( np.linspace( 0, np.pi * 2.0, 16, endpoint=False ) ),
-                           np.sin( np.linspace( 0, np.pi * 2.0, 16, endpoint=False ) ) ) )
+CIRCLE = np.column_stack( (np.cos( np.linspace( 0, np.pi * 2.0, 24, endpoint=False ) ),
+                           np.sin( np.linspace( 0, np.pi * 2.0, 24, endpoint=False ) ) ) )
 
 # square box with size 1, bottom-left corner positioned on origin
 SQUARE = np.array( ( (0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0) ), dtype=np.float32 )
@@ -69,6 +69,32 @@ class GoalEditor:
         assert( setIndex >= -len(self.goalSets) and setIndex < len( self.goalSets ) )
         assert( goalIndex >= -len( self.goalSets[ setIndex ] ) and goalIndex < len( self.goalSets[ setIndex ] ) )
         self.goalSets[ setIndex ].pop( goalIndex )
+
+    def addGoal( self, setIndex, goal ):
+        '''Adds the given goal to the indicated set.  Acquires a goal id from the goal set.
+
+        @param      setIndex        The logical index of the goal set (i.e., it's position in
+                                    the list of goal sets -- not it's FSM id.
+        @param      goal            The goal to add.
+        @returns    The local index of the goal in the set.
+        '''
+        assert( setIndex >= -len(self.goalSets) and setIndex < len( self.goalSets ) )
+        id = self.goalSets[ setIndex ].getFreeID()
+        goal.id = id
+        return self.goalSets[ setIndex ].addGoal( goal )
+
+    def getGoal( self, setIndex, goalIndex ):
+        '''Returns the indicated goal from the indicated set.
+
+        @param      setIndex        The logical index of the goal set (i.e., it's position in
+                                    the list of goal sets -- not it's FSM id.
+        @param      goalIndex       The logical index of the goal inside the goal set.  Not
+                                    the FSM id.
+        '''
+        assert( setIndex >= -len(self.goalSets) and setIndex < len( self.goalSets ) )
+        assert( goalIndex >= -len( self.goalSets[ setIndex ] ) and goalIndex < len( self.goalSets[ setIndex ] ) )
+        return self.goalSets[ setIndex ][ goalIndex ]
+
         
     def drawGL( self, select=False, junk=None ):
         '''Draws the list of goal sets to the OpenGL context.

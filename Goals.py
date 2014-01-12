@@ -218,6 +218,15 @@ class PointGoal( Goal ):
         Goal.__init__( self )
         self.p = Vector2( 0.0, 0.0 )
 
+    def set( self, x, y ):
+        '''Sets the goal parameters.
+
+        @param      x       The x-position of the point goal.
+        @param      y       The y-position of the point goal.
+        '''
+        self.p.x = x
+        self.p.y = y
+
     def xmlElement( self ):
         '''Creates an XML Dom Element for this GoalSet.
 
@@ -255,6 +264,31 @@ class CircleGoal( PointGoal ):
         PointGoal.__init__( self )
         self.r = 0.0
 
+    def set( self, x, y, r ):
+        '''Sets the goal properties.
+
+        @param      x       The x-position of the point goal.
+        @param      y       The y-position of the point goal.
+        @param      r       The circle radius
+        '''
+        PointGoal.set( self, x, y )
+        self.r = r
+        
+    def setPos( self, x, y ):
+        '''Sets the goal position.
+
+        @param      x       The x-position of the point goal.
+        @param      y       The y-position of the point goal.
+        '''
+        PointGoal.set( self, x, y )
+        
+    def setRadius( self, r ):
+        '''Sets the goal radius.
+
+        @param      r       The circle radius
+        '''
+        self.r = r
+        
     def xmlElement( self ):
         '''Creates an XML Dom Element for this GoalSet.
 
