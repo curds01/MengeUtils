@@ -321,6 +321,49 @@ class AABBGoal( Goal ):
         self.minPt = Vector2( 0.0, 0.0 )
         self.maxPt = Vector2( 0.0, 0.0 )
 
+    def set( self, minx, miny, maxx, maxy ):
+        '''Sets the AABB goal properties.
+
+        @param      minx        The minimum point on the x-axis.
+        @param      miny        The minimum point on the x-axis.
+        @param      maxx        The maximum point on the x-axis.
+        @param      maxy        The maximum point on the x-axis.
+        '''
+        self.minPt.x = minx
+        self.minPt.y = miny
+        self.maxPt.x = maxx
+        self.maxPt.y = maxy
+
+    def setMin( self, x, y ):
+        '''Sets the minimum corner of the goal.
+
+        @param      x           The x-position of the minimum corner.
+        @param      y           The y-position of the minimum corner.
+        '''
+        self.minPt.x = x
+        self.minPt.y = y
+
+    def setMax( self, x, y ):
+        '''Sets the maximum corner of the goal.
+
+        @param      x           The x-position of the maximum corner.
+        @param      y           The y-position of the maximum corner.
+        '''
+        self.maxPt.x = x
+        self.maxPt.y = y
+
+    def fixPoints( self ):
+        '''Makes sure that minPt < maxPt in both axes.'''
+        if ( self.minPt.x > self.maxPt.x ):
+            tmp = self.minPt.x
+            self.minPt.x = self.maxPt.x
+            self.maxPt.x = tmp
+
+        if ( self.minPt.y > self.maxPt.y ):
+            tmp = self.minPt.y
+            self.minPt.y = self.maxPt.y
+            self.maxPt.y = tmp            
+        
     def xmlElement( self ):
         '''Creates an XML Dom Element for this GoalSet.
 
