@@ -43,9 +43,9 @@ class GoalContext( PGContext, MouseEnabled ):
                 '\n\to                 Create OBB goals' + \
                 '\n\t\tLeft drag        In empty space to draw a new OBB goal' + \
                 '\n\t\tLeft click       On highlighted OBB to edit' + \
-                '\n\t\tLeft drag        On blue corner to move OBB' + \
+                '\n\t\tLeft drag        Inside to move OBB' + \
                 '\n\t\tLeft drag        On red corner to resize OBB' + \
-                '\n\t\tLeft drag        On arc to reorient OBB' + \
+                '\n\t\tLeft drag        On blue corner to reorient OBB' + \
                 '\n\t\tLeft click       In empty space to stop editing' + \
                 '\n\t\tRight click      To cancel movement of OBB corner or end editing' + \
                 ''
@@ -98,6 +98,8 @@ class GoalContext( PGContext, MouseEnabled ):
         '''Called when the set gets activated'''
         self.lastActive = self.goalEditor.editSet
         self.goalEditor.editSet = -1
+        self.stopEditing()
+        
         
     def setState( self, newState ):
         '''Sets the contexts new activity state'''
@@ -105,7 +107,11 @@ class GoalContext( PGContext, MouseEnabled ):
             self.state = newState
         
     def handleKeyboard( self, event, view ):
-        """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
+        """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult.
+
+        @param      event       The keyboard event.
+        @param      view        An instance of the opengl viewer.
+        """
         result = PGContext.handleKeyboard( self, event, view )
         
         if ( not result.isHandled() ):
@@ -119,10 +125,12 @@ class GoalContext( PGContext, MouseEnabled ):
                 if ( event.key == pygame.K_RIGHT and noMods ):
                     oldActive = self.goalEditor.editSet
                     self.goalEditor.editSet = ( self.goalEditor.editSet + 1 ) % self.goalEditor.setCount()
+                    self.stopEditing()
                     result.set( True, oldActive != self.goalEditor.editSet )
                 elif ( event.key == pygame.K_LEFT and noMods ):
                     oldActive = self.goalEditor.editSet
                     self.goalEditor.editSet = ( self.goalEditor.editSet -  1 ) % self.goalEditor.setCount()
+                    self.stopEditing()
                     result.set( True, oldActive != self.goalEditor.editSet )
                 elif ( event.key == pygame.K_s and hasCtrl ):
                     self.saveGoals()
@@ -137,16 +145,7 @@ class GoalContext( PGContext, MouseEnabled ):
                 elif ( event.key == pygame.K_x and hasCtrl ):
                     if ( self.goalEditor.activeGoal > -1 ):
                         self.goalEditor.deleteGoal( self.goalEditor.editSet, self.goalEditor.activeGoal )
-                        if ( not self.state & self.CREATE ):
-                            if ( self.state & self.EDIT_AABB ):
-                                self.state = self.AABB
-                            elif ( self.state & self.EDIT_CIRCLE ):
-                                self.state = self.CIRCLE
-                            elif ( self.state & self.EDIT_POINT ):
-                                self.state = self.POINT
-                            elif ( self.state & self.EDIT_OBB ):
-                                self.state = self.OBB
-                        self.goalEditor.activeGoal = -1
+                        self.stopEditing()
                         result.set( True, True )
                 elif ( event.key == pygame.K_p and noMods ):
                     result.set( True, self.state != self.POINT )
@@ -165,6 +164,21 @@ class GoalContext( PGContext, MouseEnabled ):
                 #   Set goal capacity
         return result        
 
+    def stopEditing( self ):
+        '''Changes the edit state to its corresponding creation state'''
+        if ( not self.state & self.CREATE ):
+            self.editGoal = None
+            self.goalEditor.activeGoal = -1
+                    
+            if ( self.state & self.EDIT_AABB ):
+                self.state = self.AABB
+            elif ( self.state & self.EDIT_CIRCLE ):
+                self.state = self.CIRCLE
+            elif ( self.state & self.EDIT_POINT ):
+                self.state = self.POINT
+            elif ( self.state & self.EDIT_OBB ):
+                self.state = self.OBB
+    
     def saveGoals( self, fileName='goals.txt' ):
         '''Saves the goals to the specified file.
 
@@ -185,7 +199,11 @@ class GoalContext( PGContext, MouseEnabled ):
         f.close()
 
     def handleMouse( self, event, view ):
-        """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
+        """The context handles the mouse event as it sees fit and reports it's status with a ContextResult
+
+        @param      event       The mouse event.
+        @param      view        An instance of the opengl viewer.
+        """
         result = ContextResult()
         
         mods = pygame.key.get_mods()
