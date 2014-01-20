@@ -7,13 +7,15 @@ import scbData
 
 DEFAULT_OUTPUT = 'output.scb'
 
-def copyNFrames( inName, outName, start, count, step, tgtAgtCount ):
+def copyNFrames( inName, outName, start, count, step, tgtAgtCount, agtStride ):
     """Copies at most count frames from the scb inName to
     the outName.  It copies every step-th frame.
+    Similarly it copies up to tgtAgtCount agents and selects them by sampling
+    every agtStride-th agent.
     Reports number of frames copied.  Copying
     includes header.
     If count == -1, all frames are copied."""
-    data = scbData.NPFrameSet( inName, startFrame=start, maxFrames=count, maxAgents=tgtAgtCount, frameStep=step )
+    data = scbData.NPFrameSet( inName, startFrame=start, maxFrames=count, maxAgents=tgtAgtCount, frameStep=step, agtStep=agtStride )
     data.write( outName )
     return data.totalFrames()
 
@@ -41,6 +43,8 @@ def main():
                        action='store', dest='stride', type='int', default='1' )
     parser.add_option( '-a', '--agentCount', help='The maximum number of agents to include (-1 is all agents)',
                        action='store', dest='agtCount', type='int', default=-1 )
+    parser.add_option( '', '--agentSample', help='The sample rate at selecting agents.  I.e. select every Nth agent.  Default is 1.',
+                       action='store', dest='agtStride', type='int', default=1 )
     parser.add_option( '-e', '--extractAgent', help='Extract a single agent from the set by ID',
                        action='store', dest='extract', default=-1, type='int' )
     parser.add_option( '-b', '--beginFrame', help='The frame at which to start the extraction',
@@ -73,11 +77,12 @@ def main():
         print "All agents"
     else:
         print agentCount
+    print "\tAgent stride:", options.agtStride
 
     if ( options.extract != -1 ):
         nCopied = copyAgent( inName, outName, options.begin, count, step, options.extract )
     else:
-        nCopied = copyNFrames( inName, outName, options.begin, count, step, agentCount )
+        nCopied = copyNFrames( inName, outName, options.begin, count, step, agentCount, options.agtStride )
     print "Copied %d frames into %s" % ( nCopied, outName )
 
 if __name__ == '__main__':
