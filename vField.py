@@ -95,6 +95,14 @@ class VectorField:
         index[ :, 1 ] = np.clip( index[ :, 1 ], 0, self.resolution[ 0 ] - 0.00001 )
         return np.array( np.floor( index[:,::-1] ), dtype=np.int )
 
+    def getMagnitudes( self ):
+        '''Returns the magnitudes of the vectors in the fields.
+
+        @returns        A NxM numpy array of floats.  Each float is the magnitude of the
+                        vector in cell[n,m].
+        '''
+        return np.sqrt( np.sum( self.data * self.data, 2 ) )
+    
     def subRegion( self, minima, maxima ):
         '''Returns a portion of the field, defined by the index minima and maxima.
 
