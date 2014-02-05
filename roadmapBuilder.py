@@ -14,7 +14,10 @@ from obstacles import *
 from vField import GLVectorField
 
 # contexts
-from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext, PositionContext, GoalContext, ObstacleContext
+from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext, PositionContext, ObstacleContext
+from GoalContext import GoalContext
+from GoalEditor import GoalEditor
+import Goals
 from Context import ContextResult
 
 NO_EDIT = 0
@@ -224,10 +227,12 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
             dragging = EDGE
     return result
 
-def drawGL( view, context=None, obstacles=None, graph=None, agents=None, field=None ):
-    glClear( GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT )
+def drawGL( view, context=None, obstacles=None, graph=None, agents=None, field=None, goalVis=None ):
+    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT )
     if ( field ):
         field.drawGL()
+    if ( goalVis ):
+        goalVis.drawGL()
     if ( obstacles ):
         obstacles.drawGL()
     if ( graph ):
@@ -269,8 +274,10 @@ def writeRoadmap():
 def main():
     import optparse
     parser = optparse.OptionParser()
-    parser.add_option( "-g", "--graph", help="Optional graph file to load",
-                       action="store", dest="graphName", default='' )
+    parser.add_option( "-r", "--roadmap", help="Optional roadmap file to load",
+                       action="store", dest="roadmapName", default='' )
+    parser.add_option( "-g", "--goals", help="Optional goal definition file to load",
+                       action="store", dest="goalsName", default='' )
     parser.add_option( "-b", "--obstacle", help="Optional obstacle file to load.",
                        action="store", dest='obstName', default='' )
     parser.add_option( "-a", "--agent", help="Optional agent position file to load.",
@@ -285,7 +292,7 @@ def main():
                        action="store", dest='inDir', default='.' )
     parser.add_option( "-o", "--outDir", help="Optional directory to write output files - only applied to file names with relative paths",
                        action="store", dest='outDir', default='.' )
-    parser.add_option( '-r', '--region', help='Specify the bounding region of the action.  If provided, it will set the initial camera properties.  Format is minX minY maxX maxY',
+    parser.add_option( '--region', help='Specify the bounding region of the action.  If provided, it will set the initial camera properties.  Format is minX minY maxX maxY',
                        nargs=4, type='float', dest='boundRegion', default=None )
     options, args = parser.parse_args()
 
@@ -293,17 +300,19 @@ def main():
     paths.setOutDir( options.outDir )
     obstName = paths.getPath( options.obstName )
     agtName = paths.getPath( options.agtName )
-    graphName = paths.getPath( options.graphName )
+    roadmapName = paths.getPath( options.roadmapName )
     fieldName = paths.getPath( options.fieldName )
     scbName = paths.getPath( options.scbName )
+    goalsName = paths.getPath( options.goalsName )
     print "Arguments:"
-    print "\tInput dir:", options.inDir
+    print "\tInput dir: ", options.inDir
     print "\tOutput dir:", options.outDir
-    print "\tobstacles:", obstName
-    print "\tagents:   ", agtName
-    print "\tgraph:    ", graphName
-    print "\tfield:    ", fieldName
-    print "\tscbName:  ", scbName
+    print "\tobstacles: ", obstName
+    print "\tagents:    ", agtName
+    print "\troad map:  ", roadmapName
+    print "\tfield:     ", fieldName
+    print "\tscbName:   ", scbName
+    print "\tGoals:     ", goalsName
     if ( obstName ):
         obstacles, bb = readObstacles( obstName )
     else:
@@ -338,8 +347,8 @@ def main():
         field = None
     
     graph = Graph()
-    if ( graphName ):
-        graph.initFromFile( graphName )
+    if ( roadmapName ):
+        graph.initFromFile( roadmapName )
 
     # create viewer
     pygame.init()
@@ -362,9 +371,21 @@ def main():
         field.newGLContext()
 ##    field = None
 
+    # load goals
+    if ( goalsName ):
+        try:
+            goalSets = Goals.readGoals( goalsName )
+        except ValueError as e:
+            print "Error parsing goals:", str(e)
+            print "\tUsing empty GoalSet"
+            goalSets = [Goals.GoalSet()]
+    else:
+        goalSets = [Goals.GoalSet()]
+    goalVis = GoalEditor( goalSets )
+
     context = ContextSwitcher()
     context.addContext( PositionContext(), pygame.K_q )
-    context.addContext( GoalContext(), pygame.K_g )
+    context.addContext( GoalContext( goalVis ), pygame.K_g )
     context.addContext( AgentContext( agents, obstacles ), pygame.K_a )
     context.addContext( ObstacleContext( obstacles ), pygame.K_o )
     if ( field ):
@@ -401,7 +422,7 @@ def main():
             elif ( event.type == pygame.VIDEOEXPOSE ):
                 redraw |= True
         if ( redraw ):
-            drawGL( view, context, obstacles, graph, agents, field )
+            drawGL( view, context, obstacles, graph, agents, field, goalVis )
             message( view, updateMsg( agents.count() ) )
             pygame.display.flip()
             if ( context ):
