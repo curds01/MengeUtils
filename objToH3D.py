@@ -37,7 +37,7 @@ def writeNorm( file, data ):
     @param:     data        The array of data.
     '''
     data = np.array( data, dtype=np.float32 )
-    shorts = np.array( -data * (( 1 << 15 ) - 1 ), dtype=np.int16 )
+    shorts = np.array( data * (( 1 << 15 ) - 1 ), dtype=np.int16 )
     file.write( struct.pack( 'I', NORM ) )    # id for vertex positions
     file.write( struct.pack( 'I', 6 ) )     # number of shorts * 2 bytes in the data type
     #write each vertex
