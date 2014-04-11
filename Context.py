@@ -31,6 +31,7 @@ class ContextResult:
     def set( self, handled, redraw, finished=False ):
         self.handled = handled
         self.redraw = redraw
+        self.finished = finished
 
     def combine( self, result ):
         '''Combines this result with the given result in a boolean fashion'''

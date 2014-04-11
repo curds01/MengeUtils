@@ -14,13 +14,15 @@ from obstacles import *
 from vField import GLVectorField
 
 # contexts
-from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext
+from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext, PositionContext, ObstacleContext
+from GoalContext import GoalContext
+from GoalEditor import GoalEditor
+import Goals
 from Context import ContextResult
 
 NO_EDIT = 0
 GRAPH_EDIT = 1
-OBSTACLE_EDIT = 2
-EDIT_STATE_COUNT = 3
+EDIT_STATE_COUNT = 2
 editState = NO_EDIT
 
 def handleKey( event, context, view, theGraph, obstacles, agents, field ):
@@ -41,14 +43,11 @@ def handleKey( event, context, view, theGraph, obstacles, agents, field ):
             print theGraph
         elif ( event.key == pygame.K_s and hasCtrl ):
             if ( editState == GRAPH_EDIT ):
-                f = open( paths.getPath( 'graph.txt', False ), 'w' )
+                fileName = paths.getPath( 'graph.txt', False )
+                f = open( fileName, 'w' )
                 f.write( '%s\n' % theGraph.newAscii() )
                 f.close()
                 print "Graph saved!", fileName
-            elif ( editState == OBSTACLE_EDIT ):
-                f = open( paths.getPath( 'obstacles.txt', False ), 'w' )
-                f.write( '%s' % obstacles.sjguy() )
-                f.close()
         elif ( event.key == pygame.K_e ):
             editState = ( editState + 1 ) % EDIT_STATE_COUNT
             result.setNeedsRedraw( True )
@@ -129,16 +128,6 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
             newY = downPos[1] + ( pY - dY )
             if ( editState == GRAPH_EDIT ):
                 graph.fromID.setPosition( (newX, newY ) )
-            elif ( editState == OBSTACLE_EDIT ):
-                if ( obstacles.activeVert ):
-                    obstacles.activeVert.x = newX
-                    obstacles.activeVert.y = newY
-                elif ( obstacles.activeEdge ):
-                    v1, v2 = obstacles.activeEdge
-                    v1.x = newX
-                    v1.y = newY
-                    v2.x = v1.x + edgeDir[0]
-                    v2.y = v1.y + edgeDir[1]
             result.setNeedsRedraw( True )
         else:
             pX, pY = event.pos
@@ -162,26 +151,6 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
                         if ( graph.fromID != selVert ):
                             result.setNeedsRedraw( True )
                             graph.fromID = selVert
-            elif ( editState == OBSTACLE_EDIT ):
-                selected = view.select( pX, pY, obstacles, hasShift )
-                if ( selected == -1 ):
-                    obstacles.activeEdge = None
-                    obstacles.activeVert = None
-                    result.setNeedsRedraw( True )
-                else:
-                    if ( hasShift ):
-                        selEdge = obstacles.selectEdge( selected )
-                        obstacles.activeVert = None
-                        # select edges
-                        if ( selEdge != obstacles.activeEdge ):
-                            obstacles.activeEdge = selEdge
-                            result.setNeedsRedraw( True )
-                    else:
-                        obstacles.activeEdge = None
-                        selVert = obstacles.selectVertex( selected )
-                        if ( selVert != obstacles.activeVert ):
-                            obstacles.activeVert = selVert
-                            result.setNeedsRedraw( True )
     elif ( event.type == pygame.MOUSEBUTTONUP ):
         if ( event.button == LEFT ):
             if ( dragging == RECT ):
@@ -216,15 +185,6 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
                         graph.addVertex( p )
                         graph.fromID = graph.lastVertex()
                         result.setNeedsRedraw( True )
-                elif( editState == OBSTACLE_EDIT ):
-                    if ( obstacles.activeVert != None ):
-                        downPos = ( obstacles.activeVert.x, obstacles.activeVert.y )
-                        dragging = MOVE
-                    elif ( obstacles.activeEdge != None ):
-                        v1, v2 = obstacles.activeEdge
-                        downPos = ( v1.x, v1.y )
-                        edgeDir = ( v2.x - v1.x, v2.y - v1.y )
-                        dragging = MOVE
 ##            elif ( hasAlt ):
 ##                dragging = RECT
 ##            else:
@@ -238,16 +198,6 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
             elif ( dragging == MOVE ):
                 if ( editState == GRAPH_EDIT ):
                     graph.fromID.setPosition( downPos )
-                elif ( editState == OBSTACLE_EDIT ):
-                    if ( obstacles.activeVert ):
-                        obstacles.activeVert.x = downPos[0]
-                        obstacles.activeVert.y = downPos[1]
-                    elif ( obstacles.activeEdge ):
-                        v1, v2 = obstacles.activeEdge
-                        v1.x = downPos[0]
-                        v1.y = downPos[1]
-                        v2.x = v1.x + edgeDir[0]
-                        v2.y = v1.y + edgeDir[1]
                 result.setNeedsRedraw( True )
             elif ( dragging == PAN ):
                 view.cancelPan()
@@ -268,7 +218,7 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
             result.setNeedsRedraw( True )
         elif ( event.button == MIDDLE ):
             downX, downY = event.pos
-            if ( graph.fromID == None ):
+            if ( editState == GRAPH_EDIT and graph.fromID == None ):
                 p = view.screenToWorld( event.pos )
                 graph.addVertex( p )
                 graph.fromID = graph.lastVertex()
@@ -277,12 +227,14 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
             dragging = EDGE
     return result
 
-def drawGL( view, context=None, obstacles=None, graph=None, agents=None, field=None ):
-    glClear( GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT )
+def drawGL( view, context=None, obstacles=None, graph=None, agents=None, field=None, goalVis=None ):
+    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT )
     if ( field ):
         field.drawGL()
+    if ( goalVis ):
+        goalVis.drawGL()
     if ( obstacles ):
-        obstacles.drawGL( editable=(editState == OBSTACLE_EDIT ) )
+        obstacles.drawGL()
     if ( graph ):
         graph.drawGL( editable=(editState == GRAPH_EDIT) )
     if ( agents ):
@@ -296,8 +248,6 @@ def updateMsg( agtCount ):
         return "Hit the 'e' key to enter edit mode."
     elif ( editState == GRAPH_EDIT ):
         return "Edit roadmap"
-    elif ( editState == OBSTACLE_EDIT ):
-        return "Edit obstacle"
     else:
         return "Invalid edit state"
 
@@ -324,8 +274,10 @@ def writeRoadmap():
 def main():
     import optparse
     parser = optparse.OptionParser()
-    parser.add_option( "-g", "--graph", help="Optional graph file to load",
-                       action="store", dest="graphName", default='' )
+    parser.add_option( "-r", "--roadmap", help="Optional roadmap file to load",
+                       action="store", dest="roadmapName", default='' )
+    parser.add_option( "-g", "--goals", help="Optional goal definition file to load",
+                       action="store", dest="goalsName", default='' )
     parser.add_option( "-b", "--obstacle", help="Optional obstacle file to load.",
                        action="store", dest='obstName', default='' )
     parser.add_option( "-a", "--agent", help="Optional agent position file to load.",
@@ -340,7 +292,7 @@ def main():
                        action="store", dest='inDir', default='.' )
     parser.add_option( "-o", "--outDir", help="Optional directory to write output files - only applied to file names with relative paths",
                        action="store", dest='outDir', default='.' )
-    parser.add_option( '-r', '--region', help='Specify the bounding region of the action.  If provided, it will set the initial camera properties.  Format is minX minY maxX maxY',
+    parser.add_option( '--region', help='Specify the bounding region of the action.  If provided, it will set the initial camera properties.  Format is minX minY maxX maxY',
                        nargs=4, type='float', dest='boundRegion', default=None )
     options, args = parser.parse_args()
 
@@ -348,17 +300,19 @@ def main():
     paths.setOutDir( options.outDir )
     obstName = paths.getPath( options.obstName )
     agtName = paths.getPath( options.agtName )
-    graphName = paths.getPath( options.graphName )
+    roadmapName = paths.getPath( options.roadmapName )
     fieldName = paths.getPath( options.fieldName )
     scbName = paths.getPath( options.scbName )
+    goalsName = paths.getPath( options.goalsName )
     print "Arguments:"
-    print "\tInput dir:", options.inDir
+    print "\tInput dir: ", options.inDir
     print "\tOutput dir:", options.outDir
-    print "\tobstacles:", obstName
-    print "\tagents:   ", agtName
-    print "\tgraph:    ", graphName
-    print "\tfield:    ", fieldName
-    print "\tscbName:  ", scbName
+    print "\tobstacles: ", obstName
+    print "\tagents:    ", agtName
+    print "\troad map:  ", roadmapName
+    print "\tfield:     ", fieldName
+    print "\tscbName:   ", scbName
+    print "\tGoals:     ", goalsName
     if ( obstName ):
         obstacles, bb = readObstacles( obstName )
     else:
@@ -393,13 +347,13 @@ def main():
         field = None
     
     graph = Graph()
-    if ( graphName ):
-        graph.initFromFile( graphName )
+    if ( roadmapName ):
+        graph.initFromFile( roadmapName )
 
     # create viewer
     pygame.init()
     fontname = pygame.font.get_default_font()
-    font = pygame.font.Font( fontname, 18 )
+    font = pygame.font.Font( fontname, 12 )
 
     w = bb.max.x - bb.min.x
     h = bb.max.y - bb.min.y
@@ -417,8 +371,23 @@ def main():
         field.newGLContext()
 ##    field = None
 
+    # load goals
+    if ( goalsName ):
+        try:
+            goalSets = Goals.readGoals( goalsName )
+        except ValueError as e:
+            print "Error parsing goals:", str(e)
+            print "\tUsing empty GoalSet"
+            goalSets = [Goals.GoalSet()]
+    else:
+        goalSets = [Goals.GoalSet()]
+    goalVis = GoalEditor( goalSets )
+
     context = ContextSwitcher()
+    context.addContext( PositionContext(), pygame.K_q )
+    context.addContext( GoalContext( goalVis ), pygame.K_g )
     context.addContext( AgentContext( agents, obstacles ), pygame.K_a )
+    context.addContext( ObstacleContext( obstacles ), pygame.K_o )
     if ( field ):
         context.addContext( FieldEditContext( field ), pygame.K_f )
     if ( scbName != '' ):
@@ -453,7 +422,7 @@ def main():
             elif ( event.type == pygame.VIDEOEXPOSE ):
                 redraw |= True
         if ( redraw ):
-            drawGL( view, context, obstacles, graph, agents, field )
+            drawGL( view, context, obstacles, graph, agents, field, goalVis )
             message( view, updateMsg( agents.count() ) )
             pygame.display.flip()
             if ( context ):

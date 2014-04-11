@@ -153,14 +153,17 @@ class Frame:
 
 class FrameSet:
     """A pseudo iterator for frames in an scb file"""
-    def __init__( self, scbFile, startFrame=0, maxFrames=-1, maxAgents=-1, frameStep=1, verbose=False ):
+    def __init__( self, scbFile, startFrame=0, maxFrames=-1, maxAgents=-1, frameStep=1, agtStep=1, verbose=False ):
         """Initializes an interator for walking through a an scb file.close
         By default, it creates a frame for every frame in the scb file, each
         frame consisting of all agents.
         Optional arguments can reduce the number of framse as well as number of agents.
         maxFrames limits the total number of frames output.
         maxAgents limits the total number of agents per frame.
-        frameStep dictates the stride of between returned frames."""
+        frameStep dictates the stride of between returned frames.
+        agtStep dictates the stride between selected agents.
+        """
+        print '*** agtStep %d ***' % ( agtStep )
         # TODO: self.maxFrames isn't currently USED!!!
         # version 2.0 data
         self.is3D = False
@@ -194,32 +197,51 @@ class FrameSet:
         else:
             raise AttributeError, "Unrecognized scb version: %s" % ( version )
 
-        self.effectiveTimeStep = self.simStepSize * frameStep     
-        self.readAgtCount = self.agtCount
+        self.effectiveTimeStep = self.simStepSize * frameStep
+        self.readAgtStride = agtStep
+        selectableCount = self.agtCount / self.readAgtStride
+        self.readAgtCount = selectableCount
         # this is how many bytes need to be read to get to the next frame
         # after reading self.readAgtCount agents worth of data
         self.readDelta = 0
         if verbose:
             print "Original file has %d agents" % ( self.agtCount )
-        if ( maxAgents > 0 and maxAgents < self.agtCount ):
+        # number of bytes necessary to read one agent's worth of data
+        self.singleAgentRead = self.agentByteSize * self.readAgtStride
+        if ( maxAgents > 0 and maxAgents < selectableCount ):
             self.readAgtCount = maxAgents
             # number of unread agents * size of agent
-            self.readDelta = ( self.agtCount - maxAgents ) * self.agentByteSize
+            self.readDelta = ( self.agtCount - maxAgents ) * self.singleAgentRead
             if verbose:
                 print "\tReading only %d agents" % ( self.readAgtCount )
                 print "\tAgent byte size:", self.agentByteSize
+                print "\tReading every %d-th agents" % ( self.readAgtStride )
                 print "\tBlock of memory, per frame, not read:", self.readDelta
         # this is the size of the frame in the scbfile (and doesn't necessarily reflect how many
         # agents are in the returned frame.
         self.frameSize = self.agtCount * self.agentByteSize
-        self.readFrameSize = self.readAgtCount * self.agentByteSize
+        self.readFrameSize = self.readAgtCount * self.singleAgentRead
         if verbose:
             print "\tFull frame size:", self.frameSize, "bytes"
             print "\tRead frame size:", self.readFrameSize, "bytes"
         self.strideDelta = ( frameStep - 1 ) * self.frameSize
-        if verbose: print "\tStride size:    ", self.strideDelta, "bytes"
+        self.agentDelta = self.frameSize - self.readFrameSize
+        if verbose:
+            print "\tFrame stride size:    ", self.strideDelta, "bytes"
+            print "\tAgent stride size:    ", self.agentDelta, "bytes"
         self.currFrame = None
         self.setNext( 0 )
+        print "\nNPFRAMESET"
+        print "\tTotal agents:", self.agtCount
+        print "\tAgent stride:", self.readAgtStride
+        print "\tNumber of agents to read:", self.readAgtCount
+        print "\tBytes per agent:", self.agentByteSize
+        print "\tBytes to read to get single agent:", self.singleAgentRead
+        print "\tNumber of agents to read with stride", self.readAgtStride * self.readAgtCount
+        print "\tFull frame size (in bytes):", self.frameSize
+        print "\tNumber of bytes to read for each agent:", self.readFrameSize
+        print "\tBytes left over (in frame):", self.agentDelta
+        
 
     def getType( self ):
         '''Returns the identifier for this type of trajectory data.
@@ -364,13 +386,12 @@ class FrameSet:
         self.currFrameIndex += stride
         if ( newInstance or self.currFrame == None):
             self.currFrame = Frame( self.readAgtCount )
-        for i in range( self.readAgtCount ):
-            data = self.file.read( self.agentByteSize )
+        for i in range( 0, self.readAgtCount, self.readAgtStride ):
+            data = self.file.read( self.singleAgentRead )
             if ( data == '' ):
                 self.currFrame = None
                 raise StopIteration
             else:
-                
                 try:
                     if ( self.agentByteSize == 12 ):
                         x, y, o = struct.unpack( 'fff', data )
@@ -383,7 +404,7 @@ class FrameSet:
                     raise StopIteration
                 
         # seek forward based on skipping
-        self.file.seek( self.readDelta, 1 ) # advance to next frame
+        self.file.seek( self.agentDelta, 1 ) # advance to next frame
         self.file.seek( self.strideDelta, 1 ) # advance according to stride
         return self.currFrame, self.currFrameIndex
 
@@ -463,7 +484,8 @@ class FrameSet:
         if ( targetAgent > -1 ):
             s += struct.pack( 'i', self.ids[ targetAgent ] )
         else:
-            for id in self.ids[ :self.readAgtCount ]:
+            last = self.readAgtCount * self.readAgtStride
+            for id in self.ids[ :last:self.readAgtStride ]:
                 s += struct.pack( 'i', id )
         return s
 
@@ -529,8 +551,8 @@ class FrameSet:
     
 class NPFrameSet( FrameSet ):
     """A frame set that uses numpy arrays instead of frames as the underlying structure"""
-    def __init__( self, scbFile, startFrame=0, maxFrames=-1, maxAgents=-1, frameStep=1 ):
-        FrameSet.__init__( self, scbFile, startFrame, maxFrames, maxAgents, frameStep )
+    def __init__( self, scbFile, startFrame=0, maxFrames=-1, maxAgents=-1, frameStep=1, agtStep=1 ):
+        FrameSet.__init__( self, scbFile, startFrame, maxFrames, maxAgents, frameStep, agtStep )
         # number of columns, per-frame, for the data
         self.colCount = self.agentByteSize / 4
         
@@ -544,15 +566,19 @@ class NPFrameSet( FrameSet ):
 
         skipAmount = stride - 1
         if ( skipAmount ):
+            # TODO: Are the semantics of "readDelta" and 'strideDelta" correct here?
             self.file.seek( skipAmount * ( self.readDelta + self.strideDelta+ self.frameSize ), 1 )
         try:
-            self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.readFrameSize ), np.float32, self.readAgtCount * self.colCount ), ( self.readAgtCount, self.colCount ) )
+            floatCount = self.readAgtCount * self.colCount * self.readAgtStride
+            data = np.fromstring( self.file.read( self.readFrameSize ), np.float32, floatCount )
+            readAgents = self.readAgtCount * self.readAgtStride
+            self.currFrame[:,:] = np.reshape( data, ( readAgents, self.colCount ) )[ ::self.readAgtStride, : ]
         except ValueError:
             raise StopIteration
         self.currFrameIndex += stride
         # seek forward based on skipping
-        if ( self.readDelta ):
-            self.file.seek( self.readDelta, 1 ) # advance to next frame
+        if ( self.agentDelta ):
+            self.file.seek( self.agentDelta, 1 ) # advance to next frame
         if ( self.strideDelta ):
             self.file.seek( self.strideDelta, 1 ) # advance according to stride
 

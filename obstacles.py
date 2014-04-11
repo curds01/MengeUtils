@@ -1,5 +1,5 @@
 from ObjSlice import AABB, Segment, Polygon
-from primitives import Vector3
+from primitives import Vector3, Vector2
 # sax parser for obstacles
 from xml.sax import make_parser, handler
 
@@ -11,13 +11,34 @@ class GLPoly ( Polygon ):
         self.vStart = 0         # the index at which select values for vertices starts
         self.eStart = 0         # the index at which select values for edges starts
 
-    def drawGL( self, select=False, selectEdges=False, editable=False ):
-        if ( editable ):
-            glColor3f( 0.8, 0.0, 0.0 )
-        else:
-            glColor3f( 0.4, 0.0, 0.0 )
+    def drawGL( self, select=False, selectEdges=False, editable=False, drawNormals=False ):
+        if ( not select ):
+            if ( self.winding == Polygon.NO_WINDING ):
+                self.updateWinding()
 
-        if ( selectEdges or not select or editable ):        
+            if ( self.closed == False ):
+                if ( editable ):
+                    glColor3f( 0.0, 0.8, 0.0 )
+                    normColor = ( 0.5, 0.5, 0.1 )
+                else:
+                    glColor3f( 0.0, 0.4, 0.0 )
+                    normColor = ( 0.25, 0.25, 0.05 )
+            elif ( self.winding == Polygon.CCW ):
+                if ( editable ):
+                    glColor3f( 0.8, 0.0, 0.0 )
+                    normColor = ( 0.5, 0.5, 0.1 )
+                else:
+                    glColor3f( 0.4, 0.0, 0.0 )
+                    normColor = ( 0.25, 0.25, 0.05 )
+            else:
+                if ( editable ):
+                    glColor3f( 0.3, 0.3, 0.8 )
+                    normColor = ( 0.5, 0.5, 0.1 )
+                else:
+                    glColor3f( 0.15, 0.15, 0.4 )
+                    normColor = ( 0.5, 0.25, 0.05 )
+
+        if ( selectEdges or not select ):        
             for i in range( self.vertCount() - 1):
                 if ( selectEdges ):
                     glLoadName( self.eStart + i )
@@ -45,7 +66,34 @@ class GLPoly ( Polygon ):
                 glBegin( GL_POINTS )
                 glVertex3f( v.x, v.y, 0 )
                 glEnd()   
+        # normals
+        if ( drawNormals and not select ):
+            glColor3f( normColor[0], normColor[1], normColor[2] )
+            glBegin( GL_LINES )
+            for i in range( self.vertCount() - 1):
+                v1 = self.vertices[i]
+                v2 = self.vertices[i+1]
+                mid = ( v1 + v2 ) / 2.0
+                dir = v2 - v1
+                end = Vector2( dir.y, -dir.x ).normalize() + mid
+                glVertex3f( end.x, end.y, 0 )
+                glVertex3f( mid.x, mid.y, 0 )
 
+            if ( self.closed ):
+                v1 = self.vertices[-1]
+                v2 = self.vertices[0]
+                mid = ( v1 + v2 ) / 2.0
+                dir = v2 - v1
+                end = Vector2( dir.y, -dir.x ).normalize() + mid
+                glVertex3f( end.x, end.y, 0 )
+                glVertex3f( mid.x, mid.y, 0 )
+            glEnd()
+
+    def updateWinding( self ):
+        '''Updates the winding'''
+        self.setWinding( Vector3( 0.0, 1.0, 0.0 ) )
+        
+    
 Obstacle = GLPoly
 
 class ObstacleSet:
@@ -54,7 +102,9 @@ class ObstacleSet:
         self.vertCount = 0
         self.polys = []
         self.activeVert = None
-        self.activeEdge = None        
+        self.activeEdge = None
+        self.visibleNormals = False
+        self.activeEdit = False
 
     def sjguy( self ):
         s = '%d\n' % ( self.edgeCount )
@@ -75,6 +125,39 @@ class ObstacleSet:
     def __len__( self ):
         return len( self.polys )
 
+    def removePoly( self, poly ):
+        '''Remove the given poly from the obstacle set.
+
+        @param      poly        An instance of Polygon.
+        '''
+        loss = 0
+        for i in xrange( len( self.polys ) ):
+            if ( self.polys[i] == poly ):
+                # this assumes that the polygon is closed
+                loss = len( self.polys[i].vertices )
+                self.polys.pop( i )
+                break
+        self.vertCount -= loss
+        self.edgeCount -= loss
+        for id in xrange( i, len( self.polys ) ):
+            self.polys[ id ].vStart -= loss
+            self.polys[ id ].eStart -= loss
+        if ( loss == 0 ):
+            print "Inexplicably tried to remove a polygon that doesn't belong to the set!"
+        
+    def polyFromEdge( self, edgeID ):
+        '''Returns the polygon which uses the indicated edge.
+
+        @param      edgeID          The global identifier for the edge.
+        '''
+        count = 0
+        for o in self.polys:
+            tempSum = count + o.edgeCount()
+            if ( tempSum > edgeID ):
+                return o
+            count = tempSum
+
+    
     def selectVertex( self, i ):
         """Selects the ith vertex in the obstacle set"""
         count = 0
@@ -92,8 +175,101 @@ class ObstacleSet:
             tempSum = count + o.edgeCount()
             if ( tempSum > i ):
                 localI = i - count
-                return ( o.vertices[ localI ], o.vertices[ localI + 1 ] )
+                return o.getEdgeVertices( localI )
             count = tempSum
+
+    def collapseEdge( self, index ):
+        '''Collapse the edge indicated by the given index.  If the polygon only has
+        two vertices left, it is deleted.
+
+        @param      index       The global index of the targeted edge.
+        '''
+        count = 0
+        loss = 0
+        for oIdx, o in enumerate( self.polys ):
+            tempSum = count + o.edgeCount()
+            if ( tempSum > index ):
+                if ( o.vertCount() == 3 ):
+                    self.polys.pop( oIdx )
+                    oIdx -= 1
+                    loss = 3
+                else:
+                    loss = 1
+                    localI = index - count
+                    v1, v2 = o.getEdgeVertices( localI )
+                    newVert = ( v2 + v1 ) * 0.5
+                    v2.x = newVert.x
+                    v2.y = newVert.y
+                    o.vertices.pop( localI )
+                break
+            count = tempSum
+        self.vertCount -= loss
+        self.edgeCount -= loss
+        for i in xrange( oIdx + 1, len( self.polys ) ):
+            p = self.polys[ i ]
+            p.vStart -= loss
+            p.eStart -= loss
+
+    def insertVertex( self, vert, edgeID ):
+        '''Inserts the given vertex into the edge indicated by edge id.
+
+        @param      vert        A 2-tuple of values.  The vertex position.
+        @param      edgeID      The globally unique identifier for the obstacle edge
+                                into which the vertex is inserted.
+        @returns    The global index of the vertex.
+        '''
+        # find the vertex
+        count = 0
+        vertID = -1
+        for oIdx, o in enumerate( self.polys ):
+            tempSum = count + o.edgeCount()
+            if ( tempSum > edgeID ):
+                localI = edgeID - count + 1
+                o.vertices.insert( localI, vert )
+                vertID = count + localI 
+                self.vertCount += 1
+                self.edgeCount += 1
+                break
+            count = tempSum
+            
+        for i in xrange( oIdx + 1, len( self.polys ) ):
+            p = self.polys[ i ]
+            p.vStart += 1
+            p.eStart += 1
+            
+        return vertID
+    
+    def removeVertex( self, index ):
+        '''Removes the vertex with the given global index from the obstacle set.add
+        This may cause an obstacle to disappear completely (if it drops to less than three
+        vertices).
+
+        @param      index       A non-negative integer.  A valid index into the set of vertices.
+        '''
+        # first find the obstacle and the local index
+        count = 0
+        loss = 0
+        for oIdx, o in enumerate( self.polys ):
+            tempSum = count + o.vertCount()
+            if ( tempSum > index ):
+                localI = index - count
+                o.vertices.pop( localI )
+                self.vertCount -= 1
+                self.edgeCount -= 1
+                loss = 1
+                if ( o.vertCount() < 3 ):
+                    self.polys.pop( oIdx )
+                    self.vertCount -= 2
+                    self.edgeCount -= 2
+                    loss = 3
+                    oIdx -= 1
+                break
+            count = tempSum
+
+        for i in xrange( oIdx + 1, len( self.polys ) ):
+            p = self.polys[ i ]
+            p.vStart -= loss
+            p.eStart -= loss
 
     def append( self, poly ):
         poly.vStart = self.vertCount
@@ -102,12 +278,12 @@ class ObstacleSet:
         self.edgeCount += poly.edgeCount()
         self.polys.append( poly )
 
-    def drawGL( self, select=False, selectEdges = False, editable=False ):
+    def drawGL( self, select=False, selectEdges=False ):
         glPushAttrib( GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT )
         glDisable( GL_DEPTH_TEST )
         
         for o in self.polys:
-            o.drawGL( select, selectEdges, editable )
+            o.drawGL( select, selectEdges, self.activeEdit, self.visibleNormals )
         # now highlight selected elements
         if ( self.activeVert or self.activeEdge ):
             if ( self.activeVert ):
