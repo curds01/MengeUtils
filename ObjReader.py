@@ -343,6 +343,17 @@ class ObjFile:
         if ( filename != None ):
             self.readFile( filename )
 
+    def summary( self ):
+        '''Creates a summary string of the obj file'''
+        s = "OBJ file"
+        s += '\n\t%d vertices' % ( len ( self.vertSet ) )
+        s += '\n\t%d normals' % ( len ( self.normSet ) )
+        s += '\n\t%d uvs' % ( len ( self.uvSet ) )
+        grpCount, faceCount = self.faceStats()
+        s += '\n\t%d faces in %d groups' % ( faceCount, grpCount )
+        s += '\n\t%d materials' % ( self.materialCount() )
+        return s
+    
     def readFile( self, filename ):
         file = open( filename, 'r')
         lineNum = 0
@@ -564,6 +575,13 @@ class ObjFile:
                 faceCount += len(grp)
                 groupCount += 1
         return groupCount, faceCount
+
+    def materialCount( self ):
+        '''Reports the number of materials found.'''
+        matCount = 0
+        for grpName, grp in self.groups.items():
+            matCount += len( grp.materials )
+        return matCount
 
     def triangulate( self ):
         """Returns a triangulated version of this obj"""
