@@ -32,7 +32,7 @@ class GoalEditor:
 
     def goalCount( self ):
         '''Reports the total number of goals'''
-        return reduce( operator.add, map( lambda x: len(x), self.goalSets ) )
+        return reduce( operator.add, map( lambda x: len(x), self.goalSets ), 0 )
 
     def newSet( self ):
         '''Creates a new goal set, returns its index.
