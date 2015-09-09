@@ -382,10 +382,10 @@ class AABBGoal( Goal ):
         @returns        An instnace of xml.minidom.Element containing this node's data
         '''
         node = Goal.xmlElement( self )
-        node.setAttribute( 'xmin', '{0:.{1}f}'.format( self.minPt.x, DIGITS ) )
-        node.setAttribute( 'ymin', '{0:.{1}f}'.format( self.minPt.y, DIGITS ) )
-        node.setAttribute( 'xmax', '{0:.{1}f}'.format( self.maxPt.x, DIGITS ) )
-        node.setAttribute( 'ymax', '{0:.{1}f}'.format( self.maxPt.y, DIGITS ) )
+        node.setAttribute( 'min_x', '{0:.{1}f}'.format( self.minPt.x, DIGITS ) )
+        node.setAttribute( 'min_y', '{0:.{1}f}'.format( self.minPt.y, DIGITS ) )
+        node.setAttribute( 'max_x', '{0:.{1}f}'.format( self.maxPt.x, DIGITS ) )
+        node.setAttribute( 'max_y', '{0:.{1}f}'.format( self.maxPt.y, DIGITS ) )
         return node
 
     def parseXML( self, element, robustParse ):
@@ -397,21 +397,21 @@ class AABBGoal( Goal ):
         Goal.parseXML( self, element, robustParse )
         # extract its attriutes
         try:
-            self.minPt.x = float( element.getAttribute( 'xmin' ) )
+            self.minPt.x = float( element.getAttribute( 'min_x' ) )
         except ValueError:
-            raise ValueError, 'Goal of type "%s" is missing "xmin" attribute.' % ( self.TYPE )
+            raise ValueError, 'Goal of type "%s" is missing "min_x" attribute.' % ( self.TYPE )
         try:
-            self.minPt.y = float( element.getAttribute( 'ymin' ) )
+            self.minPt.y = float( element.getAttribute( 'min_y' ) )
         except ValueError:
-            raise ValueError, 'Goal of type "%s" is missing "ymin" attribute.' % ( self.TYPE )
+            raise ValueError, 'Goal of type "%s" is missing "min_y" attribute.' % ( self.TYPE )
         try:
-            self.maxPt.x = float( element.getAttribute( 'xmax' ) )
+            self.maxPt.x = float( element.getAttribute( 'max_x' ) )
         except ValueError:
-            raise ValueError, 'Goal of type "%s" is missing "xmax" attribute.' % ( self.TYPE )
+            raise ValueError, 'Goal of type "%s" is missing "max_x" attribute.' % ( self.TYPE )
         try:
-            self.maxPt.y = float( element.getAttribute( 'ymax' ) )
+            self.maxPt.y = float( element.getAttribute( 'max_y' ) )
         except ValueError:
-            raise ValueError, 'Goal of type "%s" is missing "ymax" attribute.' % ( self.TYPE )
+            raise ValueError, 'Goal of type "%s" is missing "max_y" attribute.' % ( self.TYPE )
     
 class OBBGoal( Goal ):
     '''An oriented bounding box goal region with uniform probability'''
