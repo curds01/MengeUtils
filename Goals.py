@@ -159,6 +159,13 @@ class Goal:
         self.capacity = 1000000
         self.id = -1
 
+    def area( self ):
+        '''Reports the area of the goal.
+
+        @returns        The area of the goal.
+        '''
+        return 0 
+
     def xmlElement( self ):
         '''Creates an XML Dom Element for this Goal.
 
@@ -265,6 +272,13 @@ class CircleGoal( PointGoal ):
         PointGoal.__init__( self )
         self.r = 0.0
 
+    def area( self ):
+        '''Reports the area of the goal.
+
+        @returns        The area of the goal.
+        '''
+        return pi * self.r * self.r
+
     def set( self, x, y, r ):
         '''Sets the goal properties.
 
@@ -321,6 +335,14 @@ class AABBGoal( Goal ):
         Goal.__init__( self )
         self.minPt = Vector2( 0.0, 0.0 )
         self.maxPt = Vector2( 0.0, 0.0 )
+
+    def area( self ):
+        '''Reports the area of the goal.
+
+        @returns        The area of the goal.
+        '''
+        size = self.maxPt - self.minPt
+        return size.x * size.y
 
     def set( self, minx, miny, maxx, maxy ):
         '''Sets the AABB goal properties.
@@ -424,6 +446,14 @@ class OBBGoal( Goal ):
         self.pivot = Vector2( 0.0, 0.0 )  
         self.size = Vector2( 0.0, 0.0 )
         self.angle = 0.0
+
+    def area( self ):
+        '''Reports the area of the goal.
+
+        @returns        The area of the goal.
+        '''
+        return self.size.x * self.size.y
+
 
     def set( self, x, y, w, h, angle ):
         '''Sets the properties of the OBB goal.

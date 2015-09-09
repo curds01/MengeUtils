@@ -532,6 +532,10 @@ class GoalContext( PGContext, MouseEnabled ):
 
         view.printText( 'Creating %s goals' % self.STATE_NAMES[ self.state ], ( 10, 45 ) )        
         view.printText( "%d goals in %d sets" % ( self.goalEditor.goalCount(), self.goalEditor.setCount() ), (20,30) )
+        if ( self.goalEditor.activeGoal != -1 ):
+            g = self.goalEditor[ self.goalEditor.editSet ][ self.goalEditor.activeGoal ]
+            area = g.area()
+            view.printText( "Goal %d area: %f m^2" % ( g.id, area ), (20, 0) )
         gs = self.goalEditor[ self.goalEditor.editSet ]
         msg = 'Goal set %d with %d goals' % ( gs.id, len(gs) )
         view.printText( msg, (20, 15) )
