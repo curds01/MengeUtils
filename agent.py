@@ -19,12 +19,8 @@ class Agent:
     def __str__( self ):
         return "Agent %d of %d - %s" % ( self.id, Agent.ID, self.pos )
 
-    def xml( self, defRadius ):
-        s = '\n\t<Agent p_x="{0}" p_y="{1}" '.format( self.pos[0], self.pos[1] )
-        if ( self.radius != defRadius ):
-            s += 'r="{0}" '.format( self.radius )
-        s += '/>'
-        return s
+    def xml( self ):
+        return '<Agent p_x="{0}" p_y="{1}" />'.format( self.pos[0], self.pos[1] )
     
     def getActivePos( self ):
         if ( self.active == Agent.AGENT ):
@@ -123,11 +119,10 @@ class AgentSet:
 
 	<AgentGroup>
         <ProfileSelector type="const" name="group1" />
-		<StateSelector type="const" name="Walk" />
+		<StateSelector type="const" name="" />
 		<Generator type="explicit" >'''
         for a in self.agents:
-            s += '  ' + a.xml( self.defRadius )
-        s += '\n  </AgentSet>'
+            s += '\n        	' + a.xml()
         s += '''
 		</Generator>
 	</AgentGroup>
