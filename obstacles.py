@@ -14,7 +14,7 @@ class GLPoly ( Polygon ):
     def drawGL( self, select=False, selectEdges=False, editable=False, drawNormals=False ):
         if ( not select ):
             if ( self.winding == Polygon.NO_WINDING ):
-                self.updateWinding()
+                self.setWinding(Vector3(0, 0, 1))
 
             if ( self.closed == False ):
                 if ( editable ):

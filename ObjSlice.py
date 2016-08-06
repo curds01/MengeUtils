@@ -309,11 +309,18 @@ class Polygon:
         turning = 0
         if ( isinstance( self.vertices[ 0 ], Vector2 ) ):
             for i in range( -2, len( self.vertices ) - 2 ):
-                v1 = self.vertices[ i + 1 ] - self.vertices[ i ]
-                v1.normalize_ip()
-                v2 = self.vertices[ i + 2 ] - self.vertices[i + 1]
-                v2.normalize_ip()
-                turning += asin( v1.det(v2) )
+                try:
+                    v1 = self.vertices[ i + 1 ] - self.vertices[ i ]
+                    v1.normalize_ip()
+                    v2 = self.vertices[ i + 2 ] - self.vertices[i + 1]
+                    v2.normalize_ip()
+                    turning -= asin( v1.det(v2) )
+                except:
+                    print i
+                    print self.vertices[ i + 1 ]
+                    print self.vertices[ i ]
+                    print self.vertices[ i + 2 ]
+                    raise
         else:
             for i in range( -2, len( self.vertices ) - 2 ):
                 v1 = self.vertices[ i + 1 ] - self.vertices[ i ]
@@ -322,7 +329,7 @@ class Polygon:
                 v2.normalize_ip()
                 dot = v1.dot( v2 )
                 c = v1.cross( v2 ).dot( upDirection )
-                turning += atan2( c, dot )
+                turning -= atan2( c, dot )
         return turning < 0
     
     def fixWinding( self, upDirection ):
