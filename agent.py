@@ -70,6 +70,56 @@ class Agent:
         glEnd()
         glPopMatrix()
 
+class AgentProfile:
+    '''A simple approximatino of the Menge profile.  Currently only supports varying
+    agent radii.'''
+    
+    def __init__( self, name, radius, parent=None ):
+        '''Constructor
+
+        @param  name        A string.  The name of this profile group.
+        @param  radius      A number. The radius for all agents in this group.
+        @param  parent      An AgentProfile reference -- the group that this group
+                            inherits from.
+        '''
+        self.name = name
+        self.radius = radius
+        self.parent = parent
+
+    def xml( self, indent=0 ):
+        '''Creates the xml for this group.
+
+        @param  indent      The white space to inject before the xml.
+        @returns    A string.  The indented XML for this group.
+        '''
+        if ( self.parent is None ):
+            return self.fullXml( indent )
+        else:
+            return self.inheritXml( indent )
+
+    def fullXml( self, indent ):
+        '''Creates the xml for a "fully" specified agent profile.
+
+        @param  indent      The white space to inject before the xml.
+        @returns    A string.  The indented XML for this group.
+        '''
+        return '''{0}<AgentProfile name="{1}" >
+{0}	<Common max_angle_vel="360" class="1" max_neighbors="10" obstacleSet="1" neighbor_dist="5" r="{2}" pref_speed="1.34" max_speed="2" max_accel="5" />'.format(indent, self.radius)
+{0}	<PedVO factor="1.57" buffer="0.9" tau="3" tauObst="0.1" turningBias="1.0" />
+{0}	<Helbing mass="80" />
+{0}	<ORCA tau="3.0" tauObst="0.15" />
+{0}</AgentProfile>'''.format( indent, self.name, self.radius )
+
+    def inheritXml( self, indent ):
+        '''Creates the xml for an inherited agent profile.
+
+        @param  indent      The white space to inject before the xml.
+        @returns    A string.  The indented XML for this group.
+        '''
+        return '''{0}<AgentProfile name="{1}" inherits="{3}" >
+{0}		<Common r="{2}" />
+{0}	</AgentProfile>'''.format(indent, self.name, self.radius, self.parent.name )
+
 class AgentSet:
     def __init__( self, defRadius ):
         self.defRadius = defRadius
@@ -102,30 +152,59 @@ class AgentSet:
         else:
             raise RuntimeError('Only reads xml files')
 
+    def groupAgents( self ):
+        '''Partitions the agents into distinct agent groups by radius size.
+
+        @returns    A list of tuples: (AgentGroup, list of agents) such that each
+                    list belongs to its corresponding agent group.
+        '''
+        groupSet = {}
+        defProfile = None
+        for agent in self.agents:
+            if ( not groupSet.has_key( agent.radius ) ):
+                if ( defProfile is None ):
+                    profile = AgentProfile( 'group1', agent.radius )
+                    groupSet[ agent.radius ] = (profile, [])
+                    defProfile = profile
+                else:
+                    profile = AgentProfile( 'group%d' % (len(groupSet) + 1), agent.radius, defProfile )
+                    groupSet[ agent.radius ] = (profile, [] )
+            else:
+                profile = groupSet[ agent.radius ]
+            groupSet[ agent.radius ][1].append( agent )
+        profiles = groupSet.values()
+        def compare( a, b ):
+            if ( a[0].parent is None ):
+                return -1
+            elif ( b[0].parent is None ):
+                return 1
+            else:
+                return cmp(a[0].name, b[0].name)
+        profiles.sort(compare)
+        return profiles
+
     def xml( self ):
         '''Returns the xml-formatted agent group'''
         #TODO: I need to partition them based on agent radius
+        profiles = self.groupAgents()
         s = '''<?xml version="1.0"?>
-<Experiment version="2.0" >
+<Experiment version="2.0" >'''
+        for profile, agentList in profiles:
+            s += '\n\n' + profile.xml('\t')
 
-    <AgentProfile name="group1" >
-		<Common max_angle_vel="360" class="1" max_neighbors="10" obstacleSet="1" neighbor_dist="5" r="0.2" pref_speed="1.34" max_speed="2" max_accel="5" >
-			<Property name="pref_speed" dist="u" min="0.5" max="1.8" />
-		</Common>
-		<PedVO factor="1.57" buffer="0.9" tau="3" tauObst="0.1" turningBias="1.0" />
-        <Helbing mass="80" />
-        <ORCA tau="3.0" tauObst="0.15" />
-	</AgentProfile>
-
+        for profile, agentList in profiles:
+            s += '''
+            
 	<AgentGroup>
-        <ProfileSelector type="const" name="group1" />
-		<StateSelector type="const" name="" />
-		<Generator type="explicit" >'''
-        for a in self.agents:
-            s += '\n        	' + a.xml()
-        s += '''
+        <ProfileSelector type="const" name="{0}" />
+		<StateSelector type="const" name="???" />
+		<Generator type="explicit" >'''.format(profile.name)
+            for a in agentList:
+                s += '\n        	' + a.xml()
+            s += '''
 		</Generator>
-	</AgentGroup>
+	</AgentGroup>'''
+        s += '''
 </Experiment>'''
         return s
     
