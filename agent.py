@@ -130,10 +130,7 @@ class AgentSet:
         s += '\n  </AgentSet>'
         s += '''
 		</Generator>
-	</AgentGroup>'''
-        if ( obstacles ):
-            s += obstacles.xml()
-        s += '''
+	</AgentGroup>
 </Experiment>'''
         return s
     
