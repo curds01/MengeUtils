@@ -653,10 +653,11 @@ class ObstacleContext( PGContext, MouseEnabled ):
                         print "Writing obstacles to:", path
                         f = open( path, 'w' )
                         f.write ('''<?xml version="1.0"?>
-<Experiment time_step="0.05" >
-''')
+<Experiment version="2.0">
+
+    <ObstacleSet type="explicit" class="1"> ''')
                         f.write( '%s' % self.obstacleSet.xml() )
-                        f.write( '\n</Experiment>' )
+                        f.write( '\n\t</ObstacleSet>\n\n</Experiment>' )
                         f.close()
                         result.set( True, False )
         return result    

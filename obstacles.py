@@ -116,7 +116,7 @@ class ObstacleSet:
         '''Returns a string representing the xml representation of this xml set'''
         s = ''
         for p in self.polys:
-            s += '\n{0}'.format( p.xml(1) )
+            s += '\n{0}'.format( p.xml(2) )
         return s
     
     def __iter__( self ):

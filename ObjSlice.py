@@ -456,7 +456,7 @@ class Polygon:
     def xml( self, indent = 0 ):
         baseIndent = indent * '\t'
         vertIndent = baseIndent + '\t'
-        s = baseIndent + '<Obstacle closed="%d" boundingbox="0">\n' % ( self.closed )
+        s = baseIndent + '<Obstacle closed="%d" >\n' % ( self.closed )
         for v in self.vertices:
             s += vertIndent + '<Vertex p_x="%f" p_y="%f" />\n' % ( v.x, v.y )
         s += baseIndent + '</Obstacle>'
