@@ -247,7 +247,10 @@ class AgentXMLParser( handler.ContentHandler ):
     def __init__( self, agentSet ):
         self.agentSet = agentSet
         self.version = (1,0)
-        self.inAgentSet = False
+        self.inAgentGroup = False
+        self.currRadius = 1.0
+        self.profileRadii = {}
+        self.currProfile = None
 
     def startElement( self, name, attrs ):
         if ( name == 'Experiment' ):
@@ -257,23 +260,64 @@ class AgentXMLParser( handler.ContentHandler ):
                 pass
             else:
                 self.version = map( lambda x: int(x), vStr.split('.') )
+        elif ( name == 'AgentProfile' ):
+            try:
+                self.currProfile = attrs[ 'name' ]
+                self.profileRadii[ self.currProfile ] = 1.0
+            except:
+                raise RuntimeError("Found <AgentProfile> without a name")
+            try:
+                parentName = attrs['inherits']
+                self.profileRadii[ self.currProfile ] = self.profileRadii[ parentName ]
+            except:
+                pass
+        elif ( name == 'Common' ):
+            if ( self.currProfile is not None ):
+                try:
+                    r = attrs['r']
+                    self.profileRadii[ self.currProfile ] = float( attrs['r'] )
+                except:
+                    pass
+        elif ( name == 'Property' ):
+            if ( self.currProfile is not None ):
+                try:
+                    name = attrs['name']
+                    if ( name == 'r' ):
+                        dist = attrs['dist']
+                        if ( dist == 'u' ):
+                            print 'Uniform radius distribution not supported.  Using mid-point value'
+                            self.profileRadii[ self.currProfile ] = ( float(attrs['min']) + float(attrs['max']) ) * 0.5
+                        elif ( dist == 'c' ):
+                            self.profileRadii[ self.currProfile ] = float(attrs['value'])
+                        elif ( dist == 'n' ):
+                            print 'Normal radius distributino not supported.  Using mean value'
+                            self.profileRadii[ self.currProfile ] = float(attrs['mean'])
+                except:
+                    pass
         elif ( name == 'Agent' ):
+            if ( not self.inAgentGroup ):
+                raise RuntimeError( "Found Agent definition outside of AgentGroup" )
             x = float( attrs[ 'p_x' ] )
             y = float( attrs[ 'p_y' ] )
+            self.agentSet.addAgent( (x, y), self.profileRadii[ self.currProfile ] )
+        elif ( name == 'AgentGroup' ):
+            self.inAgentGroup = True
+        elif ( name == 'ProfileSelector' ):
             try:
-                r = float( attrs[ 'r' ] )
+                self.currProfile = attrs[ 'name' ]
             except:
-                r = self.agentSet.defRadius
-            self.agentSet.addAgent( (x, y), r )
-        elif ( name == 'AgentSet' ):
-            self.inAgentSet = True
-            if ( self.version[0] == 1 ):
-                self.agentSet.defRadius = float( attrs[ 'r' ] )
-        elif ( name == 'Common' ):
-            if ( self.inAgentSet ):
-                self.agentSet.defRadius = float( attrs[ 'r' ] )
+                raise RuntimeError("Profile selector doesn't have a profile name reference")
+        elif ( name == 'Generator' ):
+            try:
+                type = attrs['type']
+                if ( type != 'explicit' ):
+                    print 'Agent group of unsupported type found: %s.  These agents will *not* be instantiated' % type
+            except:
+                pass
 
     def endElement( self, name ):
-        if ( name == 'AgentSet' ):
-            self.inAgentSet = False
+        if ( name == 'AgentGroup' ):
+            self.inAgentGroup = False
+        elif ( name == 'AgentProfile' ):
+            self.currProfile = None
             
