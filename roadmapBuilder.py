@@ -386,7 +386,7 @@ def main():
     context = ContextSwitcher()
     context.addContext( PositionContext(), pygame.K_q )
     context.addContext( GoalContext( goalVis ), pygame.K_g )
-    context.addContext( AgentContext( agents, obstacles ), pygame.K_a )
+    context.addContext( AgentContext( agents ), pygame.K_a )
     context.addContext( ObstacleContext( obstacles ), pygame.K_o )
     if ( field ):
         context.addContext( FieldEditContext( field ), pygame.K_f )

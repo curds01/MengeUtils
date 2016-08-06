@@ -21,9 +21,6 @@ class Agent:
     def __str__( self ):
         return "Agent %d of %d - %s" % ( self.id, Agent.ID, self.pos )
 
-    def sjguy( self ):
-        return '%f %f %f %f' % ( self.pos[0], self.pos[1], self.goal[0], self.goal[1] )
-
     def xml( self, defRadius ):
         s = '\n\t<Agent p_x="{0}" p_y="{1}" '.format( self.pos[0], self.pos[1] )
         if ( self.radius != defRadius ):
@@ -164,29 +161,15 @@ class AgentSet:
     def initFromFile( self, file ):
         print "Reading", file
         base, ext = os.path.splitext( file )
-        if ( ext == '.txt' ):
-            f = open( file, 'r' )
-            aCount = int( f.readline() )
-            for line in f.xreadlines():
-                line = line.strip()
-                if ( line ):
-                    x1, y1, x2, y2 = map( lambda x: float(x), line.split() )
-                    self.agents.append( Agent( self.defRadius, (x1, y1), (x2,y2) ) )
-        else:
-            
+        if ( ext == '.xml' ):
             parser = make_parser()
             agtHandler = AgentXMLParser( self )
             parser.setContentHandler( agtHandler )
             parser.parse( file )
+        else:
+            raise RuntimeError('Only reads xml files')
 
-    def sjguy( self ):
-        """Returns the stephen guy formatted agent set"""
-        s = '%d\n' % ( len( self.agents ) )
-        for a in self.agents:
-            s += '%s\n' % ( a.sjguy() )
-        return s
-
-    def xml( self, obstacles=None ):
+    def xml( self ):
         '''Returns the xml-formatted agent set'''
         #assumes everyone has the same goal
         s = '''<?xml version="1.0"?>
