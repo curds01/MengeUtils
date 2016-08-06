@@ -9,14 +9,12 @@ class Agent:
 
     INACTIVE = 0
     AGENT = 1
-    GOAL = 2
-    def __init__( self, radius, pos, goal ):        
+    def __init__( self, radius, pos ):
         self.radius = radius
         self.pos = pos
-        self.goal = goal
         self.id = Agent.ID
         self.active = Agent.INACTIVE
-        Agent.ID += 2
+        Agent.ID += 1
 
     def __str__( self ):
         return "Agent %d of %d - %s" % ( self.id, Agent.ID, self.pos )
@@ -28,53 +26,28 @@ class Agent:
         s += '/>'
         return s
     
-    def printActive( self ):
-        if ( self.active == Agent.GOAL ):
-            print "GOAL active"
-        elif ( self.active == Agent.AGENT ):
-            print "AGENT active"
-        else:
-            raise AttributeError, "Can't get active position for an inactive agent"
-        
     def getActivePos( self ):
-        if ( self.active == Agent.GOAL ):
-            return self.goal
-        elif ( self.active == Agent.AGENT ):
+        if ( self.active == Agent.AGENT ):
             return self.pos
         else:
             raise AttributeError, "Can't get active position for an inactive agent"
         
     def setActivePos( self, p ):
-        if ( self.active == Agent.GOAL ):
-            self.goal = p
-        elif ( self.active == Agent.AGENT ):
+        if ( self.active == Agent.AGENT ):
             self.pos = p
         else:
-            raise AttributeError, "Can't get active position for an inactive agent"
+            raise AttributeError, "Can't set active position for an inactive agent"
         
     def setPosition( self, pos ):
         self.pos = pos
 
-    def setGoalPosition( self, pos ):
-        self.goal = pos
-
     def activateAgent( self ):
         self.active = Agent.AGENT
-
-    def activateGoal( self ):
-        self.active = Agent.GOAL        
 
     def deactivate( self ):
         self.active = False
 
     def drawGL( self, select=False, editable=False ):
-        if ( self.active and not select ):
-            glColor3f( 0, 0, 1 )
-            glBegin( GL_LINES )
-            glVertex3f( self.pos[0], self.pos[1], 0 )
-            glVertex3f( self.goal[0], self.goal[1], 0 )
-            glEnd()
-
         # draw the agent
         if ( editable ):
             glColor3f( 0, 0, 0.95 )
@@ -100,30 +73,6 @@ class Agent:
             glVertex3f( c, s, 0 )
         glEnd()
         glPopMatrix()
-        # draw the goal                    
-        if ( editable ):
-            glColor3f( 0.9, 0.45, 0.0 )
-        else:
-            glColor3f( 0.45, 0.225, 0 )
-
-        glPushMatrix()            
-        glTranslate( self.goal[0], self.goal[1], 0 )
-        scale = self.radius
-        if ( self.active == Agent.GOAL ):
-            scale *= 1.5
-        glScale( scale, scale, scale )
-        SEGMENTS = 10
-        if ( select ):
-            glLoadName( self.id + 1)
-        glBegin( GL_TRIANGLE_FAN )
-        glVertex3f( 0, 0, 0 )
-        for i in range( SEGMENTS + 1 ):
-            theta = dTheta * i
-            c = cos( theta )
-            s = sin( theta )
-            glVertex3f( c, s, 0 )
-        glEnd()
-        glPopMatrix()
 
 class AgentSet:
     def __init__( self, defRadius ):
@@ -139,23 +88,11 @@ class AgentSet:
     def count( self ):
         '''Returns the number of agents in the set'''
         return len( self.agents )
-
-    def selectLastGoal( self ):
-        if ( self.activeAgent ):
-            self.activeAgent.deactivate()
-            self.activeAgent = None
-        if ( self.agents ):
-            self.activeAgent = self.agents[-1]
-            self.activeAgent.activateGoal()
             
     def selectAgent( self, id ):
-        """Given the goal or the Agent id, returns the agent with activity set correctly"""
-        agtId = id >> 1
-        agt = self.agents[ agtId ]
-        if ( id & 0x1 ):
-            agt.activateGoal()
-        else:
-            agt.activateAgent()
+        """Given the agent id, returns the agent with activity set correctly"""
+        agt = self.agents[ id ]
+        agt.activateAgent()
         return agt
 
     def initFromFile( self, file ):
@@ -170,24 +107,40 @@ class AgentSet:
             raise RuntimeError('Only reads xml files')
 
     def xml( self ):
-        '''Returns the xml-formatted agent set'''
-        #assumes everyone has the same goal
+        '''Returns the xml-formatted agent group'''
+        #TODO: I need to partition them based on agent radius
         s = '''<?xml version="1.0"?>
-<Experiment time_step="0.05" >
+<Experiment version="2.0" >
 
-  <AgentSet obstacleSet="1" neighbor_dist="1.1" max_neighbors="10" r="{0}" class="0" g_r="3.0" pref_speed="1.04" ttc="0.5" max_speed="2.0" max_accel="2.0" >'''.format( self.defRadius )
+    <AgentProfile name="group1" >
+		<Common max_angle_vel="360" class="1" max_neighbors="10" obstacleSet="1" neighbor_dist="5" r="0.2" pref_speed="1.34" max_speed="2" max_accel="5" >
+			<Property name="pref_speed" dist="u" min="0.5" max="1.8" />
+		</Common>
+		<PedVO factor="1.57" buffer="0.9" tau="3" tauObst="0.1" turningBias="1.0" />
+        <Helbing mass="80" />
+        <ORCA tau="3.0" tauObst="0.15" />
+	</AgentProfile>
+
+	<AgentGroup>
+        <ProfileSelector type="const" name="group1" />
+		<StateSelector type="const" name="Walk" />
+		<Generator type="explicit" >'''
         for a in self.agents:
             s += '  ' + a.xml( self.defRadius )
         s += '\n  </AgentSet>'
+        s += '''
+		</Generator>
+	</AgentGroup>'''
         if ( obstacles ):
             s += obstacles.xml()
-        s += '\n</Experiment>'
+        s += '''
+</Experiment>'''
         return s
     
-    def addAgent( self, pos, goal, radius = None ):
-        if ( radius == None ):
+    def addAgent( self, pos, radius = None ):
+        if ( radius is None ):
             radius = self.defRadius
-        a = Agent( radius, pos, goal )
+        a = Agent( radius, pos )
         self.agents.append( a )
         return a
 
@@ -222,8 +175,6 @@ class AgentSet:
 class AgentXMLParser( handler.ContentHandler ):
     def __init__( self, agentSet ):
         self.agentSet = agentSet
-        self.goal = (0, 0)
-        self.readingGoal = False
         self.version = (1,0)
         self.inAgentSet = False
 
@@ -242,7 +193,7 @@ class AgentXMLParser( handler.ContentHandler ):
                 r = float( attrs[ 'r' ] )
             except:
                 r = self.agentSet.defRadius
-            self.agentSet.addAgent( (x, y), self.goal, r )
+            self.agentSet.addAgent( (x, y), r )
         elif ( name == 'AgentSet' ):
             self.inAgentSet = True
             if ( self.version[0] == 1 ):
@@ -250,16 +201,8 @@ class AgentXMLParser( handler.ContentHandler ):
         elif ( name == 'Common' ):
             if ( self.inAgentSet ):
                 self.agentSet.defRadius = float( attrs[ 'r' ] )
-        elif ( name == 'Vertex' and self.readingGoal ):
-            x = float( attrs[ 'g_x' ] )
-            y = float( attrs[ 'g_y' ] )
-            self.goal = ( x, y )
-        elif ( name == 'Goal' ):
-            self.readingGoal = True
 
     def endElement( self, name ):
-        if ( name == 'Goal' ):
-            self.readingGoal = False
-        elif ( name == 'AgentSet' ):
+        if ( name == 'AgentSet' ):
             self.inAgentSet = False
             

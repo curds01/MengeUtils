@@ -1079,12 +1079,11 @@ class DrawPolygonContext( PGContext, MouseEnabled ):
             self.polygon.drawGL( editable=True, drawNormals=visNormals )
      
 class AgentContext( PGContext, MouseEnabled ):
-    '''A context for adding agents-goal pairs and editing existing pairs'''
+    '''A context for adding agents and editing agent positions'''
     HELP_TEXT = 'Agent context' + \
-                '\n\tCreate new agent and goal - left-click in space and drag the goal' + \
+                '\n\tCreate new agent - left-click in space and drag to position' + \
                 '\n\tEdit agent position - hover over agent, left-click and drag to move' + \
-                '\n\tEdit goal position - hover over goal, left-click and drag to move' + \
-                '\n\tDelete agent - hover over agent or goal, hit delete' + \
+                '\n\tDelete agent - hover over agent, hit delete' + \
                 '\n\tIncrease NEW agent radius - up arrow (with no agent highlighted)' + \
                 '\n\tDecrease NEW agent radius - down arrow (with no agent highlighted)' + \
                 '\n\tIncrease specific agent radius - highlight agent/goal, up arrow' + \
@@ -1199,8 +1198,7 @@ class AgentContext( PGContext, MouseEnabled ):
                 else:
                     p = view.screenToWorld( event.pos )
                     self.downPos = p
-                    self.agents.addAgent( p, p )
-                    self.agents.selectLastGoal()
+                    self.agents.addAgent( p )
                     result.setNeedsRedraw( True )
                 self.dragging = True
         
