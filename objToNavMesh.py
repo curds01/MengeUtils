@@ -173,7 +173,7 @@ def buildNavMesh( objFile ):
     #       a < b
     edgeMap = {}
     nodes = []
-    for f, face in enumerate( objFile.getFaceIterator() ):
+    for f, (face, grpName) in enumerate( objFile.getFaceIterator() ):
         vCount = len( face.verts )
         # create node
         node = Node()

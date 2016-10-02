@@ -292,7 +292,11 @@ class Group:
         
 class ObjFile:
     class FaceIterator:
-        """An iterator through the objfile's faces"""
+        """An iterator through the objfile's faces
+
+        It will iterate across all faces, returning the face data *and* the group to
+        which the face belongs.
+        """
         def __init__( self, objfile ):
             self.mesh = objfile
             self.groups = objfile.groups.values()
@@ -326,7 +330,7 @@ class ObjFile:
                         if ( self.faces ):
                             tryAgain = False
             try:
-                return self.faces[ self.faceIndex ]
+                return self.faces[ self.faceIndex ], self.groups[ self.grpIndex ].name
             except IndexError:
                 print "Error getting face at index %d" % (self.faceIndex)
                 raise StopIteration

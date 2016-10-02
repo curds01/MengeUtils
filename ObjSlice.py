@@ -579,7 +579,7 @@ def slice( obj, plane, findPolys, scale = 1.0, flip = 0 ):
     """Returns a list of line segments which are formed when itnersecting the obj with the plane"""
     segments = []
 
-    for face in obj.getFaceIterator():
+    for face, grpName in obj.getFaceIterator():
         vertices = [ obj.vertSet[ x - 1 ] for x in face.verts ]
         bb = AABB( vertices )
         if ( bb.hitsPlane( plane ) ):
