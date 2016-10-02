@@ -161,7 +161,10 @@ def projectVertices( vertexList ):
     return verts
 
 def buildNavMesh( objFile ):
-    '''Given an ObjFile object, constructs the navigation mesh'''
+    '''Given an ObjFile object, constructs the navigation mesh.writeNavFile
+
+    The node's will be grouped according to the obj face groups.
+    '''
     navMesh = NavMesh()
     V = objFile.vertSet
     navMesh.vertices = projectVertices( V )
@@ -219,7 +222,7 @@ def buildNavMesh( objFile ):
         node.A = A
         node.B = B
         node.C = C
-        navMesh.addNode( node )
+        navMesh.addNode( node, grpName )
     print "Found %d edges" % ( len( edgeMap ) )
     edges = edgeMap.keys()
     internal = filter( lambda x: len( edgeMap[ x ] ) > 1, edges )
