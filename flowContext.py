@@ -54,11 +54,13 @@ class FlowLineContext( BaseContext ):
     NO_EDIT = 0
     EDIT = 1
     ADD = 2
-    def __init__( self, cancelCB=None ):
+    def __init__( self, cancelCB=None, editCB=None ):
         '''Constructor.
 
         @param      cancelCB        A callable.  An optional callback object
                                     for when flow line drawing is canceled.
+        @param      editCB          A callable. An optional callback object
+                                    for when a flow line values are edited.
         '''
         BaseContext.__init__( self )
         self.lines = []
@@ -67,6 +69,7 @@ class FlowLineContext( BaseContext ):
         self.activeID = -1  # the line currently affected by modifications
         self.editState = self.NO_EDIT
         self.cancelCB = cancelCB
+        self.editCB = editCB
         
         self.activeLine = None
         self.canDraw = False
@@ -116,6 +119,8 @@ class FlowLineContext( BaseContext ):
         self.editState = self.ADD
         self.activeID = -1
         self.names.append( 'Line %d' % len( self.names ) )
+        self.lines.append( GLFlowSegment( Vector2(0, 0), Vector2(0, 0) ) )
+        self.activeLine = self.lines[-1]
 
     def editLine( self, idx ):
         '''Edits the indicated line'''
@@ -192,12 +197,16 @@ class FlowLineContext( BaseContext ):
                     self.activeLine = GLFlowSegment( p1, p1 )
                     result.set( True, True, False )
                     self.dragging = True
+                    self.notifyEdit( self.activeLine )
                 elif ( btn == MouseEvent.RIGHT and self.dragging ):
                     # cancel the edit
                     if ( self.editState == self.ADD ):
                         self.editState = self.NO_EDIT
+                        self.lines.pop(-1)
+                        self.names.pop(-1)
                         if ( not self.cancelCB is None ):
                             self.cancelCB()
+                        self.notifyEdit( None )
                     canceled = self.activeLine != None
                     self.activeLine = None
                     self.dragging = False
@@ -207,12 +216,14 @@ class FlowLineContext( BaseContext ):
                     endPos = Vector2( eX, eY )
                     if ( (endPos - self.downPos).magnitude() >= self.MIN_LINE_LENGTH  ):
                         if ( self.editState == self.ADD ):
-                            self.lines.append( self.activeLine )
-                            self.editState = self.EDIT
                             self.activeID = len( self.lines ) - 1
+                            self.lines[self.activeID] = self.activeLine
+                            self.editState = self.EDIT
+                            self.notifyEdit( self.activeLine )
                         elif ( self.editState == self.EDIT ):
                             assert( self.activeID > -1 )
                             self.lines[ self.activeID ] = self.activeLine
+                            self.notifyEdit( self.activeLine )
                         self.activeLine = None
                     self.activeLine = None  
                     self.dragging = False
@@ -223,8 +234,14 @@ class FlowLineContext( BaseContext ):
                     p2 = Vector2( x, y )
                     self.activeLine.p2 = p2
                     result.set( True, True, False )
+                    self.notifyEdit( self.activeLine )
         return result
 
+    def notifyEdit( self, line ):
+        '''Notifies call back of a line that has changed'''
+        if ( not self.editCB is None ):
+            self.editCB( line )
+    
     def drawGL( self ):
         '''Basic lines are drawn in default (green), the active line is drawn in yellow,
         and when it is being edited, the original disappears and the new line is drawn in

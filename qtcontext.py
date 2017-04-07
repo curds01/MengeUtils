@@ -3,12 +3,15 @@ from Context import *
 from flowContext import FlowLineContext
 from rectContext import RectContext
 
-class QtEventProcessor():
+class QtEventProcessor(QtCore.QObject):
     '''QT-specific context - translates QT events to canonical events'''
     # mapping from supported QT events to canonical event types
     EVT_MAP = { QtCore.QEvent.MouseButtonPress:MouseEvent.DOWN,
                 QtCore.QEvent.MouseButtonRelease:MouseEvent.UP,
                 QtCore.QEvent.MouseMove:MouseEvent.MOVE }
+
+    def __init__( self ):
+        QtCore.QObject.__init__( self )
     
     def isMouseEvent( self, evt ):
         '''Reports if the given event is a supported mouse event'''
@@ -52,8 +55,14 @@ class QtEventProcessor():
             raise ValueError, "Unrecognized QEvent type: %s" % ( evt.type() )
 
 class QTFlowLineContext( QtEventProcessor, FlowLineContext ):
-    def __init__( self, cancelCB=None ):
-        FlowLineContext.__init__( self, cancelCB )
+    def __init__( self, cancelCB=None):
+        QtEventProcessor.__init__( self )
+        FlowLineContext.__init__( self, cancelCB, self.editCB )
+        
+    lineEdited = QtCore.pyqtSignal('PyQt_PyObject')
+
+    def editCB( self, line ):
+        self.lineEdited.emit( line )
 
 class QTRectContext( QtEventProcessor, RectContext ):
     def __init__( self, cancelCB=None ):

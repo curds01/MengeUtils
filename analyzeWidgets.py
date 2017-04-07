@@ -810,10 +810,15 @@ class SpeedTaskWidget( DomainTaskWidget ):
         return task
 
 class FlowTaskWidget( TaskWidget ):
+    X0 = 0
+    X1 = 1
+    Y0 = 2
+    Y1 = 3
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
         TaskWidget.__init__( self, name, parent, delCB, rsrc )
         # TODO: This needs a context
         self.context = QTFlowLineContext( self.cancelAddFlowLine )
+        QtCore.QObject.connect( self.context, QtCore.SIGNAL('lineEdited(PyQt_PyObject)'), self.setLineValues )
 
     def createFlowLineBox( self ):
         '''Creates the GroupBox containing the widgets for controlling lines'''
@@ -842,7 +847,7 @@ class FlowTaskWidget( TaskWidget ):
         layout.addWidget( self.delFlowLineBtn, 1, 2 )
 
         # edit button
-        self.editFlowLineBtn = QtGui.QPushButton( 'Edit' )
+        self.editFlowLineBtn = QtGui.QPushButton( 'Edit in View' )
         self.editFlowLineBtn.setCheckable( True )
         self.editFlowLineBtn.setEnabled( False )
         QtCore.QObject.connect( self.editFlowLineBtn, QtCore.SIGNAL('toggled(bool)'), self.editFlowLineCB )
@@ -862,8 +867,68 @@ class FlowTaskWidget( TaskWidget ):
         self.flowNameGUI.setValidator( validator )
         QtCore.QObject.connect( self.flowNameGUI, QtCore.SIGNAL('editingFinished()'), self.flowLineNameChangeCB )
         layout.addWidget( self.flowNameGUI, 3, 1, 1, 2 )
+
+        # current line values
+        layout.addWidget( self.lineEndPointBox(), 4, 0, 1, 3 )
         
         return box
+
+    def lineEndPointBox( self ):
+        '''Creates the box containing the values of the current line's end points.'''
+        pointBox = QtGui.QGroupBox( "Line Endpoint Values" )
+        fLayout = QtGui.QGridLayout( pointBox )
+        fLayout.setColumnStretch( 0, 0 )
+        fLayout.setColumnStretch( 1, 1 )
+        fLayout.setColumnStretch( 2, 1 )
+
+        # labels
+        fLayout.addWidget( QtGui.QLabel( "Point 0" ), 0, 1, 1, 1, QtCore.Qt.AlignHCenter )
+        fLayout.addWidget( QtGui.QLabel( "Point 1" ), 0, 2, 1, 1, QtCore.Qt.AlignHCenter )
+        fLayout.addWidget( QtGui.QLabel( "x" ), 1, 0, 1, 1, QtCore.Qt.AlignRight )
+        fLayout.addWidget( QtGui.QLabel( "y" ), 2, 0, 1, 1, QtCore.Qt.AlignRight )
+
+        # numerical fields
+        self.x0 = QtGui.QDoubleSpinBox( self )
+        self.x0.setValue( 0.0 )
+        self.x0.setRange(-1e6, 1e6 )
+        self.x0.setEnabled( False )
+        QtCore.QObject.connect( self.x0, QtCore.SIGNAL('valueChanged(double)'), lambda x: self.setPoint(self.X0, x) )
+        fLayout.addWidget( self.x0, 1, 1, 1, 1 )
+        self.x1 = QtGui.QDoubleSpinBox( self )
+        self.x1.setValue( 0.0 )
+        self.x1.setRange(-1e6, 1e6 )
+        self.x1.setEnabled( False )
+        QtCore.QObject.connect( self.x1, QtCore.SIGNAL('valueChanged(double)'), lambda x: self.setPoint(self.X1, x) )
+        fLayout.addWidget( self.x1, 1, 2, 1, 1 )
+
+        self.y0 = QtGui.QDoubleSpinBox( self )
+        self.y0.setValue( 0.0 )
+        self.y0.setRange(-1e6, 1e6 )
+        self.y0.setEnabled( False )
+        QtCore.QObject.connect( self.y0, QtCore.SIGNAL('valueChanged(double)'), lambda x: self.setPoint(self.Y0, x) )
+        fLayout.addWidget( self.y0, 2, 1, 1, 1 )
+        self.y1 = QtGui.QDoubleSpinBox( self )
+        self.y1.setValue( 0.0 )
+        self.y1.setRange(-1e6, 1e6 )
+        self.y1.setEnabled( False )
+        QtCore.QObject.connect( self.y1, QtCore.SIGNAL('valueChanged(double)'), lambda x: self.setPoint(self.Y1, x) )
+        fLayout.addWidget( self.y1, 2, 2, 1, 1 )
+
+        return pointBox
+
+    def setPoint( self, valId, value ):
+        idx = self.linesGUI.currentIndex()
+        assert( idx > -1 )  # this button shouldn't be enabled if this isn't true
+        line = self.context.getLine( idx )
+        if ( valId == self.X0 ):
+            line.p1.x = value
+        elif ( valId == self.X1 ):
+            line.p2.x = value
+        elif ( valId == self.Y0 ):
+            line.p1.y = value
+        elif ( valId == self.Y1 ):
+            line.p2.y = value
+        self.rsrc.glWindow.updateGL()
     
     def body( self ):
         '''Build the task-specific GUI.  This should be overwritten by subclass'''
@@ -884,6 +949,7 @@ class FlowTaskWidget( TaskWidget ):
         self.rsrc.glWindow.updateGL()
         if ( not active ):
             self.editFlowLineBtn.setChecked( False )
+        self.setEndPoints()
 
     def addFlowLineCB( self ):
         '''When the add flow line is clicked, we add the flow line and update the GUI appropriately'''
@@ -920,6 +986,7 @@ class FlowTaskWidget( TaskWidget ):
         idx = self.linesGUI.currentIndex()
         assert( idx > -1 )  # this button shouldn't be enabled if this isn't true
         self.context.flipLine( idx )
+        self.setEndPoints()
         self.rsrc.glWindow.updateGL()
 
     def flowLineNameChangeCB( self ):
@@ -932,6 +999,37 @@ class FlowTaskWidget( TaskWidget ):
         '''Called when an add flow line action is canceled'''
         self.linesGUI.removeItem( self.linesGUI.count() - 1 )
         self.linesGUI.setCurrentIndex( -1 )
+
+    def setEndPoints( self ):
+        '''Sets the end point values based on the current line'''
+        idx = self.linesGUI.currentIndex()
+        if ( idx > -1 ):
+            line = self.context.getLine( idx )
+            self.setLineValues( line )
+        else:
+            self.setLineValues( None )
+
+    def setLineValues( self, line ):
+        if ( not line is None ):
+            def enable( widget, value ):
+                    widget.blockSignals( True )
+                    widget.setEnabled( True )
+                    widget.setValue( value )
+                    widget.blockSignals( False )
+            enable( self.x0, line.p1.x )
+            enable( self.y0, line.p1.y )
+            enable( self.x1, line.p2.x )
+            enable( self.y1, line.p2.y )
+        else:
+            def disable( widget ):
+                widget.blockSignals( True )
+                widget.setEnabled( False )
+                widget.setValue( 0.0 )
+                widget.blockSignals( False )
+            disable( self.x0 )
+            disable( self.x1 )
+            disable( self.y0 )
+            disable( self.y1 )
 
     @staticmethod
     def typeStr():
