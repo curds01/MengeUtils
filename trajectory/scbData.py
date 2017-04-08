@@ -558,7 +558,7 @@ class NPFrameSet( FrameSet ):
         if ( self.currFrameIndex >= self.maxFrames - 1 ):
             raise StopIteration  # TODO: make everything rely on this exception
         
-        if ( self.currFrame == None):
+        if ( self.currFrame is None):
             self.currFrame = np.empty( ( self.readAgtCount, self.colCount ), dtype=np.float32 )
 
         skipAmount = stride - 1
