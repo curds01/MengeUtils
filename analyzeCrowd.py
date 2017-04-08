@@ -6,7 +6,7 @@ from GLWidget import *
 import sys
 from analyzeWidgets import AnlaysisWidget, SystemResource
 from AnalysisTask import readAnalysisProject
-from agent_set import AgentSet
+from scb_qt_playback import PlayerController
 
 class ConsoleFile( QtCore.QObject ):
     processMessage = QtCore.pyqtSignal(str)
@@ -85,14 +85,9 @@ class CrowdWindow( QtGui.QMainWindow):
         self.glWindow = GLWidget(  (10,10),(0,0), (10,10),(0,0), (1,1) )
         self.glWindow.setMinimumSize( QtCore.QSize( 640, 480 ) )
         wLayout.addWidget( self.glWindow, 0, 0, 1, 3 )
-        playButton = QtGui.QPushButton("Play")
-        wLayout.addWidget( playButton, 1, 0, 1, 1 )
-        timeSlider = QtGui.QSlider()
-        timeSlider.setOrientation(QtCore.Qt.Horizontal )
-        wLayout.addWidget( timeSlider, 1, 1, 1, 1 )
-        self.timeEdit = QtGui.QLabel('time')
-        wLayout.addWidget( self.timeEdit, 1, 2, 1, 1 )
-        self.agent_set = None
+        self.playerWidget = PlayerController( self.glWindow )
+        self.playerWidget.need3DUpdate.connect( self.glWindow.updateGL )
+        wLayout.addWidget( self.playerWidget, 1, 0, 1, 3 )
         # Console
         self.console = Logger( splitter )
         QtCore.QObject.connect( self.console, QtCore.SIGNAL('cursorPositionChanged ()'), self.logExtended )
@@ -127,7 +122,7 @@ class CrowdWindow( QtGui.QMainWindow):
             self.readConfigFile( configName )
             path, name = os.path.split( configName )
             self.rsrc.lastFolder = path
-
+        
     def createActions( self ):
         """Creates the actions for menu actions"""
         self.readInConfigAct = QtGui.QAction( "&Read Input Config",
@@ -220,17 +215,7 @@ class CrowdWindow( QtGui.QMainWindow):
         sb.setSliderPosition( maxVal )
 
     def scbLoaded( self, frame_set ):
-        self.console.info("SCB loaded and reported to main app")
-        if ( not self.agent_set is None ):
-            self.glWindow.removeDrawable( self.agent_set )
-        # TODO: Get the agent size from somewhere else.        
-        self.agent_set = AgentSet( self.glWindow, 0.19, frame_set )
-        self.glWindow.addDrawable( self.agent_set )
-        # TODO: Pass the agent set to be controlled by the playback
-        frame, id = frame_set.next()
-        self.agent_set.setFrame( frame )
-        self.timeEdit.setText( '%d' % id )
-        self.glWindow.updateGL()
+        self.playerWidget.setFrameSet( frame_set )
 
 def main():
     def taskListArg( option, opt_str, value, parser, *args, **kwargs ):

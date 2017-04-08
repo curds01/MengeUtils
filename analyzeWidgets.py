@@ -419,6 +419,11 @@ class TaskWidget( QtGui.QGroupBox ):
             self.rsrc.glWindow.setUserContext( self.context )
         else:
             self.rsrc.glWindow.setUserContext( None )
+        if ( self.scbFilePathGUI.text() ):
+            frameSet = NPFrameSet( str(self.scbFilePathGUI.text()) )
+            self.scbLoaded.emit( frameSet )
+        else:
+            self.scbLoaded.emit( None )
         self.rsrc.glWindow.updateGL()
 
     def selectSCBDlg( self ):
