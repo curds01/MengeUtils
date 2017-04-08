@@ -57,7 +57,7 @@ class RasterReport:
             self.minVal = val
 
 # A mapping of numpy array type to an int iterator for storing in the file
-NP_TYPES = ( np.float32, np.float64, np.float96, np.int8, np.int16, np.int32, np.int64 )
+NP_TYPES = ( np.float32, np.float64, np.int8, np.int16, np.int32, np.int64 )
 TYPE_ID_MAP = dict( map( lambda x: ( x[1], x[0] ), enumerate( NP_TYPES ) ) )
 
 
