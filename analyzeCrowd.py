@@ -88,6 +88,8 @@ class CrowdWindow( QtGui.QMainWindow):
         self.playerWidget = PlayerController( self.glWindow )
         self.playerWidget.need3DUpdate.connect( self.glWindow.updateGL )
         wLayout.addWidget( self.playerWidget, 1, 0, 1, 3 )
+        wLayout.setRowStretch( 0, 1 )
+        wLayout.setRowStretch( 1, 0 )
         # Console
         self.console = Logger( splitter )
         QtCore.QObject.connect( self.console, QtCore.SIGNAL('cursorPositionChanged ()'), self.logExtended )
@@ -216,6 +218,7 @@ class CrowdWindow( QtGui.QMainWindow):
 
     def scbLoaded( self, frame_set ):
         self.playerWidget.setFrameSet( frame_set )
+        self.glWindow.frameDrawables()
 
 def main():
     def taskListArg( option, opt_str, value, parser, *args, **kwargs ):

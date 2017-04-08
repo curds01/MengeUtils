@@ -327,6 +327,13 @@ class ObstacleSet:
         '''Returns a list of 2-tuples: (obstacle, bb)'''
         return map( lambda x: (x, x.getBB()), self.polys )
 
+    def getBB( self ):
+        '''Returns a bounding box spanning all of the obstacles'''
+        bb = AABB()
+        for poly in self.polys:
+            bb.extend( poly.getBB() )
+        return bb
+
     def inflate( self, amount ):
         '''Inflates all of the obstacles by the given amount'''
         for p in self.polys:

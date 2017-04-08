@@ -1,6 +1,8 @@
 # A GLWidget drawable that draws a set of agents
 
 from OpenGL.GL import *
+from ObjSlice import AABB
+from primitives import Vector3
 
 class AgentSet:
     '''A GLWidget drawable that draws a set of agents.'''
@@ -33,6 +35,19 @@ class AgentSet:
 
     def setFrame( self, frame ):
         self.currFrame = frame
+
+    def getBB( self ):
+        '''Returna bounding box spanning the curent frame'''
+        bb = AABB()
+        if ( not self.currFrame is None ):
+            if ( self.is3D ):
+                pos = self.currFrame[ :, :3 ]
+                verts = [ Vector3(x, y, z) for (x, z, y) in pos ]
+            else:
+                pos = self.currFrame[ :, :2 ]
+                verts = [ Vector3(x, y, 0) for (x, y) in pos ]
+            bb.expand( verts )
+        return bb
 
     def drawGL( self ):
         '''Draws the agents to the current context.'''

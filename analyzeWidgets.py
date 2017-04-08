@@ -463,15 +463,9 @@ class TaskWidget( QtGui.QGroupBox ):
                 flipY = False
                 obstacles, bb = readObstacles( obstFileName, flipY )                
                 self.rsrc.glWindow.addDrawables( obstacles )
-                w = bb.max.x - bb.min.x
-                h = bb.max.y - bb.min.y
-                self.rsrc.glWindow.setBG( (w,h), (bb.min.x, bb.min.y) )
-                self.rsrc.glWindow.setView( (w,h), (bb.min.x, bb.min.y) )
-                glSize = self.rsrc.glWindow.size()
-                self.rsrc.glWindow.resizeGL( glSize.width(), glSize.height() )
-                self.rsrc.glWindow.updateGL()
-            except:
-                self.rsrc.logger.error( 'Error reading obstacle file: %s' % obstFileName )
+                self.rsrc.glWindow.frameDrawables()
+            except IOError as e:
+                self.rsrc.logger.error( 'Error reading obstacle file: %s\n\t%s' % ( obstFileName, e ) )
         else:
             self.rsrc.logger.error( 'No obstacle file to load' )
     

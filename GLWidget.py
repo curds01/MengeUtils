@@ -1,6 +1,7 @@
 from PyQt4 import QtCore, QtGui, QtOpenGL
 from OpenGL.GL import *
 from Context import *
+from ObjSlice import AABB
 
 # dragging parameters
 NO_DRAG = 0
@@ -51,14 +52,6 @@ class GLWidget( QtOpenGL.QGLWidget ):
         self.downX = 0
         self.downY = 0
         self.dragging = NO_DRAG
-        
-##        # create characters
-##        self.char = [None for i in range( 256 ) ]
-##        for c in range( 256 ):
-##            self.char[ c ] = self._charMap( chr(c), font )
-##        self.char = tuple( self.char )
-##        self.lw = self.char[ ord('0') ][1]
-##        self.lh = self.char[ ord('0') ][2]
 
     def setUserContext( self, newContext ):
         '''Sets the interaction context'''
@@ -97,13 +90,28 @@ class GLWidget( QtOpenGL.QGLWidget ):
         '''Add a single drawable object'''
         self.drawables.append( drawable )
 
+    def addDrawables( self, drawables ):
+        '''Add a list of drawables'''
+        self.drawables += drawables
+
     def removeDrawable( self, drawable ):
         '''Removes a single drawable object'''
         self.drawables.pop( self.drawables.index( drawable ) )
 
-    def addDrawables( self, drawables ):
-        '''Add a list of drawables'''
-        self.drawables += drawables
+    def frameDrawables( self ):
+        '''Modifies the view to frame all of the drawables'''
+        if ( self.drawables ):
+            bb = AABB()
+            for drawable in self.drawables:
+                bb.extend( drawable.getBB() )
+            w = bb.max.x - bb.min.x
+            h = bb.max.y - bb.min.y
+            # set the background and the view to be the same
+            self.setBG( (w,h), (bb.min.x, bb.min.y) )
+            self.setView( (w,h), (bb.min.x, bb.min.y) )
+            glSize = self.size()
+            self.resizeGL( glSize.width(), glSize.height() )
+            self.updateGL()
 
     def resizeGL(self, width, height):
         self.wWidth, self.wHeight = (width, height)

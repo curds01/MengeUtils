@@ -71,6 +71,15 @@ class AABB:
             if ( self.max.z < v.z ):
                 self.max.z = v.z
 
+    def extend( self, aabb ):
+        '''Extends this AABB by the given aabb.'''
+        if ( aabb.min.x < self.min.x ): self.min.x = aabb.min.x
+        if ( aabb.min.y < self.min.y ): self.min.y = aabb.min.y
+        if ( aabb.min.z < self.min.z ): self.min.z = aabb.min.z
+        if ( aabb.max.x > self.max.x ): self.max.x = aabb.max.x
+        if ( aabb.max.y > self.max.y ): self.max.y = aabb.max.y
+        if ( aabb.max.z > self.max.z ): self.max.z = aabb.max.z
+
     def hitsAABB( self, aabb ):
         """Reports if this AABB overlaps with aabb"""
         if ( self.min.x > aabb.max.x or
