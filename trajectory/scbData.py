@@ -154,7 +154,7 @@ class Frame:
 class FrameSet:
     """A pseudo iterator for frames in an scb file"""
     def __init__( self, scbFile, startFrame=0, maxFrames=-1, maxAgents=-1, frameStep=1, agtStep=1, verbose=False ):
-        """Initializes an interator for walking through a an scb file.close
+        """Initializes an interator for walking through an scb file.
         By default, it creates a frame for every frame in the scb file, each
         frame consisting of all agents.
         Optional arguments can reduce the number of framse as well as number of agents.
@@ -163,7 +163,6 @@ class FrameSet:
         frameStep dictates the stride of between returned frames.
         agtStep dictates the stride between selected agents.
         """
-        print '*** agtStep %d ***' % ( agtStep )
         # TODO: self.maxFrames isn't currently USED!!!
         # version 2.0 data
         self.is3D = False
@@ -231,17 +230,17 @@ class FrameSet:
             print "\tAgent stride size:    ", self.agentDelta, "bytes"
         self.currFrame = None
         self.setNext( 0 )
-        print "\nNPFRAMESET"
-        print "\tTotal agents:", self.agtCount
-        print "\tAgent stride:", self.readAgtStride
-        print "\tNumber of agents to read:", self.readAgtCount
-        print "\tBytes per agent:", self.agentByteSize
-        print "\tBytes to read to get single agent:", self.singleAgentRead
-        print "\tNumber of agents to read with stride", self.readAgtStride * self.readAgtCount
-        print "\tFull frame size (in bytes):", self.frameSize
-        print "\tNumber of bytes to read for each agent:", self.readFrameSize
-        print "\tBytes left over (in frame):", self.agentDelta
-        
+        if ( verbose ):
+            print "\nNPFRAMESET"
+            print "\tTotal agents:", self.agtCount
+            print "\tAgent stride:", self.readAgtStride
+            print "\tNumber of agents to read:", self.readAgtCount
+            print "\tBytes per agent:", self.agentByteSize
+            print "\tBytes to read to get single agent:", self.singleAgentRead
+            print "\tNumber of agents to read with stride", self.readAgtStride * self.readAgtCount
+            print "\tFull frame size (in bytes):", self.frameSize
+            print "\tNumber of bytes to read for each agent:", self.readFrameSize
+            print "\tBytes left over (in frame):", self.agentDelta        
 
     def getType( self ):
         '''Returns the identifier for this type of trajectory data.
@@ -258,12 +257,10 @@ class FrameSet:
         @returns    A boolean.  True if the first four bytes of the file conform to a
                     valid scb data file format (i.e. the scb version number.)
         '''
-        f = open( fileName, 'rb' )
-        data = f.read( 4 )
-        version = data[:-1]
-        valid = version in SCBVersion.VERSIONS and data[-1] == '\x00'
-        f.close()
-        return valid
+        with open( fileName, 'rb' ) as f:
+            data = f.read( 4 )
+            version = data[:-1]
+            return version in SCBVersion.VERSIONS and data[-1] == '\x00'
 
     def summary( self ):
         '''Creates a simple summary of the trajectory data'''

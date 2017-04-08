@@ -83,7 +83,7 @@ class GLWidget( QtOpenGL.QGLWidget ):
         glClearColor(0.0, 0.0, 0.0, 0.0)
         glClearDepth(1.0)
         glPolygonMode( GL_FRONT_AND_BACK, GL_LINE )
-        print "OpenGL version", glGetString( GL_VERSION )
+        #print "OpenGL version", glGetString( GL_VERSION )
 
     def paintGL(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
