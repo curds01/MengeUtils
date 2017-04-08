@@ -72,6 +72,9 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         self.tasks = []
         self.workThread = None
 
+    # Transmits an NPFrameSet of the scbdata loaded and step duration.
+    scbLoaded = QtCore.pyqtSignal('PyQt_PyObject')
+
     def build( self ):
         layout = QtGui.QGridLayout()
         layout.setColumnStretch( 0, 0 )
@@ -202,8 +205,13 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         self.taskGUIs.addTab( task, tabLabel )
         self.goBtn.setEnabled( True )
         QtCore.QObject.connect( task.goBtn, QtCore.SIGNAL('clicked(bool)'), self.runCurrent )
+        QtCore.QObject.connect( task, QtCore.SIGNAL('scbLoaded(PyQt_PyObject)'), self.reportSCBLoaded )
         self.tasks.append( task )
         self.taskGUIs.setCurrentWidget( task )
+
+    def reportSCBLoaded( self, frame_set ):
+        '''Responds to the task reporting a frame set has been loaded.'''
+        self.scbLoaded.emit( frame_set )
         
     def getTasks( self, testValid=True ):
         '''Returns a list of AnalysisTasks for the active task widgets.  If there are any
@@ -246,6 +254,11 @@ class AnlaysisWidget( QtGui.QGroupBox ):
             widget = TaskClass( '', rsrc=self.rsrc, delCB=self.deleteTask )
             widget.setFromTask( task )
             self.addTask( widget, taskType )
+        currTask = self.taskGUIs.currentWidget()
+        scb_name = currTask.scbFilePathGUI.text()
+        if ( scb_name ):
+            frameSet = NPFrameSet( str( scb_name ) )
+            self.scbLoaded.emit( frameSet )
 
     def writeConfig( self, fileName ):
         '''Writes the configuration file based on task widget state.
@@ -319,6 +332,8 @@ class TaskWidget( QtGui.QGroupBox ):
         self.bodyLayout = QtGui.QVBoxLayout( self )
         self.body()
         self.bodyLayout.addStretch( 10 )
+
+    scbLoaded = QtCore.pyqtSignal('PyQt_PyObject')
 
     def deleteCB( self ):
         '''Called when the delete button is clicked'''
@@ -408,13 +423,16 @@ class TaskWidget( QtGui.QGroupBox ):
 
     def selectSCBDlg( self ):
         """Spawns a dialog to select an scb file"""
-        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open SCB file", self.rsrc.lastFolder, "SCB Files (*.scb)")
+        fileName = QtGui.QFileDialog.getOpenFileName( self, "Open SCB file",
+                                                      self.rsrc.lastFolder,
+                                                      "SCB Files (*.scb)")
         if ( fileName ):
             if ( os.path.exists( fileName ) ):
                 self.scbFilePathGUI.setText( fileName )
                 path, fName = os.path.split( str( fileName ) )
                 self.rsrc.lastFolder = path
                 frameSet = NPFrameSet( fileName )
+                self.scbLoaded.emit( frameSet )
                 if ( frameSet.version[0] == '1' ):
                     self.rsrc.logger.warning( "SCB data is version %s, you must set the time step explicitly" % frameSet.version )
                     self.timeStepGui.setEnabled( True )
