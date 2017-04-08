@@ -97,6 +97,10 @@ class GLWidget( QtOpenGL.QGLWidget ):
         '''Add a single drawable object'''
         self.drawables.append( drawable )
 
+    def removeDrawable( self, drawable ):
+        '''Removes a single drawable object'''
+        self.drawables.pop( self.drawables.index( drawable ) )
+
     def addDrawables( self, drawables ):
         '''Add a list of drawables'''
         self.drawables += drawables

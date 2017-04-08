@@ -6,6 +6,7 @@ from GLWidget import *
 import sys
 from analyzeWidgets import AnlaysisWidget, SystemResource
 from AnalysisTask import readAnalysisProject
+from agent_set import AgentSet
 
 class ConsoleFile( QtCore.QObject ):
     processMessage = QtCore.pyqtSignal(str)
@@ -78,6 +79,7 @@ class CrowdWindow( QtGui.QMainWindow):
         # GL Window
         self.glWindow = GLWidget(  (10,10),(0,0), (10,10),(0,0), (1,1), splitter )
         self.glWindow.setMinimumSize( QtCore.QSize( 640, 480 ) )
+        self.agent_set = None
         # Console
         self.console = Logger( splitter )
         QtCore.QObject.connect( self.console, QtCore.SIGNAL('cursorPositionChanged ()'), self.logExtended )
@@ -202,7 +204,19 @@ class CrowdWindow( QtGui.QMainWindow):
         sb = self.console.verticalScrollBar()
         maxVal = sb.maximum()
         sb.setSliderPosition( maxVal )
-        
+
+    def scbLoaded( self, frame_set ):
+        self.console.info("SCB loaded and reported to main app")
+        if ( not self.agent_set is None ):
+            self.glWindow.removeDrawable( self.agent_set )
+        # TODO: Get the agent size from somewhere else.        
+        self.agent_set = AgentSet( self.glWindow, 0.19, frame_set )
+        self.glWindow.addDrawable( self.agent_set )
+        # TODO: Pass the agent set to be controlled by the playback
+        frame, id = frame_set.next()
+        self.agent_set.setFrame( frame )
+        self.timeEdit.setText( '%d' % id )
+        self.glWindow.updateGL()
 
 def main():
     def taskListArg( option, opt_str, value, parser, *args, **kwargs ):
