@@ -53,6 +53,8 @@ class GLWidget( QtOpenGL.QGLWidget ):
         self.downY = 0
         self.dragging = NO_DRAG
 
+        self.setMouseTracking( True )
+
     def setUserContext( self, newContext ):
         '''Sets the interaction context'''
         self.context = newContext

@@ -27,13 +27,33 @@ class VectorField:
         self.cellSize = cellSize
         self.setDimensions( size )
 
+    def setMinX( self, value ):
+        '''Sets the minimum x-value'''
+        self.minPoint[0] = value
+
+    def setMinY( self, value ):
+        '''Sets the mininum y-value'''
+        self.minPoint[1] = value
+
+    def setWidth( self, value ):
+        '''Sets the width value'''
+        self.setDimensions( (self.size[0], value ) )
+
+    def setHeight( self, value ):
+        '''Sets the height value'''
+        self.setDimensions( (value, self.size[1] ) )
+    
     def getCorners( self ):
-        '''Returns a list of 2d numpy arrays consistintg of the corners'''
+        '''Returns a list of 2d numpy arrays consisting of the corners in order of:
+            minium point (mp), mp + (w, 0), mP + (w, h), mp + (0, h).
+
+            This includes references to the minimum point; changes to corners[0] or
+            corners[1] will change the underlying point.'''
         mp = self.minPoint
         sz = self.size
         return [ mp, mp + np.array( (sz[1], 0) ), mp + np.array( (sz[1], sz[0] ) ), mp + np.array( (0, sz[0]) ) ]
 
-    def setCellSize( self, cellSize, size ):
+    def setCellSize( self, cellSize, size=None ):
         '''Given a cell size, recomputes the grid subject to specific constraints.
            1. Cell size changes to accomodate the change.
            2. Cells remain square
@@ -45,7 +65,10 @@ class VectorField:
         the target vector field.
         '''
         self.cellSize = cellSize
-        self.setDimensions( size )
+        if ( size is None ):
+            self.setDimensions( self.size )
+        else:
+            self.setDimensions( size )
     
     def setDimensions( self, size ):
         '''Given a physical size and a cell size, modifies the physical size such that

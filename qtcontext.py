@@ -2,6 +2,7 @@ from PyQt4 import QtCore, QtGui, QtOpenGL
 from Context import *
 from flowContext import FlowLineContext
 from rectContext import RectContext
+from vfieldContext import FieldDomainContext
 
 class QtEventProcessor(QtCore.QObject):
     '''QT-specific context - translates QT events to canonical events'''
@@ -66,7 +67,37 @@ class QTFlowLineContext( QtEventProcessor, FlowLineContext ):
 
 class QTRectContext( QtEventProcessor, RectContext ):
     def __init__( self, cancelCB=None ):
+        QtEventProcessor.__init__( self )
         RectContext.__init__( self, cancelCB )
+
+class QTGridContext( QtEventProcessor, FieldDomainContext ):
+    needsUpdate = QtCore.pyqtSignal()
+    dimensionEdited = QtCore.pyqtSignal('PyQt_PyObject')
+    
+    def __init__( self, minPt, size, cell_size ):
+        QtEventProcessor.__init__( self )
+        FieldDomainContext.__init__( self, minPt, size, cell_size, self.dragged )
+
+    def editBoundary( self, id, value ):
+        if ( id == 0 ):
+            self.setMinX( value )
+        elif ( id == 1 ):
+            self.setMinY( value )
+        elif ( id == 2 ):
+            self.setWidth( value )
+        elif ( id == 3 ):
+            self.setHeight( value )
+        elif ( id == 4 ):
+            self.setCellSize( value )
+        self.needsUpdate.emit()
+
+    def dragged( self, (minPt, size) ):
+        '''The callback for the underlying domain context'''
+        self.dimensionEdited.emit( (minPt, size) )
+
+    def setCellDraw( self, state ):
+        FieldDomainContext.setCellDraw( self, state )
+        self.needsUpdate.emit()
         
 if __name__ == '__main__':
     print

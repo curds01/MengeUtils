@@ -607,11 +607,20 @@ class TaskWidget( QtGui.QGroupBox ):
 
 class DomainTaskWidget( TaskWidget ):
     '''A TaskWidget that requires a rectangular domain over which to perform analysis.'''
+    # The default grid values
+    MIN_PT = (0, 0)
+    SIZE = (1, 1)
+    CELL_SIZE = 0.2
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
         TaskWidget.__init__( self, name, parent, delCB, rsrc )
 
     def domainBox( self ):
         '''Creates the rectangular domain widgets'''
+        if ( self.context is None ):
+            # TODO: FIgure out why this can't happen in the constructor.
+            self.context = QTGridContext(self.MIN_PT, self.SIZE, self.CELL_SIZE)
+            self.context.needsUpdate.connect( self.rsrc.glWindow.updateGL )
+            self.context.dimensionEdited.connect( self.setDimensions )
         domainBox = QtGui.QGroupBox( "Analysis Domain" )
         fLayout = QtGui.QGridLayout( domainBox )
         fLayout.setColumnStretch( 0, 0 )
@@ -622,12 +631,14 @@ class DomainTaskWidget( TaskWidget ):
         rowLayout = QtGui.QHBoxLayout()
         fLayout.addLayout( rowLayout, 0, 1, 1, 2 )        
         self.domainMinXGUI = QtGui.QDoubleSpinBox( self )
-        self.domainMinXGUI.setValue( 0.0 )
+        self.domainMinXGUI.setValue( self.MIN_PT[0] )
         self.domainMinXGUI.setRange( -1e6, 1e6 )
+        self.domainMinXGUI.valueChanged.connect( lambda x: self.context.editBoundary(0, x) )
         rowLayout.addWidget( self.domainMinXGUI )
         self.domainMinYGUI = QtGui.QDoubleSpinBox( self )
         self.domainMinYGUI.setRange( -1e6, 1e6 )
-        self.domainMinYGUI.setValue( 0.0 )
+        self.domainMinYGUI.setValue( self.MIN_PT[1] )
+        self.domainMinYGUI.valueChanged.connect(  lambda x: self.context.editBoundary(1, x)  )
         rowLayout.addWidget( self.domainMinYGUI )
 
         # Domain size
@@ -635,12 +646,14 @@ class DomainTaskWidget( TaskWidget ):
         rowLayout = QtGui.QHBoxLayout()
         fLayout.addLayout( rowLayout, 1, 1, 1, 2 ) 
         self.domainSizeXGUI = QtGui.QDoubleSpinBox( self )
-        self.domainSizeXGUI.setRange( -1e6, 1e6 )
-        self.domainSizeXGUI.setValue( 0.0 )
+        self.domainSizeXGUI.setRange( 0, 1e6 )
+        self.domainSizeXGUI.setValue( self.SIZE[0] )
+        self.domainSizeXGUI.valueChanged.connect(  lambda x: self.context.editBoundary(2, x)  )
         rowLayout.addWidget( self.domainSizeXGUI )
         self.domainSizeYGUI = QtGui.QDoubleSpinBox( self )
-        self.domainSizeYGUI.setRange( -1e6, 1e6 )
-        self.domainSizeYGUI.setValue( 0.0 )
+        self.domainSizeYGUI.setRange( 0, 1e6 )
+        self.domainSizeYGUI.setValue( self.SIZE[1] )
+        self.domainSizeYGUI.valueChanged.connect(  lambda x: self.context.editBoundary(3, x)  )
         rowLayout.addWidget( self.domainSizeYGUI )
 
         return domainBox
@@ -651,11 +664,25 @@ class DomainTaskWidget( TaskWidget ):
         fLayout = QtGui.QGridLayout( box )
         fLayout.setColumnStretch( 0, 0 )
         fLayout.setColumnStretch( 1, 1 )
+        fLayout.setColumnStretch( 2, 0 )
 
         # Cell size
         fLayout.addWidget( QtGui.QLabel( "Cell Size" ), 1, 0, 1, 1, QtCore.Qt.AlignRight )
         self.cellSizeGUI = QtGui.QDoubleSpinBox( box )
+        self.cellSizeGUI.setRange( 0.01, 1e6 )
+        self.cellSizeGUI.setValue( self.CELL_SIZE )
+        self.cellSizeGUI.valueChanged.connect(  lambda x: self.context.editBoundary(4, x)  )
         fLayout.addWidget( self.cellSizeGUI, 1, 1, 1, 1 )
+        self.cellVisiblityBtn = QtGui.QToolButton()
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap('icons/open_eye.png'), QtGui.QIcon.Normal, QtGui.QIcon.On )
+        icon.addPixmap(QtGui.QPixmap('icons/closed_eye.png'), QtGui.QIcon.Normal, QtGui.QIcon.Off )
+        self.cellVisiblityBtn.setIcon( icon )
+        self.cellVisiblityBtn.setCheckable( True )
+        self.cellVisiblityBtn.setChecked( True )
+        self.cellVisiblityBtn.toggled.connect( self.context.setCellDraw )
+        self.cellVisiblityBtn.setToolTip('Control display of grid cells. Turn off for dense grids.')
+        fLayout.addWidget( self.cellVisiblityBtn, 1, 2, 1, 1 )
 
         # Color map
         fLayout.addWidget( QtGui.QLabel( "Color Map" ), 2, 0, 1, 1, QtCore.Qt.AlignRight )
@@ -664,7 +691,7 @@ class DomainTaskWidget( TaskWidget ):
         cmaps.sort()
         self.colorMapGUI.addItems( cmaps )
         self.colorMapGUI.setCurrentIndex( 0 )
-        fLayout.addWidget( self.colorMapGUI, 2, 1, 1, 1 )
+        fLayout.addWidget( self.colorMapGUI, 2, 1, 1, 2 )
 
         # image format
         fLayout.addWidget( QtGui.QLabel( "Image format" ), 3, 0, 1, 1, QtCore.Qt.AlignRight )
@@ -674,7 +701,7 @@ class DomainTaskWidget( TaskWidget ):
             if ( idx == 2 ):
                 self.rsrc.logger.warning( 'There is a memory leak for png format!' )
         QtCore.QObject.connect( self.imgFormatGUI, QtCore.SIGNAL('currentIndexChanged(int)'), formatIdxChanged )
-        fLayout.addWidget( self.imgFormatGUI, 3, 1, 1, 1 )        
+        fLayout.addWidget( self.imgFormatGUI, 3, 1, 1, 2 )        
 
         return box
         
@@ -748,7 +775,18 @@ class DomainTaskWidget( TaskWidget ):
         task.setCellSize( self.cellSizeGUI.value() )
         task.setColorMap( str( self.colorMapGUI.currentText() ) )
         task.setOutImg( str( self.imgFormatGUI.currentText() ) )
-                      
+    def setDimensions( self, ( minPt, size ) ):
+        '''Sets the dimensions on the spin widgets without sending signals'''
+        def setValue( widget, value ):
+            widget.blockSignals( True )
+            widget.setValue( value )
+            widget.blockSignals( False )
+
+        setValue( self.domainMinXGUI, minPt[0] )
+        setValue( self.domainMinYGUI, minPt[1] )
+        setValue( self.domainSizeXGUI, size[1] )
+        setValue( self.domainSizeYGUI, size[0] )
+        
 class DensityTaskWidget( DomainTaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
         DomainTaskWidget.__init__( self, name, parent, delCB, rsrc )
