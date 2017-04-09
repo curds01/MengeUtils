@@ -104,13 +104,24 @@ class GLWidget( QtOpenGL.QGLWidget ):
             bb = AABB()
             for drawable in self.drawables:
                 bb.extend( drawable.getBB() )
-            w = bb.max.x - bb.min.x
-            h = bb.max.y - bb.min.y
+            size = bb.getSize()
+            w = size.x
+            h = size.y
             # set the background and the view to be the same
             self.setBG( (w,h), (bb.min.x, bb.min.y) )
-            self.setView( (w,h), (bb.min.x, bb.min.y) )
-            glSize = self.size()
-            self.resizeGL( glSize.width(), glSize.height() )
+            center = bb.getCenter()
+            ar = float( self.wWidth ) / self.wHeight
+            if ( ar > 1 ):
+                # wider than tall, height constrains
+                h *= 1.05
+                w = h * ar
+            else:
+                # higher than wide, width constrains
+                w *= 1.05
+                h = w / ar
+            corner = (center.x - w / 2, center.y - h / 2)
+            self.setView( (w,h), corner )
+            self._setOrtho()
             self.updateGL()
 
     def resizeGL(self, width, height):

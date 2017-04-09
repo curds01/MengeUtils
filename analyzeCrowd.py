@@ -61,7 +61,7 @@ class Logger( QtGui.QPlainTextEdit ):
         self.appendHtml( s )
 
 class CrowdWindow( QtGui.QMainWindow):
-    def __init__( self, configName='', parent = None ):
+    def __init__( self, parent = None ):
         self.workThread = None
         QtGui.QMainWindow.__init__( self, parent )
         self.setWindowTitle( 'Crowd Analysis' )
@@ -119,11 +119,6 @@ class CrowdWindow( QtGui.QMainWindow):
         self.createActions()
         self.createMenus()
         self.createStatusBar()
-
-        if ( configName ):        
-            self.readConfigFile( configName )
-            path, name = os.path.split( configName )
-            self.rsrc.lastFolder = path
         
     def createActions( self ):
         """Creates the actions for menu actions"""
@@ -185,6 +180,8 @@ class CrowdWindow( QtGui.QMainWindow):
         """Reads a configuration file for the full application"""
         try:
             self.analysisBox.readConfig( fileName )
+            path, name = os.path.split( fileName )
+            self.rsrc.lastFolder = path
             self.console.info( 'Read full config file %s\n' % fileName )
         except IOError, ValueError:
             self.console.error( 'Error reading full config file %s\n' % fileName )
@@ -279,8 +276,10 @@ def main():
         pygame.init()
         app = QtGui.QApplication( sys.argv )
         configName = options.projFile
-        gui = CrowdWindow( configName )
+        gui = CrowdWindow()
         gui.show()
+        if ( configName ):
+            gui.readConfigFile( configName )
         gui.resize( 1024, 480 )
         app.exec_()        
     

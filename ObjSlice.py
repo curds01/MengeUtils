@@ -119,6 +119,18 @@ class AABB:
         '''Computes the area based on the x, y values'''
         size = self.max - self.min
         return size.x * size.y
+
+    def getCenter( self ):
+        '''Returns the center of the box'''
+        return (self.min + self.max) / 2
+
+    def getSize( self ):
+        '''Returns the size of the box'''
+        delta = self.max - self.min
+        if ( delta.x < 0 ): delta.x = 0
+        if ( delta.y < 0 ): delta.y = 0
+        if ( delta.z < 0 ): delta.z = 0
+        return delta
                
 class Segment:
     """Line segment in R3"""
