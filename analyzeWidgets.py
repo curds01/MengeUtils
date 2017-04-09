@@ -623,6 +623,9 @@ class DomainTaskWidget( TaskWidget ):
     MIN_PT = (0, 0)
     SIZE = (1, 1)
     CELL_SIZE = 0.2
+    # This saves the buffers used for generating color map icons.
+    COLOR_BUFFERS = {}
+    COLOR_BAR_SIZE = QtCore.QSize( 100, 15 )
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
         TaskWidget.__init__( self, name, parent, delCB, rsrc )
 
@@ -704,9 +707,17 @@ class DomainTaskWidget( TaskWidget ):
         # Color map
         fLayout.addWidget( QtGui.QLabel( "Color Map" ), 2, 0, 1, 1, QtCore.Qt.AlignRight )
         self.colorMapGUI = QtGui.QComboBox( box )
+        self.colorMapGUI.setIconSize( self.COLOR_BAR_SIZE )
         cmaps = COLOR_MAPS.keys()
         cmaps.sort()
-        self.colorMapGUI.addItems( cmaps )
+        
+        w = self.COLOR_BAR_SIZE.width()
+        h = self.COLOR_BAR_SIZE.height()
+        for cmap in cmaps:
+            buffer = self.getColorMapBuffer( cmap, w, h )
+            img = QtGui.QImage( buffer, w, h, QtGui.QImage.Format_RGB32 )
+            icon = QtGui.QIcon(QtGui.QPixmap.fromImage( img ) )
+            self.colorMapGUI.addItem( icon, cmap )
         self.colorMapGUI.setCurrentIndex( 0 )
         self.colorMapGUI.setToolTip('The color map style for the visualized field.')
         fLayout.addWidget( self.colorMapGUI, 2, 1, 1, 2 )
@@ -723,6 +734,24 @@ class DomainTaskWidget( TaskWidget ):
         fLayout.addWidget( self.imgFormatGUI, 3, 1, 1, 2 )        
 
         return box
+
+    def getColorMapBuffer( self, cmap, w, h ):
+        '''Returns the cached color-map image buffer for the given cmap, creating it as necessary.'''
+        if ( not self.COLOR_BUFFERS.has_key( cmap ) ):
+            # generate the buffer
+            color_map = COLOR_MAPS[ cmap ]
+            rgb_row = color_map.getRow( w )
+            row = np.zeros( (1, w), dtype=np.uint32 ) + 0xFF000000
+            row[ :, : ] |= rgb_row[ :, :, 0 ]
+            row[ :, : ] = row << 8 | rgb_row[ :, :, 1 ]
+            row[ :, : ] = row << 8 | rgb_row[ :, :, 2 ]
+            imgarr = np.ndarray( shape=(h, w), dtype=np.uint32 )
+            imgarr[:, :] = np.tile( row, (h, 1) )
+            buffer = imgarr.flatten().tobytes()
+            self.COLOR_BUFFERS[ cmap ] = buffer
+        else:
+            buffer = self.COLOR_BUFFERS[ cmap ]
+        return buffer
         
     def body( self ):
         TaskWidget.body( self )

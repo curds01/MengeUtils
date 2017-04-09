@@ -76,6 +76,13 @@ class ColorMap:
             labelTop += labelDistance
         
         return map
+
+    def getRow( self, width ):
+        '''Creates an array with width values that sample the full bar response'''
+        data = np.linspace( 1, 0, width, dtype=np.float32 )
+        data.shape = (1, width)
+        surf = self.colorOnSurface( np.array([0, 1.0], dtype=np.float32), data )
+        return pygame.surfarray.array3d( surf )
         
     def lastMapBar( self, labelCount=LABEL_COUNT ):
         """Draws the bar for the last mapped data"""
@@ -98,7 +105,7 @@ class ColorMap:
 class TwoToneHSVMap( ColorMap ):
     '''A color map that interpolates between two HSV values.
     HSV is a 3-tuple (H, S, V), such that H in [0, 360], S & V in [0, 1]'''
-    def __init__( self, minColor=(0,1,1), maxColor=(270,0,0), dataRange=None ):
+    def __init__( self, minColor=(0,1,1), maxColor=(270,1,1), dataRange=None ):
         ColorMap.__init__( self, dataRange )
         self.setColor( minColor, maxColor )
 
@@ -123,7 +130,6 @@ class TwoToneHSVMap( ColorMap ):
         normData = self._normalize( value, (minVal, maxVal ) )
         hsv = self.minColor + self.colorDelta * normData
         return hsvToRgb( hsv[0,0,0], hsv[0,0,1], hsv[0,0,2] )
-
 
     def colorOnSurface( self, dataRange, data ):
         '''Creates the two tone colors the same sizes as the data'''
@@ -282,6 +288,13 @@ class RedBlueMap( ColorMap ):
         """Color map goes from blue->white->red"""
         ColorMap.__init__( self, dataRange )
 
+    def getRow( self, width ):
+        '''Creates an array with width values that sample the full bar response'''
+        data = np.linspace( 1, -1, width, dtype=np.float32 )
+        data.shape = (1, width)
+        surf = self.colorOnSurface( np.array([-1, 1.0], dtype=np.float32), data )
+        return pygame.surfarray.array3d( surf )
+
     def bipolarRange( self, (minVal, maxVal) ):
         '''Normalizes this for the bipolar map.  Remaps the values such that 0.0 -> 0.5, abs( maxVal, minVal) maps
         to 1 and -abs(maxVal, minVal) maps to 0.'''
@@ -321,7 +334,7 @@ COLOR_MAPS = { 'grey_scale':GreyScaleMap(),
                "flame":FlameMap(),
                "log_black-body":LogBlackBodyMap(),
                "red_blue":RedBlueMap(),
-               "two_tone_HSF":TwoToneHSVMap()
+               "two_tone_HSV":TwoToneHSVMap()
                }
 
 def getValidColorMaps():
