@@ -84,14 +84,17 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         ####################################
         # Control for adding widgets
         addBtn = QtGui.QPushButton( 'Add', self )
+        addBtn.setToolTip('Add a new task to the workflow')
         layout.addWidget( addBtn, 0, 0 )
         QtCore.QObject.connect( addBtn, QtCore.SIGNAL('clicked(bool)'), self.addTaskCB )
 
         self.toolGUI = QtGui.QComboBox( self )
+        self.toolGUI.setToolTip('Select a task type')
         self.toolGUI.addItems( self.TECHNIQUES )
         layout.addWidget( self.toolGUI, 0, 1 )
         layout.addWidget( QtGui.QLabel("Task name"), 1, 0 )
         self.taskNameGUI = QtGui.QLineEdit()
+        self.taskNameGUI.setToolTip('Provide a name for the task; it can be edited later.')
         regExp = QtCore.QRegExp( "[^~\\|]*" )
         validator = QtGui.QRegExpValidator( regExp, self )
         self.taskNameGUI.setValidator( validator )
@@ -99,6 +102,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
 
         # This should be greyed out if no actions exist
         self.goBtn = QtGui.QPushButton( 'Perform All Active Analysis Tasks', self )
+        self.goBtn.setToolTip('Execute all active tasks' )
         self.goBtn.setEnabled( False )
         layout.addWidget( self.goBtn, 3, 0, 1, 2 )
         QtCore.QObject.connect( self.goBtn, QtCore.SIGNAL('clicked(bool)'), self.runAllActive )
@@ -358,6 +362,7 @@ class TaskWidget( QtGui.QGroupBox ):
         # SCB input
         fLayout.addWidget( QtGui.QLabel( "SCB file" ), 0, 0, 1, 1, QtCore.Qt.AlignRight )
         self.scbFilePathGUI = QtGui.QPushButton( '', self )
+        self.scbFilePathGUI.setToolTip('Click to specify the scb file to analyze')
         QtCore.QObject.connect( self.scbFilePathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectSCBDlg )
         fLayout.addWidget( self.scbFilePathGUI, 0, 1, 1, 2 )
 
@@ -366,20 +371,24 @@ class TaskWidget( QtGui.QGroupBox ):
         fLayout.addWidget( QtGui.QLabel( "Time step" ), 1, 0, 1, 1, QtCore.Qt.AlignRight )
         self.timeStepGui = QtGui.QDoubleSpinBox( self )
         self.timeStepGui.setDecimals( 5 )
+        self.timeStepGui.setToolTip("The time step value of the indicated scb file; if the scb format doesn't time step size, you will have to set this explicitly.")
         fLayout.addWidget( self.timeStepGui, 1, 1, 1, 2 )
 
         # obstacle file
         fLayout.addWidget( QtGui.QLabel( "Obstacle file" ), 2, 0, 1, 1, QtCore.Qt.AlignRight )
         self.obstFilePathGUI = QtGui.QPushButton( '', self )
+        self.obstFilePathGUI.setToolTip('Click to choose a file with desired obstacle specification')
         QtCore.QObject.connect( self.obstFilePathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectObstDlg )
         fLayout.addWidget( self.obstFilePathGUI, 2, 1, 1, 1 )
         self.loadObstBtn = QtGui.QPushButton( "Load", self )
+        self.loadObstBtn.setToolTip('Click to load the obstacles into the viewer')
         QtCore.QObject.connect( self.loadObstBtn, QtCore.SIGNAL('clicked(bool)'), self.loadObstacle )
         fLayout.addWidget( self.loadObstBtn, 2, 2, 1, 1 )
 
         # Output foloder
         fLayout.addWidget( QtGui.QLabel( "Output Folder" ), 3, 0, 1, 1, QtCore.Qt.AlignRight )
         self.outPathGUI = QtGui.QPushButton( '', self )
+        self.outPathGUI.setToolTip('Click to define the output folder for this analysis')
         QtCore.QObject.connect( self.outPathGUI, QtCore.SIGNAL('clicked(bool)'), self.selectOutPathDlg )
         fLayout.addWidget( self.outPathGUI, 3, 1, 1, 2 )
         return ioBox
@@ -390,17 +399,20 @@ class TaskWidget( QtGui.QGroupBox ):
         fLayout = QtGui.QGridLayout( inputBox )
 
         self.goBtn = QtGui.QPushButton( "Perform This Analysis", self )
+        self.goBtn.setToolTip('Execute only this task')
         fLayout.addWidget( self.goBtn, 0, 0 )
         QtCore.QObject.connect( self.goBtn, QtCore.SIGNAL('released()'), self.launchTask )
         # TODO connect this
         
         self.delBtn = QtGui.QPushButton( "Del", self )
+        self.delBtn.setToolTip('Delete this task')
         fLayout.addWidget( self.delBtn, 0, 1 )
         QtCore.QObject.connect( self.delBtn, QtCore.SIGNAL('released()'), self.deleteCB )
 
         # Folder path for output image files
         self.actionGUI = QtGui.QComboBox( self )
         self.actionGUI.addItems( ( "Compute", "Visualize", "Compute and Vis." ) )
+        self.actionGUI.setToolTip('Define the phases of analysis this task performs.')
         fLayout.addWidget( self.actionGUI, 1, 0, 1, 2 )
 
         return inputBox
@@ -634,11 +646,13 @@ class DomainTaskWidget( TaskWidget ):
         self.domainMinXGUI.setValue( self.MIN_PT[0] )
         self.domainMinXGUI.setRange( -1e6, 1e6 )
         self.domainMinXGUI.valueChanged.connect( lambda x: self.context.editBoundary(0, x) )
+        self.domainMinXGUI.setToolTip('The x-position of the minimum corner of the domain')
         rowLayout.addWidget( self.domainMinXGUI )
         self.domainMinYGUI = QtGui.QDoubleSpinBox( self )
         self.domainMinYGUI.setRange( -1e6, 1e6 )
         self.domainMinYGUI.setValue( self.MIN_PT[1] )
         self.domainMinYGUI.valueChanged.connect(  lambda x: self.context.editBoundary(1, x)  )
+        self.domainMinYGUI.setToolTip('The y-position of the minimum corner of the domain')
         rowLayout.addWidget( self.domainMinYGUI )
 
         # Domain size
@@ -648,11 +662,13 @@ class DomainTaskWidget( TaskWidget ):
         self.domainSizeXGUI = QtGui.QDoubleSpinBox( self )
         self.domainSizeXGUI.setRange( 0, 1e6 )
         self.domainSizeXGUI.setValue( self.SIZE[0] )
+        self.domainSizeXGUI.setToolTip('The length of the domain along the x-axis.')
         self.domainSizeXGUI.valueChanged.connect(  lambda x: self.context.editBoundary(2, x)  )
         rowLayout.addWidget( self.domainSizeXGUI )
         self.domainSizeYGUI = QtGui.QDoubleSpinBox( self )
         self.domainSizeYGUI.setRange( 0, 1e6 )
         self.domainSizeYGUI.setValue( self.SIZE[1] )
+        self.domainSizeYGUI.setToolTip('The length of the domain along the y-axis.')
         self.domainSizeYGUI.valueChanged.connect(  lambda x: self.context.editBoundary(3, x)  )
         rowLayout.addWidget( self.domainSizeYGUI )
 
@@ -672,6 +688,7 @@ class DomainTaskWidget( TaskWidget ):
         self.cellSizeGUI.setRange( 0.01, 1e6 )
         self.cellSizeGUI.setValue( self.CELL_SIZE )
         self.cellSizeGUI.valueChanged.connect(  lambda x: self.context.editBoundary(4, x)  )
+        self.cellSizeGUI.setToolTip('The length of the side of the square grid cell.')
         fLayout.addWidget( self.cellSizeGUI, 1, 1, 1, 1 )
         self.cellVisiblityBtn = QtGui.QToolButton()
         icon = QtGui.QIcon()
@@ -691,12 +708,14 @@ class DomainTaskWidget( TaskWidget ):
         cmaps.sort()
         self.colorMapGUI.addItems( cmaps )
         self.colorMapGUI.setCurrentIndex( 0 )
+        self.colorMapGUI.setToolTip('The color map style for the visualized field.')
         fLayout.addWidget( self.colorMapGUI, 2, 1, 1, 2 )
 
         # image format
         fLayout.addWidget( QtGui.QLabel( "Image format" ), 3, 0, 1, 1, QtCore.Qt.AlignRight )
         self.imgFormatGUI = QtGui.QComboBox( box )
         self.imgFormatGUI.addItems( ( 'jpg', 'bmp', 'png' ) )
+        self.imgFormatGUI.setToolTip('The format of the visualized field images')
         def formatIdxChanged( idx ):
             if ( idx == 2 ):
                 self.rsrc.logger.warning( 'There is a memory leak for png format!' )
@@ -800,6 +819,7 @@ class DensityTaskWidget( DomainTaskWidget ):
 
         fLayout.addWidget( QtGui.QLabel( "Smooth Param." ), 0, 0, 1, 1, QtCore.Qt.AlignRight )
         self.kernelSizeGUI = QtGui.QDoubleSpinBox( box )
+        self.kernelSizeGUI.setToolTip( 'The "size" of the density kernel' )
         fLayout.addWidget( self.kernelSizeGUI, 0, 1, 1, 1 )
 
         return box
@@ -901,17 +921,20 @@ class FlowTaskWidget( TaskWidget ):
         # Line selector
         self.linesGUI = QtGui.QComboBox( box )
         self.linesGUI.setEnabled( False )
+        self.linesGUI.setToolTip('Select the line to edit')
         QtCore.QObject.connect( self.linesGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.lineChangedCB )
         layout.addWidget( QtGui.QLabel("Line No."), 0, 1, 1, 1, QtCore.Qt.AlignRight )
         layout.addWidget( self.linesGUI, 0, 2 )
 
         # add button
         self.addFlowLineBtn = QtGui.QPushButton( 'Add' )
+        self.addFlowLineBtn.setToolTip('Add new line to set')
         QtCore.QObject.connect( self.addFlowLineBtn, QtCore.SIGNAL('clicked()'), self.addFlowLineCB )      
         layout.addWidget( self.addFlowLineBtn, 1, 1 )
 
         # delete button
         self.delFlowLineBtn = QtGui.QPushButton( 'Delete' )
+        self.delFlowLineBtn.setToolTip('Delete current line')
         self.delFlowLineBtn.setEnabled( False )
         QtCore.QObject.connect( self.delFlowLineBtn, QtCore.SIGNAL('clicked()'), self.delFlowLineCB )
         layout.addWidget( self.delFlowLineBtn, 1, 2 )
@@ -920,18 +943,21 @@ class FlowTaskWidget( TaskWidget ):
         self.editFlowLineBtn = QtGui.QPushButton( 'Edit in View' )
         self.editFlowLineBtn.setCheckable( True )
         self.editFlowLineBtn.setEnabled( False )
+        self.editFlowLineBtn.setToolTip('Enable editing this line in the view')
         QtCore.QObject.connect( self.editFlowLineBtn, QtCore.SIGNAL('toggled(bool)'), self.editFlowLineCB )
         layout.addWidget( self.editFlowLineBtn, 2, 1 )
 
         # flip button
         self.flipFlowLineBtn = QtGui.QPushButton( 'Flip' )
         self.flipFlowLineBtn.setEnabled( False )
+        self.flipFlowLineBtn.setToolTip('Reverse the expected direction of flow')
         QtCore.QObject.connect( self.flipFlowLineBtn, QtCore.SIGNAL('clicked()'), self.flipFlowLineCB )
         layout.addWidget( self.flipFlowLineBtn, 2, 2 )
 
         # line name
         layout.addWidget( QtGui.QLabel("Line Name"), 3, 0, 1, 1, QtCore.Qt.AlignRight )
         self.flowNameGUI = QtGui.QLineEdit()
+        self.flowNameGUI.setToolTip('Define a name for the line; it will appear in the visualized analysis.')
         regExp = QtCore.QRegExp( "[^~\\|,]*" )
         validator = QtGui.QRegExpValidator( regExp, self )
         self.flowNameGUI.setValidator( validator )
@@ -962,12 +988,14 @@ class FlowTaskWidget( TaskWidget ):
         self.x0.setValue( 0.0 )
         self.x0.setRange(-1e6, 1e6 )
         self.x0.setEnabled( False )
+        self.x0.setToolTip('The x-position of the first flow line end point')
         QtCore.QObject.connect( self.x0, QtCore.SIGNAL('valueChanged(double)'), lambda x: self.setPoint(self.X0, x) )
         fLayout.addWidget( self.x0, 1, 1, 1, 1 )
         self.x1 = QtGui.QDoubleSpinBox( self )
         self.x1.setValue( 0.0 )
         self.x1.setRange(-1e6, 1e6 )
         self.x1.setEnabled( False )
+        self.x1.setToolTip('The x-position of the second flow line end point')
         QtCore.QObject.connect( self.x1, QtCore.SIGNAL('valueChanged(double)'), lambda x: self.setPoint(self.X1, x) )
         fLayout.addWidget( self.x1, 1, 2, 1, 1 )
 
@@ -975,12 +1003,14 @@ class FlowTaskWidget( TaskWidget ):
         self.y0.setValue( 0.0 )
         self.y0.setRange(-1e6, 1e6 )
         self.y0.setEnabled( False )
+        self.y0.setToolTip('The y-position of the first flow line end point')
         QtCore.QObject.connect( self.y0, QtCore.SIGNAL('valueChanged(double)'), lambda x: self.setPoint(self.Y0, x) )
         fLayout.addWidget( self.y0, 2, 1, 1, 1 )
         self.y1 = QtGui.QDoubleSpinBox( self )
         self.y1.setValue( 0.0 )
         self.y1.setRange(-1e6, 1e6 )
         self.y1.setEnabled( False )
+        self.y1.setToolTip('The y-position of the second flow line end point')
         QtCore.QObject.connect( self.y1, QtCore.SIGNAL('valueChanged(double)'), lambda x: self.setPoint(self.Y1, x) )
         fLayout.addWidget( self.y1, 2, 2, 1, 1 )
 
@@ -1178,7 +1208,6 @@ class FlowTaskWidget( TaskWidget ):
 class RectRegionTaskWidget( TaskWidget ):
     def __init__( self, name, parent=None, delCB=None, rsrc=None ):
         TaskWidget.__init__( self, name, parent, delCB, rsrc )
-        # TODO: This needs a context
         self.context = QTRectContext( self.cancelAddRect )
 
     def createRectBox( self ):
@@ -1192,6 +1221,7 @@ class RectRegionTaskWidget( TaskWidget ):
         # Rectangular region selector
         self.rectsGUI = QtGui.QComboBox( box )
         self.rectsGUI.setEnabled( False )
+        self.rectsGUI.setToolTip('Select the rectangular region to edit')
         QtCore.QObject.connect( self.rectsGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.rectChangedCB )
         layout.addWidget( QtGui.QLabel("Region No."), 0, 1, 1, 1, QtCore.Qt.AlignRight )
         layout.addWidget( self.rectsGUI, 0, 2 )
@@ -1200,12 +1230,14 @@ class RectRegionTaskWidget( TaskWidget ):
 
         # add button
         self.addRectBtn = QtGui.QPushButton( 'Add' )
+        self.addRectBtn.setToolTip('Add a new rectangular region to the set')
         QtCore.QObject.connect( self.addRectBtn, QtCore.SIGNAL('clicked()'), self.addRectCB )      
         tmpLayout.addWidget( self.addRectBtn )
 
         # delete button
         self.delRectBtn = QtGui.QPushButton( 'Delete' )
         self.delRectBtn.setEnabled( False )
+        self.delRectBtn.setToolTip('Delete the current rectangular region')
         QtCore.QObject.connect( self.delRectBtn, QtCore.SIGNAL('clicked()'), self.delRectCB )
         tmpLayout.addWidget( self.delRectBtn )
 
@@ -1213,6 +1245,7 @@ class RectRegionTaskWidget( TaskWidget ):
         self.editRectBtn = QtGui.QPushButton( 'Edit' )
         self.editRectBtn.setCheckable( True )
         self.editRectBtn.setEnabled( False )
+        self.editRectBtn.setToolTip('Enable editing this region in the view')
         QtCore.QObject.connect( self.editRectBtn, QtCore.SIGNAL('toggled(bool)'), self.editRectCB )
         tmpLayout.addWidget( self.editRectBtn )
 
@@ -1221,6 +1254,7 @@ class RectRegionTaskWidget( TaskWidget ):
        # Region name
         layout.addWidget( QtGui.QLabel("Region Name"), 2, 0, 1, 1, QtCore.Qt.AlignRight )
         self.rectNameGUI = QtGui.QLineEdit()
+        self.rectNameGUI.setToolTip('Define a name for the region; it will appear in the visualized analysis.')
         regExp = QtCore.QRegExp( "[^~\\|,]*" )
         validator = QtGui.QRegExpValidator( regExp, self )
         self.rectNameGUI.setValidator( validator )
