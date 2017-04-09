@@ -108,11 +108,13 @@ class RectContext( BaseContext ):
         return self.rects[ id ]
     
     def addRect( self ):
-        '''Causes the context to go into new RectDomain mode'''
+        '''Causes the context to go into new RectDomain mode, returning the name of the
+        rectangle.'''
         self.canDraw = True
         self.editState = self.ADD
         self.activeID = -1
         self.names.append( 'Rect %d' % len( self.names ) )
+        return self.names[-1]
 
     def editRect( self, idx ):
         '''Edits the indicated RectDomain'''

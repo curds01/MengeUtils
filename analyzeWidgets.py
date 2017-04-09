@@ -923,7 +923,7 @@ class FlowTaskWidget( TaskWidget ):
         self.linesGUI.setEnabled( False )
         self.linesGUI.setToolTip('Select the line to edit')
         QtCore.QObject.connect( self.linesGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.lineChangedCB )
-        layout.addWidget( QtGui.QLabel("Line No."), 0, 1, 1, 1, QtCore.Qt.AlignRight )
+        layout.addWidget( QtGui.QLabel("Line"), 0, 1, 1, 1, QtCore.Qt.AlignRight )
         layout.addWidget( self.linesGUI, 0, 2 )
 
         # add button
@@ -1055,8 +1055,8 @@ class FlowTaskWidget( TaskWidget ):
         '''When the add flow line is clicked, we add the flow line and update the GUI appropriately'''
         nextIdx = self.linesGUI.count()
         self.delFlowLineBtn.setEnabled( True )
-        self.context.addLine()
-        self.linesGUI.addItem( '%d' % nextIdx )
+        name = self.context.addLine()
+        self.linesGUI.addItem( name )
         self.linesGUI.setCurrentIndex( nextIdx )
         self.linesGUI.setEnabled( True )
         self.editFlowLineBtn.setChecked( True ) # this should call the callback and automatically enable the context to draw a line
@@ -1068,7 +1068,7 @@ class FlowTaskWidget( TaskWidget ):
         assert( idx > -1 )  # this button shouldn't be enabled if this isn't true
         self.context.deleteLine( idx )
         self.rsrc.glWindow.updateGL()
-        self.linesGUI.removeItem( self.linesGUI.count() - 1 )
+        self.linesGUI.removeItem( idx )
         self.linesGUI.setCurrentIndex( -1 )
         
     def editFlowLineCB( self, checked ):
@@ -1093,6 +1093,7 @@ class FlowTaskWidget( TaskWidget ):
         '''Called when the name of a flow line is edited.'''
         idx = self.linesGUI.currentIndex()
         if ( idx > -1 ):
+            self.linesGUI.setItemText( idx, self.flowNameGUI.text() )
             self.context.setLineName( idx, str( self.flowNameGUI.text() ) )
             
     def cancelAddFlowLine( self ):
@@ -1162,8 +1163,7 @@ class FlowTaskWidget( TaskWidget ):
         lines = task.lines
         hasItems = len( lines ) > 0
         if ( hasItems ):            
-            items = [ '%d' % i for i in xrange( len( lines ) ) ]
-            self.linesGUI.addItems( items )
+            self.linesGUI.addItems( task.lineNames )
             self.linesGUI.setCurrentIndex( 0 )
             self.linesGUI.setEnabled( hasItems )
             self.delFlowLineBtn.setEnabled( hasItems )
@@ -1223,7 +1223,7 @@ class RectRegionTaskWidget( TaskWidget ):
         self.rectsGUI.setEnabled( False )
         self.rectsGUI.setToolTip('Select the rectangular region to edit')
         QtCore.QObject.connect( self.rectsGUI, QtCore.SIGNAL('currentIndexChanged(int)'), self.rectChangedCB )
-        layout.addWidget( QtGui.QLabel("Region No."), 0, 1, 1, 1, QtCore.Qt.AlignRight )
+        layout.addWidget( QtGui.QLabel("Region"), 0, 1, 1, 1, QtCore.Qt.AlignRight )
         layout.addWidget( self.rectsGUI, 0, 2 )
 
         tmpLayout = QtGui.QHBoxLayout()
@@ -1286,8 +1286,8 @@ class RectRegionTaskWidget( TaskWidget ):
         '''When the add rect is clicked, we add the rect and update the GUI appropriately'''
         nextIdx = self.rectsGUI.count()
         self.delRectBtn.setEnabled( True )
-        self.context.addRect()
-        self.rectsGUI.addItem( '%d' % nextIdx )
+        name = self.context.addRect()
+        self.rectsGUI.addItem( name )
         self.rectsGUI.setCurrentIndex( nextIdx )
         self.rectsGUI.setEnabled( True )
         self.editRectBtn.setChecked( True ) # this should call the callback and automatically enable the context to draw a rect
@@ -1299,7 +1299,7 @@ class RectRegionTaskWidget( TaskWidget ):
         assert( idx > -1 )  # this button shouldn't be enabled if this isn't true
         self.context.deleteRect( idx )
         self.rsrc.glWindow.updateGL()
-        self.rectsGUI.removeItem( self.rectsGUI.count() - 1 )
+        self.rectsGUI.removeItem( idx )
         self.rectsGUI.setCurrentIndex( -1 )
         
     def editRectCB( self, checked ):
@@ -1316,7 +1316,9 @@ class RectRegionTaskWidget( TaskWidget ):
         '''Called when the name of a rect is edited.'''
         idx = self.rectsGUI.currentIndex()
         if ( idx > -1 ):
-            self.context.setName( idx, str( self.rectNameGUI.text() ) )
+            name = self.rectNameGUI.text()
+            self.context.setName( idx, str( name ) )
+            self.rectsGUI.setItemText( idx, name )
             
     def cancelAddRect( self ):
         '''Called when an add rect action is canceled'''
@@ -1354,8 +1356,7 @@ class RectRegionTaskWidget( TaskWidget ):
         rects = task.rects
         hasItems = len( rects ) > 0
         if ( hasItems ):            
-            items = [ '%d' % i for i in xrange( len( rects ) ) ]
-            self.rectsGUI.addItems( items )
+            self.rectsGUI.addItems( task.rectNames )
             self.rectsGUI.setCurrentIndex( 0 )
             self.rectsGUI.setEnabled( hasItems )
             self.delRectBtn.setEnabled( hasItems )

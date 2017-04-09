@@ -114,13 +114,14 @@ class FlowLineContext( BaseContext ):
         return self.lines[ id ]
     
     def addLine( self ):
-        '''Causes the context to go into new line mode'''
+        '''Causes the context to go into new line mode.  Returning the new name.'''
         self.canDraw = True
         self.editState = self.ADD
         self.activeID = -1
         self.names.append( 'Line %d' % len( self.names ) )
         self.lines.append( GLFlowSegment( Vector2(0, 0), Vector2(0, 0) ) )
         self.activeLine = self.lines[-1]
+        return self.names[-1]
 
     def editLine( self, idx ):
         '''Edits the indicated line'''
