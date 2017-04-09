@@ -127,14 +127,15 @@ class Player( QtCore.QAbstractAnimation ):
         self.frame_set = frame_set
         self.agent_set = agent_set
 
-        self.lastFrame = last_frame
-        self.currFrame = -1
-        self.lastTime = 0       # The last QT time stamp at which this was evaluated
-        self._duration = 0  # total ms this lasts
-        self.setFrameRate( 1.0 / self.frame_set.simStepSize )
-        
-        if ( self.frame_set ):
-            self.setFrame(0)
+        if ( not frame_set is None ):
+            self.lastFrame = last_frame
+            self.currFrame = -1
+            self.lastTime = 0       # The last QT time stamp at which this was evaluated
+            self._duration = 0  # total ms this lasts
+            self.setFrameRate( 1.0 / self.frame_set.simStepSize )
+            
+            if ( self.frame_set ):
+                self.setFrame(0)
 
     def setFrameRate( self, fps ):
         '''Sets the frame rate of the playback.

@@ -485,6 +485,21 @@ class TaskWidget( QtGui.QGroupBox ):
         '''Copy the settings from the given task into this task'''
         assert( isinstance( task, TaskWidget ) )
         self.scbFilePathGUI.setText( task.scbFilePathGUI.text() )
+        scbName = str( self.scbFilePathGUI.text() )
+        if ( scbName ):
+            try:
+                frameSet = NPFrameSet( scbName )
+                self.scbLoaded.emit( frameSet )
+            except IOError:
+                self.rsrc.logger.error( "Error with scb file - clearing the field" )
+                self.scbFilePathGUI.setText( '' )
+                self.timeStepGui.setEnabled( False )
+            else:
+                if ( frameSet.version[0] == '1' ):
+                    self.timeStepGui.setEnabled( True )
+                else:
+                    self.timeStepGui.setEnabled( False )
+                
         self.timeStepGui.setValue( task.timeStepGui.value() )
         self.obstFilePathGUI.setText( task.obstFilePathGUI.text() )
         self.outPathGUI.setText( task.outPathGUI.text() )
