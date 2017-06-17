@@ -167,7 +167,8 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         
     def changeActiveTask( self, active ):
         '''Called when the tab of a task is selected'''
-        self.taskGUIs.currentWidget().activate()
+        currWidget = self.taskGUIs.currentWidget()
+        if ( currWidget ): currWidget.activate()
     
     def deleteTask( self, task ):
         '''Deletes the given task from the analysis.
@@ -201,13 +202,14 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         elif ( index == self.FUND_DIAG ):
             TaskClass = FundDiagTaskWidget
         
-        task = TaskClass( name, rsrc=self.rsrc, delCB=self.deleteTask )
+        task = TaskClass( name, self.rsrc )    
         self.addTask( task, TaskClass.typeStr() )
 
     def addTask( self, task, tabLabel ):
         '''Adds a task to the widget'''
         self.taskGUIs.addTab( task, tabLabel )
         self.goBtn.setEnabled( True )
+        task.delete_clicked.connect( self.deleteTask )
         QtCore.QObject.connect( task.goBtn, QtCore.SIGNAL('clicked(bool)'), self.runCurrent )
         QtCore.QObject.connect( task, QtCore.SIGNAL('scbLoaded(PyQt_PyObject)'), self.reportSCBLoaded )
         self.tasks.append( task )
@@ -255,7 +257,7 @@ class AnlaysisWidget( QtGui.QGroupBox ):
         for task in tasks:
             taskType = task.typeStr()
             TaskClass = getTaskWidgetClass( taskType )
-            widget = TaskClass( '', rsrc=self.rsrc, delCB=self.deleteTask )
+            widget = TaskClass( '', rsrc=self.rsrc )
             widget.setFromTask( task )
             self.addTask( widget, taskType )
         currTask = self.taskGUIs.currentWidget()
@@ -316,20 +318,23 @@ class TaskNameDialog( QtGui.QDialog ):
 
 class TaskWidget( QtGui.QGroupBox ):
     '''The basic widget for doing analysis work'''
-    def __init__( self, name, parent=None, delCB=None, rsrc=None ):
+
+    scbLoaded = QtCore.pyqtSignal('PyQt_PyObject')
+    delete_clicked = QtCore.pyqtSignal('PyQt_PyObject')
+    
+    def __init__( self, name, rsrc, context=None, parent=None ):
         '''Constructor.
 
-        @param  name        A string.  The default name of the task, used in the output files.
+        @param  name        A string.  The default name of the task, used in the output
+                            files.
+        @param  rsrc        A required instance of SystemResource
+        @param  context     The optional gl view context for the widget.
         @param  parent      An instance of QWidget.  The optional parent widget.
-        @param  delCB       A callable.  The optional function to call when the delete button
-                            is hit.
-        @param  rsrc        An instance of SystemResource
         '''
         QtGui.QGroupBox.__init__( self, name, parent )
         self.setCheckable( True )
         self.setToolTip( "Double-click to change task name" )
-        self.delCB = delCB
-        self.context = None
+        self.context = context
         self.rsrc = rsrc
         assert( not self.rsrc is None )
         
@@ -337,12 +342,9 @@ class TaskWidget( QtGui.QGroupBox ):
         self.body()
         self.bodyLayout.addStretch( 10 )
 
-    scbLoaded = QtCore.pyqtSignal('PyQt_PyObject')
-
     def deleteCB( self ):
         '''Called when the delete button is clicked'''
-        if ( self.delCB ):
-            self.delCB( self )
+        self.delete_clicked.emit( self ) 
             
     def mouseDoubleClickEvent( self, event ):
         # Spawn a dialog to change the task name
@@ -407,7 +409,8 @@ class TaskWidget( QtGui.QGroupBox ):
         self.delBtn = QtGui.QPushButton( "Del", self )
         self.delBtn.setToolTip('Delete this task')
         fLayout.addWidget( self.delBtn, 0, 1 )
-        QtCore.QObject.connect( self.delBtn, QtCore.SIGNAL('released()'), self.deleteCB )
+        QtCore.QObject.connect( self.delBtn, QtCore.SIGNAL('released()'),
+                                lambda: self.delete_clicked.emit( self ) )
 
         # Folder path for output image files
         self.actionGUI = QtGui.QComboBox( self )
@@ -626,16 +629,16 @@ class DomainTaskWidget( TaskWidget ):
     # This saves the buffers used for generating color map icons.
     COLOR_BUFFERS = {}
     COLOR_BAR_SIZE = QtCore.QSize( 100, 15 )
-    def __init__( self, name, parent=None, delCB=None, rsrc=None ):
-        TaskWidget.__init__( self, name, parent, delCB, rsrc )
+    def __init__( self, name, rsrc, context=None, parent=None ):
+        assert( context is None or isinstance(context, QTGridContext) )
+        if ( context is None ):
+            context = QTGridContext(self.MIN_PT, self.SIZE, self.CELL_SIZE)
+        TaskWidget.__init__( self, name, rsrc, context, parent )
+        self.context.needsUpdate.connect( self.rsrc.glWindow.updateGL )
+        self.context.dimensionEdited.connect( self.setDimensions )
 
     def domainBox( self ):
         '''Creates the rectangular domain widgets'''
-        if ( self.context is None ):
-            # TODO: FIgure out why this can't happen in the constructor.
-            self.context = QTGridContext(self.MIN_PT, self.SIZE, self.CELL_SIZE)
-            self.context.needsUpdate.connect( self.rsrc.glWindow.updateGL )
-            self.context.dimensionEdited.connect( self.setDimensions )
         domainBox = QtGui.QGroupBox( "Analysis Domain" )
         fLayout = QtGui.QGridLayout( domainBox )
         fLayout.setColumnStretch( 0, 0 )
@@ -837,8 +840,8 @@ class DomainTaskWidget( TaskWidget ):
         setValue( self.domainSizeYGUI, size[0] )
         
 class DensityTaskWidget( DomainTaskWidget ):
-    def __init__( self, name, parent=None, delCB=None, rsrc=None ):
-        DomainTaskWidget.__init__( self, name, parent, delCB, rsrc )
+    def __init__( self, name, rsrc, parent=None ):
+        DomainTaskWidget.__init__( self, name, rsrc, parent )
 
     def kernelBox( self ):
         '''Create the widgets for the rasterization settings'''
@@ -908,8 +911,8 @@ class DensityTaskWidget( DomainTaskWidget ):
         task.setSmoothParam( self.kernelSizeGUI.value() )
 
 class SpeedTaskWidget( DomainTaskWidget ):
-    def __init__( self, name, parent=None, delCB=None, rsrc=None ):
-        DomainTaskWidget.__init__( self, name, parent, delCB, rsrc )
+    def __init__( self, name, rsrc, parent=None ):
+        DomainTaskWidget.__init__( self, name, rsrc, parent )
 
     @staticmethod
     def typeStr():
@@ -930,15 +933,16 @@ class SpeedTaskWidget( DomainTaskWidget ):
         return task
 
 class FlowTaskWidget( TaskWidget ):
+    # ids used to determine which of the flow line end-point values is being set.
     X0 = 0
     X1 = 1
     Y0 = 2
     Y1 = 3
-    def __init__( self, name, parent=None, delCB=None, rsrc=None ):
-        TaskWidget.__init__( self, name, parent, delCB, rsrc )
-        # TODO: This needs a context
-        self.context = QTFlowLineContext( self.cancelAddFlowLine )
-        QtCore.QObject.connect( self.context, QtCore.SIGNAL('lineEdited(PyQt_PyObject)'), self.setLineValues )
+    def __init__( self, name, rsrc, parent=None ):
+        TaskWidget.__init__( self, name, rsrc,
+                             QTFlowLineContext( self.cancelAddFlowLine ),
+                             parent )
+        self.context.lineEdited.connect(self.setLineValues)
 
     def createFlowLineBox( self ):
         '''Creates the GroupBox containing the widgets for controlling lines'''
@@ -1236,9 +1240,8 @@ class FlowTaskWidget( TaskWidget ):
             task.addFlowLine( self.context.getLine( i ), self.context.getName( i ) )
     
 class RectRegionTaskWidget( TaskWidget ):
-    def __init__( self, name, parent=None, delCB=None, rsrc=None ):
-        TaskWidget.__init__( self, name, parent, delCB, rsrc )
-        self.context = QTRectContext( self.cancelAddRect )
+    def __init__( self, name, rsrc, parent=None ):
+        TaskWidget.__init__( self, name, rsrc, QTRectContext( self.cancelAddRect ), parent )
 
     def createRectBox( self ):
         '''Creates the GroupBox containing the widgets for controlling rectangular regions'''
@@ -1422,8 +1425,8 @@ class RectRegionTaskWidget( TaskWidget ):
 
 class PopulationTaskWidget( RectRegionTaskWidget ):
     '''Widget for computing the population in rectangular regions'''
-    def __init__( self, name, parent=None, delCB=None, rsrc=None ):
-        RectRegionTaskWidget.__init__( self, name, parent, delCB, rsrc )
+    def __init__( self, name, rsrc, parent=None ):
+        RectRegionTaskWidget.__init__( self, name, rsrc, parent )
 
     @staticmethod
     def typeStr():
@@ -1450,8 +1453,8 @@ class PopulationTaskWidget( RectRegionTaskWidget ):
     
 class FundDiagTaskWidget( RectRegionTaskWidget ):
     '''Widget for computing the fundamental diagram'''
-    def __init__( self, name, parent=None, delCB=None, rsrc=None ):
-        RectRegionTaskWidget.__init__( self, name, parent, delCB, rsrc )
+    def __init__( self, name, rsrc, parent=None ):
+        RectRegionTaskWidget.__init__( self, name, rsrc, parent )
 
     @staticmethod
     def typeStr():
