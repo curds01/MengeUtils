@@ -79,6 +79,9 @@ class QTGridContext( QtEventProcessor, FieldDomainContext ):
         FieldDomainContext.__init__( self, minPt, size, cell_size, self.dragged )
 
     def editBoundary( self, id, value ):
+        '''Moves the boundaries of the field by setting one of: min x, min y, width, or
+        height (indicated by the ids 0, 1, 2, & 3, respectively). Emits a changed
+        signal.'''
         if ( id == 0 ):
             self.setMinX( value )
         elif ( id == 1 ):
@@ -87,8 +90,13 @@ class QTGridContext( QtEventProcessor, FieldDomainContext ):
             self.setWidth( value )
         elif ( id == 3 ):
             self.setHeight( value )
-        elif ( id == 4 ):
-            self.setCellSize( value )
+        else:
+            raise ValueError, 'editBoundary( %d ) has innvalid boundary id' % ( id )
+        self.needsUpdate.emit()
+
+    def changeCellSize( self, value ):
+        '''Sets the grid's cell-size to the given value.'''
+        self.setCellSize( value )
         self.needsUpdate.emit()
 
     def dragged( self, (minPt, size) ):

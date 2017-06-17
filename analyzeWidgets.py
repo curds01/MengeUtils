@@ -690,7 +690,7 @@ class DomainTaskWidget( TaskWidget ):
         self.cellSizeGUI = QtGui.QDoubleSpinBox( box )
         self.cellSizeGUI.setRange( 0.01, 1e6 )
         self.cellSizeGUI.setValue( self.CELL_SIZE )
-        self.cellSizeGUI.valueChanged.connect(  lambda x: self.context.editBoundary(4, x)  )
+        self.cellSizeGUI.valueChanged.connect( self.context.changeCellSize )
         self.cellSizeGUI.setToolTip('The length of the side of the square grid cell.')
         fLayout.addWidget( self.cellSizeGUI, 1, 1, 1, 1 )
         self.cellVisiblityBtn = QtGui.QToolButton()
@@ -823,6 +823,7 @@ class DomainTaskWidget( TaskWidget ):
         task.setCellSize( self.cellSizeGUI.value() )
         task.setColorMap( str( self.colorMapGUI.currentText() ) )
         task.setOutImg( str( self.imgFormatGUI.currentText() ) )
+        
     def setDimensions( self, ( minPt, size ) ):
         '''Sets the dimensions on the spin widgets without sending signals'''
         def setValue( widget, value ):
