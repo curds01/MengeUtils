@@ -1,8 +1,10 @@
-from PyQt4 import QtCore, QtGui, QtOpenGL
+from PyQt4 import QtCore, QtGui
+from OpenGL.GL import *
 from Context import *
 from flowContext import FlowLineContext
 from rectContext import RectContext
 from vfieldContext import FieldDomainContext
+import Kernels
 
 class QtEventProcessor(QtCore.QObject):
     '''QT-specific context - translates QT events to canonical events'''
@@ -79,6 +81,9 @@ class QTGridContext( QtEventProcessor, FieldDomainContext ):
         FieldDomainContext.__init__( self, minPt, size, cell_size, self.dragged )
 
     def editBoundary( self, id, value ):
+        '''Moves the boundaries of the field by setting one of: min x, min y, width, or
+        height (indicated by the ids 0, 1, 2, & 3, respectively). Emits a changed
+        signal.'''
         if ( id == 0 ):
             self.setMinX( value )
         elif ( id == 1 ):
@@ -87,8 +92,13 @@ class QTGridContext( QtEventProcessor, FieldDomainContext ):
             self.setWidth( value )
         elif ( id == 3 ):
             self.setHeight( value )
-        elif ( id == 4 ):
-            self.setCellSize( value )
+        else:
+            raise ValueError, 'editBoundary( %d ) has innvalid boundary id' % ( id )
+        self.needsUpdate.emit()
+
+    def changeCellSize( self, value ):
+        '''Sets the grid's cell-size to the given value.'''
+        self.setCellSize( value )
         self.needsUpdate.emit()
 
     def dragged( self, (minPt, size) ):
@@ -98,7 +108,58 @@ class QTGridContext( QtEventProcessor, FieldDomainContext ):
     def setCellDraw( self, state ):
         FieldDomainContext.setCellDraw( self, state )
         self.needsUpdate.emit()
-        
+
+class QTDensityContext( QTGridContext ):
+    '''A special case of the QTGridContext which adds the ability to visualize the kernel
+    size.'''
+    def __init__( self, minPt, size, cell_size, kernel_size ):
+        '''Constructor
+        @param      minPt           A 2-tuple-like object of floats: the minimum x- and y-
+                                    position of the grid.
+        @param      size            A 2-tuple-like object of floats: the dimsions of the
+                                    grid (width, height).
+        @param      cell_size       A float; the length of the side of the square grid
+                                    cells.
+        @param      kernel_size     A float; the "size" of the kernel. '''
+        QTGridContext.__init__( self, minPt, size, cell_size )
+        self.show_kernel = True
+        # TODO: Change this to support different types of kernels (when the GUI supports
+        #       different types of kernels).
+        # Setting the cell size to kernel size / 3 guarantees three samples per sigma
+        self.kernel = Kernels.GaussianKernel( kernel_size, kernel_size / 3)
+        self.kernel_data = self.kernel.computeSamples()
+
+    #TODO: Override cell size change to modify the kernel rendering
+    def setKernelSize( self, value ):
+        '''Sets the kernel size'''
+        if ( value == 0 ): value = 1e-6
+        if ( self.kernel.smoothParam != value ):
+            self.kernel_data = self.kernel.sampleKernel( value, value / 3 )
+            self.needsUpdate.emit()
+
+    def setKernelDraw( self, state):
+        '''Reports whether the kernel will be drawn or not.'''
+        if ( self.show_kernel != state ):
+            self.show_kernel = state
+            self.needsUpdate.emit()
+
+    def drawGL( self ):
+        QTGridContext.drawGL(self)
+        if ( self.show_kernel ):
+            u_l_corner = self.vField.getCorners()[-1]
+            half_w = self.vField.size[1] * 0.5
+            glPushAttrib( GL_COLOR_BUFFER_BIT | GL_LINE_BIT )
+            glColor3f(0.9, 0.8, 0.1)
+            glLineWidth(2)
+            glPushMatrix()
+            glTranslate(u_l_corner[0] + half_w, u_l_corner[1] + self.vField.cellSize, 0)
+            glBegin(GL_LINE_STRIP)
+            for i in xrange(len(self.kernel_data[0])):
+                glVertex3f( self.kernel_data[0][i], 3 * self.kernel_data[1][i], 0 )
+            glEnd()
+            glPopMatrix()
+            glPopAttrib()
+
 if __name__ == '__main__':
     print
     line = GLLine( Vector2( -1.0, -1.0 ), Vector2( 1.0, 1.0 ) )
