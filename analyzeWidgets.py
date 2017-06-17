@@ -341,10 +341,6 @@ class TaskWidget( QtGui.QGroupBox ):
         self.bodyLayout = QtGui.QVBoxLayout( self )
         self.body()
         self.bodyLayout.addStretch( 10 )
-
-    def deleteCB( self ):
-        '''Called when the delete button is clicked'''
-        self.delete_clicked.emit( self ) 
             
     def mouseDoubleClickEvent( self, event ):
         # Spawn a dialog to change the task name
