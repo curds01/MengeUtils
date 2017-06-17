@@ -840,20 +840,45 @@ class DomainTaskWidget( TaskWidget ):
         setValue( self.domainSizeYGUI, size[0] )
         
 class DensityTaskWidget( DomainTaskWidget ):
+    # Default kernel size
+    KERNEL_SIZE = 1.0
+    
     def __init__( self, name, rsrc, parent=None ):
-        DomainTaskWidget.__init__( self, name, rsrc, parent )
+        context = QTDensityContext(DomainTaskWidget.MIN_PT, DomainTaskWidget.SIZE,
+                                   DomainTaskWidget.CELL_SIZE,
+                                   DensityTaskWidget.KERNEL_SIZE)
+        DomainTaskWidget.__init__( self, name, rsrc, context, parent )
 
     def kernelBox( self ):
         '''Create the widgets for the rasterization settings'''
-        box = QtGui.QGroupBox("Density Estimation Kernel")
+        box = QtGui.QGroupBox("Density Estimation Kernel (Gaussian)")
+        box.setToolTip('The density estimation kernel is an approximate 2D, uniform\n' +
+                       'gaussian kernel. It is approximate because it is given\n' +
+                       'compact support by truncating it at +/- 3 * sigma and\n' +
+                       'then renormalized. Set the value for sigma below.')
         fLayout = QtGui.QGridLayout( box )
         fLayout.setColumnStretch( 0, 0 )
         fLayout.setColumnStretch( 1, 1 )
 
-        fLayout.addWidget( QtGui.QLabel( "Smooth Param." ), 0, 0, 1, 1, QtCore.Qt.AlignRight )
+        fLayout.addWidget( QtGui.QLabel( "Standard deviation" ), 0, 0, 1, 1, QtCore.Qt.AlignRight )
         self.kernelSizeGUI = QtGui.QDoubleSpinBox( box )
+        self.kernelSizeGUI.setValue(self.KERNEL_SIZE)
         self.kernelSizeGUI.setToolTip( 'The "size" of the density kernel' )
+        self.kernelSizeGUI.valueChanged.connect( self.context.setKernelSize )
         fLayout.addWidget( self.kernelSizeGUI, 0, 1, 1, 1 )
+
+        self.kernelVisBtn = QtGui.QToolButton()
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap('icons/open_eye.png'), QtGui.QIcon.Normal, QtGui.QIcon.On )
+        icon.addPixmap(QtGui.QPixmap('icons/closed_eye.png'), QtGui.QIcon.Normal, QtGui.QIcon.Off )
+        self.kernelVisBtn.setIcon( icon )
+        self.kernelVisBtn.setCheckable( True )
+        self.kernelVisBtn.setChecked( True )
+        self.kernelVisBtn.toggled.connect( self.context.setKernelDraw )
+        self.kernelVisBtn.setToolTip('Control display of densitiy kernel. ' +
+                                     'Displayed kernel is scaled to non-unit integral ' +
+                                     'for visual purposes.')
+        fLayout.addWidget( self.kernelVisBtn, 0, 2, 1, 1 )
 
         return box
         
