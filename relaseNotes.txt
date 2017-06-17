@@ -1,0 +1,4 @@
+Version 1.0
+    June 17, 2017
+
+    Initial public release.

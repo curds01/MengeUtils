@@ -114,10 +114,13 @@ class KernelBase( object ):
     def sampleKernel( self, smoothParam, cellSize ):
         self._smoothParam = smoothParam
         self._cellSize = cellSize
-        self.computeSamples()
+        return self.computeSamples()
 
     def computeSamples( self ):
-        '''Based on the nature of the kernel, pre-compute the discrete kernel for given parameters.'''
+        '''Based on the nature of the kernel, pre-compute the discrete kernel for
+        kernel's parameters.
+        @returns  A n-tuple (x0, x1, ..., xn-1, y) where x_i spans the dimension of the
+                  domain, and y is the kernel value at (x0, ..., xn-1).'''
         raise KernelError, "Basic kernel is undefined"
         
     def getSupport( self ):
@@ -320,7 +323,10 @@ class SeparableKernel( KernelBase ):
             grid.cells[ :, y ]  = result
         
     def computeSamples( self ):
-        '''Based on the nature of the kernel, pre-compute the discrete kernel for given parameters.'''
+        '''Based on the nature of the kernel, pre-compute the discrete kernel for
+        kernel's parameters. For the separable kernel the sample domain is 1 dimensional.
+        @returns  A n-tuple (x0, x1, ..., xn-1, y) where x_i spans the dimension of the
+                  domain, and y is the kernel value at (x0, ..., xn-1).'''
         # do work
         width = self.getSupport()
         ratio = width / self._cellSize
@@ -340,6 +346,7 @@ class SeparableKernel( KernelBase ):
         self.data = np.empty( ( x.size, x.size ), dtype=np.float32 )
         np.dot( temp, temp.T, out=self.data )
         self.data1D *= self._cellSize
+        return x, self.data1D
 
 class InseparableKernel( KernelBase ):
     '''The base class of an inseparable convolution kernel'''
@@ -358,7 +365,10 @@ class InseparableKernel( KernelBase ):
         KernelBase.__init__( self, smoothParam, cellSize, reflect )
 
     def computeSamples( self ):
-        '''Based on the nature of the kernel, pre-compute the discrete kernel for given parameters.'''
+        '''Based on the nature of the kernel, pre-compute the discrete kernel for
+        kernel's parameters. For an inseparable kernel, the sample domain is two dimensional.
+        @returns  A n-tuple (x0, x1, ..., xn-1, y) where x_i spans the dimension of the
+                  domain, and y is the kernel value at (x0, ..., xn-1).'''
         # TODO: If the cells do not align perfectly with the support domain of the kernel, there will be
         #       error at the edges.
         #       The "correct" thing to do is examine the edges and integrate the function and place that
@@ -380,6 +390,7 @@ class InseparableKernel( KernelBase ):
 
         self.data = self.FUNC( X, Y, self._smoothParam ) #* ( self._cellSize * self._cellSize )
         self.normData = self.data * ( self._cellSize * self._cellSize )
+        return X, Y, self.normData
 
     def convolveField( self, signal, grid ):
         '''The convolution of the 2D kernel with the grid (slow, slow, slow)'''
@@ -533,7 +544,7 @@ class GaussianKernel( SeparableKernel ):
         SeparableKernel.__init__( self, smoothParam, cellSize, reflect )
 
     def getSupport( self ):
-        '''The uniform kernel's support is equal to the smooth parameter'''
+        '''The gaussian kernel's support is equal to six times the smooth parameter'''
         return 6 * self._smoothParam
 
     @classmethod
@@ -666,7 +677,10 @@ class Plaue11Kernel( KernelBase ):
         grid.cells[ l:r, b:t ] += kernel
         
     def computeSamples( self ):
-        '''Based on the nature of the kernel, pre-compute the discrete kernel for given parameters.'''
+        '''Based on the nature of the kernel, pre-compute the discrete kernel for
+        kernel's parameters.
+        @returns  A n-tuple (x0, x1, ..., xn-1, y) where x_i spans the dimension of the
+                  domain, and y is the kernel value at (x0, ..., xn-1).'''
         pass
         
     def getImpulseKernel( self, idx, signal, grid ):
