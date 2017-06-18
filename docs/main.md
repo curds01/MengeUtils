@@ -21,3 +21,11 @@ These are, more or less, the independent components
   - [Querying properties of SCB file](scb_metric.md): Scans an scb file and computes and prints a number of metrics about the file.
   - [Plotting the time-dependent orietnation of an agent in an SCB file](scb_plot_orient.md): Creates a graph of the orientation of an agent based on its scb file with respect to time.
   - [Sampling an SCB file -- reducing frames, agents, etc.](scb_slice.md): Creates a new scb file from an input scb file by truncating and sampling the time steps.
+  
+## Dependencies
+  - Python 2.7
+  - Numpy
+  - Matplotlib
+  - Pygame
+  - PyOpenGL
+  - PyQt4
