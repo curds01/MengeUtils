@@ -1,3 +1,11 @@
+Version 1.1
+    Date??
+
+    Features
+        Roadmap editing moved into context.
+
+--------------------------------------------------
+
 Version 1.0
     June 17, 2017
 

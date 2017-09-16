@@ -704,6 +704,168 @@ class ObstacleNullContext( PGContext ):
 #       2) Move
 #       3) Reverse winding
 
+class GraphContext(PGContext):
+    '''A context for modifying/editing an undirected graph'''
+    # Defines the state for interpreting mouse motion
+    HOVER = 0
+    BUILD_EDGE = 1
+    MOVE_FEATURE = 2
+
+    HELP_TEXT = ('Edit a graph (aka roadmap)'
+                 '\n\tEdit existing features'
+                 '\n\t\tmove mouse - hover over vertex to highlight it'
+                 '\n\t\tShift + move moouse - hover over edge to highlight it'
+                 '\n\t\tleft-drag - move highlighted vertex (not edge)'
+                 '\n\t\tDelete - delete highlighted feature (vertex or edge)'
+                 '\n\tAdd new features'
+                 '\n\t\tLeft click on empty space - add new vertex'
+                 '\n\t\tMiddle drag from vertex to vertex - add new edge'
+                 '\n\t\tMiddle drag from empty space to vertex - add new vertex and edge'
+                 '\n\tCtrl-s - save current graph as "graph.txt"')
+    
+    def __init__(self, graph):
+        '''Constructor.
+
+        @param graph        An instance of graph to edit.
+        '''
+        PGContext.__init__(self)
+        self.graph = graph
+        self.move_state = self.HOVER
+        self.downX = 0      # the screen space coordinates where the mouse was pressed (x)
+        self.downY = 0      # the screen space coordinates where the mouse was pressed (y)
+        self.downPos = None # the world coordinates of where the mouse was pressed (x, y)
+        # TODO: The Graph currently holds things like active vertex and active edge used
+        # edit the graph interactively. Pull them out of the graph and into the context.
+
+    def handleKeyboard(self, event, view):
+        '''Handle keyboard events'''
+        result = PGContext.handleKeyboard(self, event, view)
+        if (not result.isHandled()):
+            mods = pygame.key.get_mods()
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            hasShift = mods & pygame.KMOD_SHIFT
+            noMods = not(hasShift or hasCtrl or hasAlt)
+
+            if (event.type == pygame.KEYDOWN):
+                if (event.key == pygame.K_s and hasCtrl):
+                    fileName = paths.getPath('graph.txt', False)
+                    with open(fileName, 'w') as f: 
+                        f.write('%s\n' % self.graph.newAscii())
+                        print "Graph saved!", fileName
+                    result.setHandled(True)
+                elif (event.key == pygame.K_DELETE):
+                    if (self.graph.fromID is not None):
+                        self.graph.deleteVertex(self.graph.fromID)
+                        self.graph.fromID = None
+                        result.set(True, True)
+                    elif (self.graph.activeEdge is not None):
+                        self.graph.deleteEdge(self.graph.activeEdge)
+                        self.graph.activeEdge = None
+                        result.set(True, True)
+        return result
+
+    def handleMouse(self, event, view):
+        """The context handles the mouse event as it sees fit and reports it's status
+        with a ContextResult."""
+        result = PGContext.handleMouse(self, event, view)
+
+        if (not result.isHandled()):
+            mods = pygame.key.get_mods()
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            hasShift = mods & pygame.KMOD_SHIFT
+            noMods = not(hasShift or hasCtrl or hasAlt)
+
+            if (event.type == pygame.MOUSEMOTION):
+                if (self.move_state == self.HOVER):
+                    pX, pY = event.pos
+                    selected = view.select(pX, pY, self.graph, hasShift)
+                    if (selected == -1):
+                        self.graph.activeEdge = None
+                        self.graph.fromID = self.graph.toID = None
+                        result.setNeedsRedraw(True)
+                    else:
+                        if (hasShift):
+                            selEdge = self.graph.edges[selected]
+                            self.graph.fromID = self.graph.toID = None
+                            # select edges
+                            if (selEdge != self.graph.activeEdge):
+                                self.graph.activeEdge = selEdge
+                                result.setNeedsRedraw(True)
+                        else:
+                            self.graph.activeEdge = None
+                            selVert = self.graph.vertices[selected]
+                            if (self.graph.fromID != selVert):
+                                result.setNeedsRedraw(True)
+                                self.graph.fromID = selVert
+                    
+                elif (self.move_state == self.BUILD_EDGE):
+                    pX, pY = event.pos 
+                    selected = view.select(pX, pY, self.graph)
+                    selVert = self.graph.vertices[selected]
+                    if (selected != -1 and selVert != self.graph.fromID ):
+                        self.graph.toID = selVert
+                        self.graph.testEdge.end = selVert
+                        result.setNeedsRedraw(True)
+                        
+                elif (self.move_state == self.MOVE_FEATURE):
+                    dX, dY = view.screenToWorld((self.downX, self.downY))
+                    pX, pY = view.screenToWorld(event.pos)
+                    newX = self.downPos[0] + (pX - dX)
+                    newY = self.downPos[1] + (pY - dY)
+                    self.graph.fromID.setPosition((newX, newY))
+                    result.setNeedsRedraw(True)
+                    
+            elif (event.type == pygame.MOUSEBUTTONUP):
+                if (event.button == PGMouse.MIDDLE and self.move_state == self.BUILD_EDGE):
+                    if (self.graph.testEdge.isValid()):
+                        self.graph.addEdge(self.graph.testEdge)
+                        self.graph.fromID = self.graph.toID
+                        self.graph.toID = None
+                        self.graph.testEdge.clear()
+                        result.setNeedsRedraw(True)
+                self.move_state = self.HOVER
+                
+            elif (event.type == pygame.MOUSEBUTTONDOWN):
+                if (event.button == PGMouse.LEFT):
+                    self.downX, self.downY = event.pos
+                    print self.graph.fromID
+                    if (self.graph.fromID is not None):
+                        self.downPos = (self.graph.fromID.pos[0], self.graph.fromID.pos[1])
+                        self.move_state = self.MOVE_FEATURE
+                    elif (self.graph.activeEdge is not None):
+                        print "Should be moving an edge"
+                    else:
+                        p = view.screenToWorld(event.pos)
+                        self.graph.addVertex(p)
+                        self.graph.fromID = self.graph.lastVertex()
+                        result.setNeedsRedraw(True)
+                elif (event.button == PGMouse.RIGHT):
+                    if (self.move_state == self.MOVE_FEATURE):
+                        self.graph.fromID.setPosition(self.downPos)
+                        result.setNeedsRedraw(True)
+                    elif (self.move_state == self.BUILD_EDGE):
+                        self.graph.fromID = self.graph.toID = None
+                        self.graph.testEdge.clear()
+                        result.setNeedsRedraw(True)
+                elif (event.button == PGMouse.MIDDLE):
+                    self.downX, self.downY = event.pos
+                    if (self.graph.fromID is None):
+                        p = view.screenToWorld(event.pos)
+                        self.graph.addVertex(p)
+                        self.graph.fromID = self.graph.lastVertex()
+                        result.setNeedsRedraw(True)
+                    self.graph.testEdge.start = self.graph.fromID
+                    self.move_state = self.BUILD_EDGE
+        return result
+
+    def drawGL(self, view):
+        PGContext.drawGL(self, view)
+        view.printText('Graph edit', (10, 10))
+        if (self.graph):
+            self.graph.drawGL(editable=True)
+
 class EditPolygonContext( PGContext, MouseEnabled ):
     '''A context for editing obstacles'''
     HELP_TEXT = 'Edit polygon' + \
