@@ -9,8 +9,8 @@ class Vertex:
     """Graph vertex"""
     COUNT = 0
     def __init__( self, pos ):
-        self.pos = pos
-        self.neighbors = []
+        self.pos = pos      # a list of 2 float values
+        self.neighbors = [] # list of Edge instances incident to this vertex.
         self.id = Vertex.COUNT
         Vertex.COUNT += 1
 
@@ -27,8 +27,8 @@ class Vertex:
 class Edge:
     """Graph edge"""
     def __init__( self, start=None, end=None ):
-        self.start = start
-        self.end = end
+        self.start = start  # A Vertex instance
+        self.end = end      # A Vertex instance
 
     def __str__( self ):
         return "%d to %d" % ( self.start.id, self.end.id )
