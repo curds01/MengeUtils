@@ -16,7 +16,8 @@ from vField import GLVectorField
 # contexts
 from RoadContext import ContextSwitcher, AgentContext, FieldEditContext
 from RoadContext import SCBContext, PositionContext, ObstacleContext
-from RoadContext import GraphContext
+from RoadContext import RelaxGraphContext as GraphContext
+##from RoadContext import GraphContext
 from GoalContext import GoalContext
 from GoalEditor import GoalEditor
 import Goals

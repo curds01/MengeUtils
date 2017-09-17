@@ -9,6 +9,7 @@ import trajectory.scbData as scbData
 from primitives import Vector2
 from obstacles import GLPoly
 import paths
+import numpy as np
 try:
     import cairo
     HAS_CAIRO = True
@@ -866,6 +867,73 @@ class GraphContext(PGContext):
         if (self.graph):
             self.graph.drawGL(editable=True)
 
+class RelaxGraphContext(GraphContext):
+    '''A graph context that allows me to test graph relaxation'''
+    # Force constants
+    CHARGE_K = 10
+    SPRING_K = .1
+
+    TIME_STEP = 0.5
+    
+    def __init__(self, graph):
+        GraphContext.__init__(self, graph)
+
+    def handleKeyboard(self, event, view):
+        '''Handle keyboard events'''
+        result = GraphContext.handleKeyboard(self, event, view)
+        if (not result.isHandled()):
+            mods = pygame.key.get_mods()
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            hasShift = mods & pygame.KMOD_SHIFT
+            noMods = not(hasShift or hasCtrl or hasAlt)
+
+            if (event.type == pygame.KEYDOWN):
+                if (event.key == pygame.K_RIGHT):
+                    self.relax()
+                    result.set(True, True)
+        return result
+
+    def relax(self):
+        '''Performs an integration step on the graph vertices'''
+        v_count = len(self.graph.vertices)
+        pos = np.empty( (v_count, 1, 2), dtype=np.float)
+        for v_idx, v in enumerate(self.graph.vertices):
+            pos[v_idx, 0, :] = v.pos
+        edge_matrix = np.zeros( (v_count, v_count, 1), dtype=np.float)
+        for edge in self.graph.edges:
+            edge_matrix[edge.start.id, edge.end.id, 0] = 1
+            edge_matrix[edge.end.id, edge.start.id, 0] = 1
+        
+        disp = np.empty( (v_count, v_count, 2), dtype=np.float)
+        disp[:, :, 0] = pos[:, 0, :1] - pos[:, 0, :1].T
+        disp[:, :, 1] = pos[:, 0, 1:] - pos[:, 0, 1:].T
+        dists = np.sqrt(np.sum(disp * disp, axis=2))
+        dists.shape = (v_count, v_count, 1)
+        non_zero = dists > 0
+        inv_dist = dists.copy()
+        inv_dist[non_zero] = 1 / inv_dist[non_zero]
+        dirs = disp * inv_dist
+
+        # charge forces
+        # coulomb charge: F = k.q_1.q_2/r^2 . r_hat
+        #   We'll assume that all charges are equal (and unit)
+        #   We'll go ahead and introduce a constant k
+        force_c = dirs * (self.CHARGE_K * inv_dist * inv_dist)
+        force_c = np.sum(force_c, axis=1)
+        # spring forces
+        #   Each edge has a kx.r_hat term, where the relaxed length is zero.
+        #   However, it is *zero* everywhere else.
+        force_s = dirs * (edge_matrix * dists * -self.SPRING_K)
+        force_s = np.sum(force_s, axis=1)
+
+        net_force = force_c + force_s
+        # double integrate
+        delta_v = net_force * self.TIME_STEP
+        new_pos = pos[:, 0, :] + delta_v
+        for i in xrange(v_count):
+            self.graph.vertices[i].pos = list(new_pos[i, :])
+            
 class EditPolygonContext( PGContext, MouseEnabled ):
     '''A context for editing obstacles'''
     HELP_TEXT = 'Edit polygon' + \
