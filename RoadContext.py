@@ -822,6 +822,7 @@ class GraphContext(PGContext):
                 if (event.button == PGMouse.MIDDLE and self.move_state == self.BUILD_EDGE):
                     if (self.graph.testEdge.isValid()):
                         self.graph.addEdge(self.graph.testEdge)
+                        self.add_feature_cb()
                         self.graph.fromID = self.graph.toID
                         self.graph.toID = None
                         self.graph.testEdge.clear()
@@ -840,6 +841,7 @@ class GraphContext(PGContext):
                     else:
                         p = view.screenToWorld(event.pos)
                         self.graph.addVertex(p)
+                        self.add_feature_cb()
                         self.graph.fromID = self.graph.lastVertex()
                         result.setNeedsRedraw(True)
                 elif (event.button == PGMouse.RIGHT):
@@ -855,6 +857,7 @@ class GraphContext(PGContext):
                     if (self.graph.fromID is None):
                         p = view.screenToWorld(event.pos)
                         self.graph.addVertex(p)
+                        self.add_feature_cb()
                         self.graph.fromID = self.graph.lastVertex()
                         result.setNeedsRedraw(True)
                     self.graph.testEdge.start = self.graph.fromID
@@ -867,16 +870,34 @@ class GraphContext(PGContext):
         if (self.graph):
             self.graph.drawGL(editable=True)
 
+    def add_feature_cb(self):
+        '''Callback invoked after a feature (vertex or edge) has been invoked'''
+        pass
+
 class RelaxGraphContext(GraphContext):
     '''A graph context that allows me to test graph relaxation'''
     # Force constants
-    CHARGE_K = 10
+    CHARGE_K = 15
     SPRING_K = .1
 
     TIME_STEP = 0.5
+
+    HELP_TEXT = GraphContext.HELP_TEXT + \
+    ('\n\tRight arrow - update the graph by relaxing one step'
+     '\n\tShift + Right arrow - fully relax the graph')
     
     def __init__(self, graph):
         GraphContext.__init__(self, graph)
+        # Cached data structures for performing computation
+        self.pos = None
+        self.edge_matrix = None
+        self.forces = None
+
+    def add_feature_cb(self):
+        '''Callback invoked after a feature (vertex or edge) has been invoked'''
+        self.pos = None
+        self.edge_matrix = None
+        self.forces = None
 
     def handleKeyboard(self, event, view):
         '''Handle keyboard events'''
@@ -890,49 +911,87 @@ class RelaxGraphContext(GraphContext):
 
             if (event.type == pygame.KEYDOWN):
                 if (event.key == pygame.K_RIGHT):
-                    self.relax()
+                    if (hasShift):
+                        self.fully_relax()
+                    else:
+                        self.relax_step()
                     result.set(True, True)
         return result
 
-    def relax(self):
-        '''Performs an integration step on the graph vertices'''
+    def build_graph( self ):
+        '''Builds the underlying data structures for doing the relaxation from the
+        graph.'''
         v_count = len(self.graph.vertices)
-        pos = np.empty( (v_count, 1, 2), dtype=np.float)
+        self.pos = np.empty((v_count, 1, 2), dtype=np.float)
         for v_idx, v in enumerate(self.graph.vertices):
-            pos[v_idx, 0, :] = v.pos
-        edge_matrix = np.zeros( (v_count, v_count, 1), dtype=np.float)
+            self.pos[v_idx, 0, :] = v.pos
+        self.edge_matrix = np.zeros( (v_count, v_count, 1), dtype=np.float)
         for edge in self.graph.edges:
-            edge_matrix[edge.start.id, edge.end.id, 0] = 1
-            edge_matrix[edge.end.id, edge.start.id, 0] = 1
+            self.edge_matrix[edge.start.id, edge.end.id, 0] = 1
+            self.edge_matrix[edge.end.id, edge.start.id, 0] = 1
+
+    def calc_forces(self):
+        '''Computes the net forces on each of the graph nodes'''
+        if (self.forces is None):
+            if (self.pos is None):
+                self.build_graph()
+            v_count = self.pos.shape[0]
+            disp = np.empty( (v_count, v_count, 2), dtype=np.float)
+            disp[:, :, 0] = self.pos[:, 0, :1] - self.pos[:, 0, :1].T
+            disp[:, :, 1] = self.pos[:, 0, 1:] - self.pos[:, 0, 1:].T
+            dists = np.sqrt(np.sum(disp * disp, axis=2))
+            dists.shape = (v_count, v_count, 1)
+            non_zero = dists > 0
+            inv_dist = dists.copy()
+            inv_dist[non_zero] = 1 / inv_dist[non_zero]
+            dirs = disp * inv_dist
+
+            # charge forces
+            # coulomb charge: F = k.q_1.q_2/r^2 . r_hat
+            #   We'll assume that all charges are equal (and unit)
+            #   We'll go ahead and introduce a constant k
+            force_c = dirs * (self.CHARGE_K * inv_dist * inv_dist)
+            force_c = np.sum(force_c, axis=1)
+            # spring forces
+            #   Each edge has a kx.r_hat term, where the relaxed length is zero.
+            #   However, it is *zero* everywhere else.
+            force_s = dirs * (self.edge_matrix * dists * -self.SPRING_K)
+            force_s = np.sum(force_s, axis=1)
+
+            self.forces = force_c + force_s
+        return self.forces
+
+    def fully_relax(self):
+        while (self.cost() > 1e-3):
+            self.relax_step()
+            
+    def relax_step(self):
+        '''Performs an integration step on the graph vertices'''
+        if (self.pos is None):
+            self.build_graph()
+
+        v_count = self.pos.shape[0]
         
-        disp = np.empty( (v_count, v_count, 2), dtype=np.float)
-        disp[:, :, 0] = pos[:, 0, :1] - pos[:, 0, :1].T
-        disp[:, :, 1] = pos[:, 0, 1:] - pos[:, 0, 1:].T
-        dists = np.sqrt(np.sum(disp * disp, axis=2))
-        dists.shape = (v_count, v_count, 1)
-        non_zero = dists > 0
-        inv_dist = dists.copy()
-        inv_dist[non_zero] = 1 / inv_dist[non_zero]
-        dirs = disp * inv_dist
-
-        # charge forces
-        # coulomb charge: F = k.q_1.q_2/r^2 . r_hat
-        #   We'll assume that all charges are equal (and unit)
-        #   We'll go ahead and introduce a constant k
-        force_c = dirs * (self.CHARGE_K * inv_dist * inv_dist)
-        force_c = np.sum(force_c, axis=1)
-        # spring forces
-        #   Each edge has a kx.r_hat term, where the relaxed length is zero.
-        #   However, it is *zero* everywhere else.
-        force_s = dirs * (edge_matrix * dists * -self.SPRING_K)
-        force_s = np.sum(force_s, axis=1)
-
-        net_force = force_c + force_s
         # double integrate
-        delta_v = net_force * self.TIME_STEP
-        new_pos = pos[:, 0, :] + delta_v
+        delta_v = self.calc_forces() * self.TIME_STEP
+        new_pos = self.pos[:, 0, :] + delta_v
         for i in xrange(v_count):
             self.graph.vertices[i].pos = list(new_pos[i, :])
+        self.pos[:, 0, :] = new_pos
+        self.forces = None
+
+    def cost(self):
+        '''Compute the residual "cost" of the graph to determine when it should
+        stop iterating.'''
+        # currently, I'm defining the cost as the largest force component.
+        forces = self.calc_forces()
+        return np.max(np.abs(forces))
+
+    def drawGL(self, view):
+        PGContext.drawGL(self, view)
+        view.printText('Relax graph edit\n  cost: %f' % self.cost(), (10, 30))
+        if (self.graph):
+            self.graph.drawGL(editable=True)
             
 class EditPolygonContext( PGContext, MouseEnabled ):
     '''A context for editing obstacles'''
