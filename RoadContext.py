@@ -10,6 +10,8 @@ from primitives import Vector2
 from obstacles import GLPoly
 import paths
 import numpy as np
+import os
+
 try:
     import cairo
     HAS_CAIRO = True
@@ -722,12 +724,14 @@ class GraphContext(PGContext):
                  '\n\t\tLeft click on empty space - add new vertex'
                  '\n\t\tMiddle drag from vertex to vertex - add new edge'
                  '\n\t\tMiddle drag from empty space to vertex - add new vertex and edge'
-                 '\n\tCtrl-s - save current graph as "graph.txt"')
+                 '\n\tCtrl-s - save current graph as "temp.graph"')
     
-    def __init__(self, graph):
+    def __init__(self, graph, file_name=None):
         '''Constructor.
 
         @param graph        An instance of graph to edit.
+        @param file_name    A string. The optional name of the file. If saved, the
+                            graph will be written to filename.graph.
         '''
         PGContext.__init__(self)
         self.graph = graph
@@ -735,6 +739,11 @@ class GraphContext(PGContext):
         self.downX = 0      # the screen space coordinates where the mouse was pressed (x)
         self.downY = 0      # the screen space coordinates where the mouse was pressed (y)
         self.downPos = None # the world coordinates of where the mouse was pressed (x, y)
+        if file_name is None:
+            self.file_name = 'temp.graph'
+        else:
+            base, ext = os.path.splitext(file_name)
+            self.file_name = base + ".graph"
         # TODO: The Graph currently holds things like active vertex and active edge used
         # edit the graph interactively. Pull them out of the graph and into the context.
 
@@ -750,9 +759,9 @@ class GraphContext(PGContext):
 
             if (event.type == pygame.KEYDOWN):
                 if (event.key == pygame.K_s and hasCtrl):
-                    fileName = paths.getPath('graph.txt', False)
+                    fileName = paths.getPath(self.file_name, False)
                     with open(fileName, 'w') as f: 
-                        f.write('%s\n' % self.graph.newAscii())
+                        f.write('%s\n' % self.graph.format_file())
                         print "Graph saved!", fileName
                     result.setHandled(True)
                 elif (event.key == pygame.K_DELETE):
@@ -886,8 +895,13 @@ class RelaxGraphContext(GraphContext):
     ('\n\tRight arrow - update the graph by relaxing one step'
      '\n\tShift + Right arrow - fully relax the graph')
     
-    def __init__(self, graph):
-        GraphContext.__init__(self, graph)
+    def __init__(self, graph, file_name=None):
+        '''Constructor.
+        @param graph        An instance of Graph. The graph to work with.
+        @param file_name    A string. The optional name of the file. If saved, the
+                            graph will be written to filename.graph.
+        '''
+        GraphContext.__init__(self, graph, file_name)
         # Cached data structures for performing computation
         self.pos = None
         self.edge_matrix = None

@@ -126,6 +126,8 @@ class Graph:
             s += '%d %d\n' % ( e.start.id, e.end.id )
         return s        
 
+    format_file = newAscii
+    
     def lastVertex( self ):
         """Returns the index of the last vertex"""
         return self.vertices[-1]
