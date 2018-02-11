@@ -12,6 +12,7 @@ from agent import *
 from graph import *
 from obstacles import *
 from vField import GLVectorField
+from fsm import FSM
 
 # contexts
 from RoadContext import ContextSwitcher, AgentContext, FieldEditContext
@@ -160,6 +161,8 @@ def main():
                        action="store", dest="roadmapName", default='' )
     parser.add_option( "-g", "--goals", help="Optional goal definition file to load",
                        action="store", dest="goalsName", default='' )
+    parser.add_option( "-v", "--behvaior", help="Optional behavior FSM specification file to load",
+                       action="store", dest="behaveXml", default='' )
     parser.add_option( "-b", "--obstacle", help="Optional obstacle file to load.",
                        action="store", dest='obstName', default='' )
     parser.add_option( "-a", "--agent", help="Optional agent position file to load.",
@@ -186,6 +189,7 @@ def main():
     fieldName = paths.getPath( options.fieldName )
     scbName = paths.getPath( options.scbName )
     goalsName = paths.getPath( options.goalsName )
+    behaveName = paths.getPath( options.behaveXml )
     print "Arguments:"
     print "\tInput dir: ", options.inDir
     print "\tOutput dir:", options.outDir
@@ -195,6 +199,7 @@ def main():
     print "\tfield:     ", fieldName
     print "\tscbName:   ", scbName
     print "\tGoals:     ", goalsName
+    print "\tBehavior:  ", behaveName
     if ( obstName ):
         obstacles, bb = readObstacles( obstName )
     else:
@@ -274,6 +279,14 @@ def main():
         context.addContext( FieldEditContext( field ), pygame.K_f )
     if ( scbName != '' ):
         context.addContext( SCBContext( scbName, obstacles, agents.defRadius ), pygame.K_s )
+
+    if behaveName:
+        fsm = FSM()
+        fsm.initFromFile(behaveName)
+        ctx = GraphContext(fsm)
+        ctx.fully_relax()
+        context.addContext(ctx, pygame.K_v)
+        
     context.newGLContext()
 
     redraw = True

@@ -924,7 +924,10 @@ class RelaxGraphContext(GraphContext):
         v_count = len(self.graph.vertices)
         self.pos = np.empty((v_count, 1, 2), dtype=np.float)
         for v_idx, v in enumerate(self.graph.vertices):
-            self.pos[v_idx, 0, :] = v.pos
+            # Perturb the intial conditions slightly; so that if I have vertices on
+            # top of each other, they won't be.
+            perturb = np.random.random(2) * 2 - 1
+            self.pos[v_idx, 0, :] = v.pos + perturb
         self.edge_matrix = np.zeros( (v_count, v_count, 1), dtype=np.float)
         for edge in self.graph.edges:
             self.edge_matrix[edge.start.id, edge.end.id, 0] = 1
