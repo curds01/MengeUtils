@@ -14,9 +14,12 @@ class State(Vertex):
         Vertex.__init__(self, pos)
         self.name = name
         self.is_final = is_final
+        self.is_start = False
 
     def __str__(self):
-        return "State({}, is_final={})".format(self.name, self.is_final)
+        return "State{}({}, is_final={})".format(self.is_start * '*',
+                                                 self.name,
+                                                 self.is_final)
 
 class Transition(Edge):
     '''Represents the state transitions (equivalent ot an edge in
@@ -62,6 +65,17 @@ class FSM(Graph):
         for trans_elem in root.iter('Transition'):
             t = self.make_transition(trans_elem, state_lookup)
             self.edges.extend(t)
+
+        self.update_start_states()
+
+    def update_start_states(self):
+        '''Examines the transitions to determine if there are any obvious start states
+        (i.e., a state that only has exiting transitions'''
+        all_targets = set()
+        for t in self.edges:
+            all_targets.add(t.end.name)
+        for s in self.vertices:
+            s.is_start = s.name not in all_targets
 
     def make_state(self, state_elem, state_lookup):
         '''Creates a State instance from a "State" tagged tree element.
@@ -161,7 +175,7 @@ class FSM(Graph):
 if __name__ == '__main__':
     for file_name in [
 ##        r'E:\work\projects\menge_release\examples\core\4square\4squareB.xml',
-##        r"E:\work\projects\menge_release\examples\core\boolean\booleanB.xml",
+        r"E:\work\projects\menge_release\examples\core\boolean\booleanB.xml",
 ##        r"E:\work\projects\menge_release\examples\core\bottleneck\bottleneckB.xml",
 ##        r"E:\work\projects\menge_release\examples\core\circle\circleB.xml",
 ##        r"E:\work\projects\menge_release\examples\core\concave\concaveMapB.xml",
