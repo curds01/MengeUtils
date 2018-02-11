@@ -283,8 +283,10 @@ def main():
     if behaveName:
         fsm = FSM()
         fsm.initFromFile(behaveName)
-        ctx = GraphContext(fsm)
-        ctx.fully_relax()
+        ctx = RelaxGraphContext(fsm, behaveName)
+        if not fsm.is_positioned:
+            print "Relaxing!"
+            ctx.fully_relax()
         context.addContext(ctx, pygame.K_v)
         
     context.newGLContext()

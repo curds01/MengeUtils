@@ -2,6 +2,7 @@
 #
 from graph import Vertex, Edge, Graph
 import lxml.etree as ET
+import os
 
 class State(Vertex):
     '''Represents the state (equivalent to a vertex in a graph)'''
@@ -40,6 +41,8 @@ class Transition(Edge):
 class FSM(Graph):
     def __init__(self):
         Graph.__init__(self)
+        # Reports if the states have ben positioned (as opposed to randomly loaded).
+        self.is_positioned = False
 
     def __str__(self):
         s = 'FSM:\nStates:'
@@ -68,6 +71,37 @@ class FSM(Graph):
 
         self.update_start_states()
 
+        base, ext = os.path.splitext(file_name)
+        graph_file = base + '.graph'
+        if os.path.exists(graph_file):
+            self.position(graph_file)
+
+    def format_file(self):
+        '''A file that writes a file of this FSM's positions for reloading later'''
+        state_data = ['{};{};{}'.format(s.name, s.pos[0], s.pos[1]) for s in self.vertices]
+        return '\n'.join(state_data)
+        
+    def position(self, graph_file):
+        '''Positions the states according to the graph file indicated. If there is an error
+        in reading the graph file, all states will be returned to the zero position'''
+        try:
+            with open(graph_file, 'r') as f:
+                for line in f.xreadlines():
+                    if not line: continue
+                    tokens = line.split(';')
+                    name = tokens[0]
+                    x = float(tokens[1])
+                    y = float(tokens[2])
+                    match = filter(lambda x: x.name == name, self.vertices)
+                    match[0].setPosition((x, y))
+        except:
+            print "Error loading position data: {}".format(graph_file)
+            for s in self.vertices:
+                s.setPosition((0, 0))
+            return
+        self.is_positioned = True
+                          
+                
     def update_start_states(self):
         '''Examines the transitions to determine if there are any obvious start states
         (i.e., a state that only has exiting transitions'''
@@ -148,8 +182,7 @@ class FSM(Graph):
             raise RuntimeError("Transition tag is missing 'from' attribute on line {}"
                                .format(trans_elem.sourceline))
         return from_name.split(',')
-        
-        
+
     def make_transition(self, trans_elem, state_lookup):
         '''Creates a Transition instance from a "Transition"-tagged tree element.
         Looks up state names from the state-lookup.
@@ -203,5 +236,6 @@ if __name__ == '__main__':
         print
         fsm.initFromFile(file_name)
         print file_name
+        print "Is positioned:", fsm.is_positioned
         print fsm
     #fsm.initFromFile(r'E:\work\projects\menge_release\examples\core\boolean\booleanB.xml')
