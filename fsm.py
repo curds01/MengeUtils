@@ -3,6 +3,8 @@
 from graph import Vertex, Edge, Graph
 import lxml.etree as ET
 import os
+from OpenGL.GL import *
+import numpy as np
 
 class State(Vertex):
     '''Represents the state (equivalent to a vertex in a graph)'''
@@ -52,6 +54,71 @@ class FSM(Graph):
         for t in self.edges:
             s += '\n\t{}'.format(t)
         return s
+
+    def drawGL(self, select=False, selectEdges=False, editable=False):
+        '''Overrides the parent class to draw an FSM'''
+        if selectEdges or not select:
+            self.drawTransitions(self.edges, select, editable)
+        if not selectEdges:
+            self.drawStates(self.vertices, select, editable)
+
+    def drawTransitions(self, transitions, select, editable):
+        # Condition types to handle
+        #   conjunctions: and, not, or
+        colors = {'goal_reached':(1, 0, 0),
+                  'timer':(0, 1, 0),
+                  'auto':(1, 1, 1),
+                  'AABB':(1, 1, 1),
+                  }
+        glPushAttrib(GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT)
+        glDisable(GL_DEPTH_TEST)
+        glLineWidth(3)
+        glBegin(GL_LINES)
+        for i, t in enumerate(transitions):
+            color = colors.get(t.cond_type, (0.4, 0.4, 0.4))
+            glColor3fv(color)
+            p1 = t.start.pos
+            p2 = t.end.pos
+            glVertex3f(p1[0], p1[1], 0)
+            glVertex3f(p2[0], p2[1], 0)
+        glEnd()
+        glPopAttrib()
+        glLineWidth(1.0)
+
+    def drawStates(self, states, select, editable):
+        theta = np.linspace(0, np.pi * 2, 32)
+        cTheta = np.cos(theta)
+        sTheta = np.sin(theta)
+        glPolygonMode(GL_FRONT, GL_FILL)
+        glPushAttrib(GL_COLOR_BUFFER_BIT)
+        glColor3f(1, 1, 1)
+        
+        def circle(pos, scale):
+            # TODO: Push this into a display list
+            # TODO: This should really be part of the context and *not* the class.
+            glPushMatrix()
+            glTranslatef(state.pos[0], state.pos[1], 0)
+            glScalef(scale, scale, scale)
+            glBegin(GL_TRIANGLE_FAN)
+            glVertex3f(0, 0, 0)
+            for c, s in zip(cTheta, sTheta):
+                glVertex3f(c, s, 0)
+            glEnd()
+            glPopMatrix()
+            
+        for i, state in enumerate(states):
+            if select:
+                glLoadName(i)
+            if state.is_final and not select:
+                glColor3f(1, .2, .2)
+                circle(state.pos, 6)
+                glColor3f(1, 1, 1)
+            elif state.is_start and not select:
+                glColor3f(.2, 0.8, .2)
+                circle(state.pos, 6)
+                glColor3f(1, 1, 1)
+            circle(state.pos, 5)
+        glPopAttrib()
 
     def initFromFile(self, file_name):
         print "Reading from behavior file:", file_name
