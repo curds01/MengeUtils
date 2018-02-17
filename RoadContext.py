@@ -707,6 +707,124 @@ class ObstacleNullContext( PGContext ):
 #       2) Move
 #       3) Reverse winding
 
+class GraphMoveContext(PGContext):
+    '''A context for *moving* graph elements (edges and vertices)'''
+    HOVER = 0
+    MOVE_FEATURE = 1
+
+    HELP_TEXT = ('Edit a graph (aka roadmap)'
+                 '\n\tEdit existing features'
+                 '\n\t\tmove mouse - hover over vertex to highlight it'
+                 '\n\t\tShift + move moouse - hover over edge to highlight it'
+                 '\n\t\tleft-drag - move highlighted vertex (not edge)'
+                 '\n\tCtrl-s - save current graph as "temp.graph"')
+    
+    def __init__(self, graph, file_name=None):
+        '''Constructor.
+
+        @param graph        An instance of graph to edit.
+        @param file_name    A string. The optional name of the file. If saved, the
+                            graph will be written to filename.graph.
+        '''
+        PGContext.__init__(self)
+        self.graph = graph
+        self.move_state = self.HOVER
+        self.downX = 0      # the screen space coordinates where the mouse was pressed (x)
+        self.downY = 0      # the screen space coordinates where the mouse was pressed (y)
+        self.downPos = None # the world coordinates of where the mouse was pressed (x, y)
+        if file_name is None:
+            self.file_name = 'temp.graph'
+        else:
+            base, ext = os.path.splitext(file_name)
+            self.file_name = base + ".graph"
+        # TODO: The Graph currently holds things like active vertex and active edge used
+        # edit the graph interactively. Pull them out of the graph and into the context.
+
+    def handleKeyboard(self, event, view):
+        '''Handle keyboard events'''
+        result = PGContext.handleKeyboard(self, event, view)
+        if (not result.isHandled()):
+            mods = pygame.key.get_mods()
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            hasShift = mods & pygame.KMOD_SHIFT
+            noMods = not(hasShift or hasCtrl or hasAlt)
+
+            if (event.type == pygame.KEYDOWN):
+                if (event.key == pygame.K_s and hasCtrl):
+                    fileName = paths.getPath(self.file_name, False)
+                    with open(fileName, 'w') as f: 
+                        f.write('%s\n' % self.graph.format_file())
+                        print "Graph saved!", fileName
+                    result.setHandled(True)
+        return result
+
+    def handleMouse(self, event, view):
+        """The context handles the mouse event as it sees fit and reports it's status
+        with a ContextResult."""
+        result = PGContext.handleMouse(self, event, view)
+
+        if (not result.isHandled()):
+            mods = pygame.key.get_mods()
+            hasCtrl = mods & pygame.KMOD_CTRL
+            hasAlt = mods & pygame.KMOD_ALT
+            hasShift = mods & pygame.KMOD_SHIFT
+            noMods = not(hasShift or hasCtrl or hasAlt)
+
+            if (event.type == pygame.MOUSEMOTION):
+                if (self.move_state == self.HOVER):
+                    pX, pY = event.pos
+                    selected = view.select(pX, pY, self.graph, hasShift)
+                    if (selected == -1):
+                        self.graph.activeEdge = None
+                        self.graph.fromID = self.graph.toID = None
+                        result.setNeedsRedraw(True)
+                    else:
+                        if (hasShift):
+                            selEdge = self.graph.edges[selected]
+                            self.graph.fromID = self.graph.toID = None
+                            # select edges
+                            if (selEdge != self.graph.activeEdge):
+                                self.graph.activeEdge = selEdge
+                                result.setNeedsRedraw(True)
+                        else:
+                            self.graph.activeEdge = None
+                            selVert = self.graph.vertices[selected]
+                            if (self.graph.fromID != selVert):
+                                result.setNeedsRedraw(True)
+                                self.graph.fromID = selVert
+                        
+                elif (self.move_state == self.MOVE_FEATURE):
+                    dX, dY = view.screenToWorld((self.downX, self.downY))
+                    pX, pY = view.screenToWorld(event.pos)
+                    newX = self.downPos[0] + (pX - dX)
+                    newY = self.downPos[1] + (pY - dY)
+                    self.graph.fromID.setPosition((newX, newY))
+                    result.setNeedsRedraw(True)
+                    
+            elif (event.type == pygame.MOUSEBUTTONUP):
+                self.move_state = self.HOVER
+            elif (event.type == pygame.MOUSEBUTTONDOWN and noMods):
+                if (event.button == PGMouse.LEFT):
+                    self.downX, self.downY = event.pos
+                    print self.graph.fromID
+                    if (self.graph.fromID is not None):
+                        self.downPos = (self.graph.fromID.pos[0], self.graph.fromID.pos[1])
+                        self.move_state = self.MOVE_FEATURE
+                    elif (self.graph.activeEdge is not None):
+                        print "Should be moving an edge"
+                elif (event.button == PGMouse.RIGHT):
+                    if (self.move_state == self.MOVE_FEATURE):
+                        self.graph.fromID.setPosition(self.downPos)
+                        result.setNeedsRedraw(True)
+        return result
+
+    def drawGL(self, view):
+        PGContext.drawGL(self, view)
+        view.printText('Graph edit', (10, 10))
+        if (self.graph):
+            self.graph.drawGL(editable=True)
+
 class GraphContext(PGContext):
     '''A context for modifying/editing an undirected graph'''
     # Defines the state for interpreting mouse motion
@@ -883,7 +1001,7 @@ class GraphContext(PGContext):
         '''Callback invoked after a feature (vertex or edge) has been invoked'''
         pass
 
-class RelaxGraphContext(GraphContext):
+class RelaxGraphContext(GraphMoveContext):
     '''A graph context that allows me to test graph relaxation'''
     # Force constants
     CHARGE_K = 15
@@ -901,7 +1019,7 @@ class RelaxGraphContext(GraphContext):
         @param file_name    A string. The optional name of the file. If saved, the
                             graph will be written to filename.graph.
         '''
-        GraphContext.__init__(self, graph, file_name)
+        GraphMoveContext.__init__(self, graph, file_name)
         # Cached data structures for performing computation
         self.pos = None
         self.edge_matrix = None
@@ -915,7 +1033,7 @@ class RelaxGraphContext(GraphContext):
 
     def handleKeyboard(self, event, view):
         '''Handle keyboard events'''
-        result = GraphContext.handleKeyboard(self, event, view)
+        result = GraphMoveContext.handleKeyboard(self, event, view)
         if (not result.isHandled()):
             mods = pygame.key.get_mods()
             hasCtrl = mods & pygame.KMOD_CTRL
