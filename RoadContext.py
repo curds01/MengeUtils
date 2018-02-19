@@ -500,6 +500,7 @@ class SCBContext( PGContext ):
         CLASS_COUNT = len( self.classes.keys() )
         COLOR_STRIDE = self.COLOR_COUNT / CLASS_COUNT
         MAX_COLOR = 1/0.7
+        
         for i, idClass in enumerate( keys ):
             for idx in self.classes[ idClass ]:
                 x, y = self.currFrame[ idx, :2 ]
@@ -1031,10 +1032,14 @@ class FsmContext(GraphMoveContext):
                             graph will be written to filename.graph.
         '''
         GraphMoveContext.__init__(self, graph, file_name)
+        if (HAS_CAIRO):
+            # TODO: Make this invariant to the number of contexts instantiated.
+            self.HELP_TEXT += '\n\tAlt + Shift + s - write out svg file'
         # Cached data structures for performing computation
         self.pos = None
         self.edge_matrix = None
         self.forces = None
+        self.view = None
 
     def add_feature_cb(self):
         '''Callback invoked after a feature (vertex or edge) has been invoked'''
@@ -1059,8 +1064,101 @@ class FsmContext(GraphMoveContext):
                     else:
                         self.relax_step()
                     result.set(True, True)
+                elif (HAS_CAIRO and event.key == pygame.K_s and hasAlt and hasShift):
+                    self.write_svg()
+                    result.setHandled(True)
         return result
 
+    def write_svg(self):
+        base, ext = os.path.splitext(self.file_name)
+        svg_file = base + ".svg"
+        print "Writing svg", svg_file
+        surface = cairo.SVGSurface( svg_file, self.view.wWidth, self.view.wHeight )
+        cr = cairo.Context( surface )
+        # This configures the surface's transforms to align with the screen.
+        #   So, I can use the same coordinates that are getting drawn to the screen
+        #   to draw to the image, and I'll get the same output.
+        cr.scale( self.view.wWidth / self.view.vWidth, self.view.wHeight / self.view.vHeight )
+        cr.translate( 0, self.view.vHeight)
+        cr.scale( 1.0, -1.0 )  # This causes text to be flipped upside down
+        cr.translate( -self.view.vLeft, -self.view.vBottom )
+        
+        cr.set_line_width(max(cr.device_to_user_distance(1.5, 1.5)))
+        # draw transitions
+        colors = {'goal_reached':(1, 0, 0),
+                  'timer':(0, 1, 0),
+                  'auto':(1, 1, 1),
+                  'AABB':(1, 1, 1),
+                  }
+        for t in self.graph.edges:
+            color = colors.get(t.cond_type, (0.4, 0.4, 0.4))
+            # TODO: This logic should go in a different function -- used twice.
+            p1 = np.array(t.start.pos)
+            p2 = np.array(t.end.pos)
+            dir = p2 - p1
+            dist = np.sqrt(dir.dot(dir))
+            dir /= dist
+            s = p1 + 5 * dir
+            e = p2 - 5 * dir
+            cr.new_sub_path()
+            cr.set_source_rgb(color[0], color[1], color[2])
+            cr.save()
+            m = cairo.Matrix(dir[0], dir[1], -dir[1], dir[0], e[0], e[1])
+            cr.transform(m)
+            cr.move_to(0, 0)
+            cr.line_to(-2, 1)
+            cr.line_to(-2, 0.25)
+            cr.line_to(-dist + 10, 0.25)
+            cr.line_to(-dist + 10, -0.25)
+            cr.line_to(-2, -0.25)
+            cr.line_to(-2, -1)
+            cr.fill()
+            cr.restore()
+
+        if True:
+            # draw states
+            # determine font size from state name sizes
+            max_width = 0
+            cr.set_font_size(4)
+            sizes = []
+            for s in self.graph.vertices:
+                x_bearing, y_bearing, width, height, x_advance, y_advance = cr.text_extents(s.name)
+                sizes.append((width, height))
+                if width > max_width:
+                    max_width = width
+
+            scale = 9 / max_width
+            cr.set_font_size( 4 * scale)
+            sizes = [(w * scale, h * scale) for w, h in sizes]
+            
+            for i, s in enumerate(self.graph.vertices):
+                cr.new_sub_path()
+                cr.arc(s.pos[0], s.pos[1], 5, 0, 2 * np.pi)
+                cr.set_source_rgb(1, 1, 1)
+                cr.fill_preserve()
+                cr.set_source_rgb(0, 0, 0)
+                if s.is_final:
+                    cr.set_source_rgb(0.8, 0.1, 0.1)
+                    cr.set_line_width(1)
+                elif s.is_start:
+                    cr.set_source_rgb(0.1, 0.8, 0.1)
+                    cr.set_line_width(1)
+                else:
+                    cr.set_source_rgb(0, 0, 0)
+                    cr.set_line_width(0.25)
+                cr.stroke()
+                cr.set_source_rgb(0, 0, 0)
+                cr.move_to(s.pos[0] - sizes[i][0] / 2, s.pos[1] - sizes[i][1] / 2)
+                cr.save()
+                cr.scale(1.0, -1.0)
+                cr.show_text(s.name)
+                cr.restore()
+        
+        # finalize
+        surface.write_to_png( base + '.png' )
+        cr.show_page()
+        surface.finish()
+        
     def build_graph( self ):
         '''Builds the underlying data structures for doing the relaxation from the
         graph.'''
@@ -1180,6 +1278,7 @@ class FsmContext(GraphMoveContext):
             self.pos[state.id, 0, :] = state.pos
 
     def drawGL(self, view):
+        self.view = view
         PGContext.drawGL(self, view)
         # The context has the view -- it should be drawing the FSM
         view.printText('Relax graph edit\n  cost: %f' % self.cost(), (10, 30))
