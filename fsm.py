@@ -41,6 +41,8 @@ class Transition(Edge):
         return '{} to {} by {}'.format(self.start.name, self.end.name, self.cond_type)
 
 class FSM(Graph):
+    # The radius of the state -- move to context.
+    RADIUS = 5
     def __init__(self):
         Graph.__init__(self)
         # Reports if the states have ben positioned (as opposed to randomly loaded).
@@ -82,6 +84,27 @@ class FSM(Graph):
             glVertex3f(p1[0], p1[1], 0)
             glVertex3f(p2[0], p2[1], 0)
         glEnd()
+        glPushMatrix()
+        glPolygonMode(GL_FRONT, GL_FILL)
+        for t in transitions:
+            color = colors.get(t.cond_type, (0.4, 0.4, 0.4))
+            glColor3fv(color)
+            p1 = np.array(t.start.pos)
+            p2 = np.array(t.end.pos)
+            dir = p2 - p1
+            dir /= np.sqrt(dir.dot(dir))
+            p = p2 - self.RADIUS * dir
+            glLoadMatrixf((dir[0], dir[1], 0, 0,
+                          -dir[1], dir[0], 0, 0,
+                          0, 0, 1, 0,
+                          p[0], p[1], 0, 1))
+            
+            glBegin(GL_TRIANGLES)
+            glVertex3f(0, 0, 0)
+            glVertex3f(-3, 1.5, 0)
+            glVertex3f(-3, -1.5, 0)
+            glEnd()
+        glPopMatrix()
         glPopAttrib()
         glLineWidth(1.0)
 
@@ -111,13 +134,13 @@ class FSM(Graph):
                 glLoadName(i)
             if state.is_final and not select:
                 glColor3f(1, .2, .2)
-                circle(state.pos, 6)
+                circle(state.pos, self.RADIUS + 1)
                 glColor3f(1, 1, 1)
             elif state.is_start and not select:
                 glColor3f(.2, 0.8, .2)
-                circle(state.pos, 6)
+                circle(state.pos, self.RADIUS + 1)
                 glColor3f(1, 1, 1)
-            circle(state.pos, 5)
+            circle(state.pos, self.RADIUS)
         glPopAttrib()
 
     def initFromFile(self, file_name):

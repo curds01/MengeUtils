@@ -5,6 +5,7 @@ import pygame
 from fieldTools import *
 import numpy as np
 from OpenGL.GL import *
+from OpenGL.GLU import gluProject
 import trajectory.scbData as scbData
 from primitives import Vector2
 from obstacles import GLPoly
@@ -1180,9 +1181,14 @@ class FsmContext(GraphMoveContext):
 
     def drawGL(self, view):
         PGContext.drawGL(self, view)
+        # The context has the view -- it should be drawing the FSM
         view.printText('Relax graph edit\n  cost: %f' % self.cost(), (10, 30))
         if (self.graph):
             self.graph.drawGL(editable=True)
+            # draw state names
+            for state in self.graph.vertices:
+                screenPos = gluProject(state.pos[0], state.pos[1], 0)
+                view.printText(state.name, (int(screenPos[0]), int(screenPos[1])))
             
 class EditPolygonContext( PGContext, MouseEnabled ):
     '''A context for editing obstacles'''
