@@ -17,7 +17,7 @@ from fsm import FSM
 # contexts
 from RoadContext import ContextSwitcher, AgentContext, FieldEditContext
 from RoadContext import SCBContext, PositionContext, ObstacleContext
-from RoadContext import RelaxGraphContext
+from RoadContext import FsmContext
 from RoadContext import GraphContext
 from GoalContext import GoalContext
 from GoalEditor import GoalEditor
@@ -283,7 +283,7 @@ def main():
     if behaveName:
         fsm = FSM()
         fsm.initFromFile(behaveName)
-        ctx = RelaxGraphContext(fsm, behaveName)
+        ctx = FsmContext(fsm, behaveName)
         if not fsm.is_positioned:
             print "Relaxing!"
             ctx.fully_relax()

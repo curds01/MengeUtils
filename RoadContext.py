@@ -1009,8 +1009,8 @@ class GraphContext(PGContext):
         '''Callback invoked after a feature (vertex or edge) has been invoked'''
         pass
 
-class RelaxGraphContext(GraphMoveContext):
-    '''A graph context that allows me to test graph relaxation'''
+class FsmContext(GraphMoveContext):
+    '''A context that assists in visualizing an FSM graph'''
     # Force constants
     CHARGE_K = 15
     SPRING_K = .1
