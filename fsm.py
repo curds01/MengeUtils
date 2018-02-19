@@ -151,11 +151,11 @@ class FSM(Graph):
             raise RuntimeError("{} is not a recognized behavior file".format(file_name))
 
         state_lookup = {}  # mapping from state name to state.
-        for state_elem in root.iter('State'):
+        for state_elem in root.iterchildren('State'):
             s = self.make_state(state_elem, state_lookup)
             self.vertices.append(s)
             
-        for trans_elem in root.iter('Transition'):
+        for trans_elem in root.iterchildren('Transition'):
             t = self.make_transition(trans_elem, state_lookup)
             self.edges.extend(t)
 
