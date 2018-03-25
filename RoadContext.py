@@ -1019,7 +1019,8 @@ class FsmContext(PGContext):
     CHARGE_K = 15
     SPRING_K = .1
 
-    TIME_STEP = 0.5
+    TIME_STEP = 0.25
+
     RADIUS = 5
 
     INIT_FINAL_FORCE = np.array(((-1, 0),), dtype=np.float)
@@ -1213,6 +1214,8 @@ class FsmContext(PGContext):
         # init_final encodes if a state is initial (1), final (-1), or neither
         #   Causes the initial and final states to gravitate in opposite directions
         self.init_final = np.zeros((s_count, 1), dtype=np.float)
+        start_count = 0
+        f_count = 0
         for state in self.fsm.states:
             # Perturb the intial conditions slightly; so that if I have vertices on
             # top of each other, they won't be.
@@ -1221,10 +1224,17 @@ class FsmContext(PGContext):
             try:
                 if state.is_final:
                     self.init_final[state.id, 0] = -1
+                    f_count += 1
                 elif state.is_start:
                     self.init_final[state.id, 0] = 1
+                    start_count += 1
             except:
                 pass
+        # I want the *total* force for aligning start and final states to be a net zero.
+        if start_count > 0:
+            self.init_final[self.init_final[:,0] == 1, 0] /= start_count
+        if f_count > 0:
+            self.init_final[self.init_final[:,0] == -1, 0] /= f_count
             
         self.edge_matrix = np.zeros((s_count, s_count, 1), dtype=np.float)
         for trans in self.fsm.transitions:
@@ -1276,10 +1286,11 @@ class FsmContext(PGContext):
         return self.forces
 
     def fully_relax(self):
+        MAX_STEPS = 10000
         last_cost = np.inf
         cost = self.cost()
         s = 0
-        while np.abs(last_cost - cost) > 1e-5:
+        while np.abs(last_cost - cost) > 1e-5 and s < MAX_STEPS:
             self.relax_step()
             last_cost = cost
             cost = self.cost()
