@@ -34,17 +34,19 @@ class PGMouse:
 
 class PGContext( BaseContext ):
     '''A pygame-based context'''
-    HELP_TEXT = 'No help defined'
     def __init__( self ):
         BaseContext.__init__( self )
         self.displayHelp = False
+
+    def help_text(self):
+        return 'No help defined'
 
     def drawHelp( self, view ):
         '''Displays this context's instructions to the display'''
         if ( self.displayHelp ):
             hCenter = view.wWidth / 2
             vCenter = view.wHeight / 2
-            t = self.HELP_TEXT + '\n\t---\n' + view.HELP_TEXT
+            t = self.help_text() + '\n\t---\n' + view.HELP_TEXT
             size = view.textSize( t )
             vCenter += size[1] / 2
             hCenter -= size[0] / 2
@@ -80,9 +82,9 @@ class PGContext( BaseContext ):
 class ContextSwitcher( PGContext ):
     '''A context for switching contexts'''
     HELP_BASE = 'Hit the following keys to activate a context (hit ESC to back out)'
-    HELP_TEXT = HELP_BASE
     def __init__( self ):
         PGContext.__init__( self )
+        self.help = self.HELP_BASE
         self.contexts = {}
         self.activeContext = None
 
@@ -91,6 +93,9 @@ class ContextSwitcher( PGContext ):
         if ( self.activeContext ):
             return self.activeContext.exportDisplay()
         return None        
+
+    def help_text(self):
+        return self.help
 
     def handleKeyboard( self, event, view ):
         """The context handles the keyboard event as it sees fit and reports it's status with a ContextResult"""
@@ -143,9 +148,9 @@ class ContextSwitcher( PGContext ):
         self.contexts[ key ] = context
         keys = self.contexts.keys()
         keys.sort()
-        self.HELP_TEXT = self.HELP_BASE
+        self.help = self.HELP_BASE
         for k in keys:
-            self.HELP_TEXT += '\n\t%s: %s' % ( pygame.key.name( k ), self.contexts[ k ] )
+            self.help += '\n\t%s: %s' % ( pygame.key.name( k ), self.contexts[ k ] )
         print "Adding context {0} to key {1}".format( context, pygame.key.name( key ) )
 
     def switchContexts( self, context ):
@@ -185,15 +190,6 @@ class MouseEnabled:
 
 class SCBContext( PGContext ):
     '''Plays back an scb file'''
-    HELP_TEXT = 'Playback an scbfile' + \
-                '\n\tup arrow - go to beginning' + \
-                '\n\tCtrl-s - save current configuration in xml file' + \
-                '\n\tc - toggle coloring between state and class' + \
-                '\n\tright arrow - step frame forward' + \
-                '\n\tleft arrow - step frame backward' + \
-                '\n\t\t* Holding Ctrl, Alt, Shift will speed up the playback step' + \
-                '\n\t\t* Each adds a factor of 10 to the playback' + \
-                '\n\tCtrl-o - toggle whether or not the frames are output'
     COLORS = ( (0.7, 0.0, 0.0 ),  # red
 ##               (0.7, 0.35, 0.0 ), # orange
                (0.7, 0.7, 0.0 ),  # yellow
@@ -210,8 +206,6 @@ class SCBContext( PGContext ):
     COLOR_COUNT = len( COLORS )
     def __init__( self, scbFileName, obstacles, agentRadius=0.13 ):
         PGContext.__init__( self )
-        if ( HAS_CAIRO ):
-            self.HELP_TEXT += '\n\tCtrl-p - output the current frame as a pdf file.'
         self.obstacles = obstacles
         print "***\nOBSTACLES"
         print obstacles
@@ -229,6 +223,20 @@ class SCBContext( PGContext ):
             print "SCBContext"
             print "\tFrame shape:", self.currFrame.shape
             print "Found agents with the following ids:", self.classes.keys()
+
+    def help_text(self):
+        s = ('Playback an scbfile'
+             '\n\tup arrow - go to beginning'
+             '\n\tCtrl-s - save current configuration in xml file'
+             '\n\tc - toggle coloring between state and class'
+             '\n\tright arrow - step frame forward'
+             '\n\tleft arrow - step frame backward'
+             '\n\t\t* Holding Ctrl, Alt, Shift will speed up the playback step'
+             '\n\t\t* Each adds a factor of 10 to the playback'
+             '\n\tCtrl-o - toggle whether or not the frames are output')
+        if ( HAS_CAIRO ):
+            s += '\n\tCtrl-p - output the current frame as a pdf file'
+        return s
 
     def exportDisplay( self ):
         '''Reports if the screen should be exported to an image'''
@@ -528,15 +536,16 @@ class SCBContext( PGContext ):
 
 class PositionContext( PGContext, MouseEnabled ):
     '''A context for determining positions in the scene'''
-    HELP_TEXT = 'Position Context' + \
-                '\n\tAllows the user to query world space coordinates' + \
-                '\n\tSimply click on the window, the world space coordinates' + \
-                '\n\twill be printed to the console'
-    
     def __init__( self ):
         PGContext.__init__( self )
         MouseEnabled.__init__( self )
         self.worldPos = [0,0]
+
+    def help_text(self):
+        return ('Position Context'
+                '\n\tAllows the user to query world space coordinates'
+                '\n\tSimply click on the window, the world space coordinates'
+                '\n\twill be printed to the console')
 
     def handleMouse( self, event, view ):
         """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
@@ -597,6 +606,7 @@ class ObstacleContext( PGContext, MouseEnabled ):
         '''        
         PGContext.__init__( self )
         MouseEnabled.__init__( self )
+        self.help = self.BASE_TEXT
         self.obstacleSet = obstacleSet
         self.state = self.NEW_POLY
         self.contexts = { self.NO_ACTION:ObstacleNullContext(),
@@ -604,6 +614,9 @@ class ObstacleContext( PGContext, MouseEnabled ):
                           self.EDIT_POLY:EditPolygonContext( obstacleSet )
                           }
         self.drawNormal = False     # determines if normals are drawn on the obstacles
+
+    def help_text(self):
+        return self.help
 
     def activate( self ):
         '''Called when the context is first activated'''
@@ -626,7 +639,7 @@ class ObstacleContext( PGContext, MouseEnabled ):
             self.contexts[ self.state ].deactivate()
             self.state = newState
             self.contexts[ self.state ].activate()
-            self.HELP_TEXT = self.BASE_TEXT + '\n\n' + self.contexts[ self.state ].HELP_TEXT
+            self.help = self.BASE_TEXT + '\n\n' + self.contexts[ self.state ].help_text()
             
         
     def handleKeyboard( self, event, view ):
@@ -691,12 +704,14 @@ class ObstacleContext( PGContext, MouseEnabled ):
         return result
 class ObstacleNullContext( PGContext ):
     '''A simple context for indicating no action is being taken'''
-    HELP_TEXT = 'No action'
 
     def drawGL( self, view, visNormals ):
         '''Draws the agent context into the view'''
         PGContext.drawGL( self, view )
         view.printText( "No action",  (10,30) )
+
+    def help_text(self):
+        return 'No action'
 
 # Actions
 #   Vertices
@@ -712,16 +727,11 @@ class ObstacleNullContext( PGContext ):
 #       3) Reverse winding
 
 class GraphMoveContext(PGContext):
-    '''A context for *moving* graph elements (edges and vertices)'''
+    '''A context for *moving* graph elements (edges and vertices). The goal is to make
+    this sufficiently generic that the exact representation of edges and vertices
+    dont't matter.'''
     HOVER = 0
     MOVE_FEATURE = 1
-
-    HELP_TEXT = ('Edit a graph (aka roadmap)'
-                 '\n\tEdit existing features'
-                 '\n\t\tmove mouse - hover over vertex to highlight it'
-                 '\n\t\tShift + move moouse - hover over edge to highlight it'
-                 '\n\t\tleft-drag - move highlighted vertex (not edge)'
-                 '\n\tCtrl-s - save current graph as "temp.graph"')
     
     def __init__(self, graph, file_name=None):
         '''Constructor.
@@ -744,6 +754,22 @@ class GraphMoveContext(PGContext):
         # TODO: The Graph currently holds things like active vertex and active edge used
         # edit the graph interactively. Pull them out of the graph and into the context.
 
+    def help_text(self):
+        return ('Edit a graph (aka roadmap)'
+                '\n\tEdit existing features'
+                '\n\t\tmove mouse - hover over vertex to highlight it'
+                '\n\t\tleft-drag - move highlighted vertex'
+                '\n\t\tShift + move moouse - hover over edge to highlight it'
+                '\n\t\tShift + left-drag - move highlighted edge'
+                '\n\tCtrl-s - save current graph as "{}"').format(self.save_name())
+
+    @staticmethod
+    def save_name(cls):
+        '''Reports the name of the file created by saving from this context. Sub-classes
+        should override this as appropriate to distinguish graph types.'''
+        # TODO: This should be part of a generic graph context.
+        return 'temp.graph'
+    
     def handleKeyboard(self, event, view):
         '''Handle keyboard events'''
         result = PGContext.handleKeyboard(self, event, view)
@@ -843,18 +869,6 @@ class GraphContext(PGContext):
     HOVER = 0
     BUILD_EDGE = 1
     MOVE_FEATURE = 2
-
-    HELP_TEXT = ('Edit a graph (aka roadmap)'
-                 '\n\tEdit existing features'
-                 '\n\t\tmove mouse - hover over vertex to highlight it'
-                 '\n\t\tShift + move moouse - hover over edge to highlight it'
-                 '\n\t\tleft-drag - move highlighted vertex (not edge)'
-                 '\n\t\tDelete - delete highlighted feature (vertex or edge)'
-                 '\n\tAdd new features'
-                 '\n\t\tLeft click on empty space - add new vertex'
-                 '\n\t\tMiddle drag from vertex to vertex - add new edge'
-                 '\n\t\tMiddle drag from empty space to vertex - add new vertex and edge'
-                 '\n\tCtrl-s - save current graph as "temp.graph"')
     
     def __init__(self, graph, file_name=None):
         '''Constructor.
@@ -876,6 +890,19 @@ class GraphContext(PGContext):
             self.file_name = base + ".graph"
         # TODO: The Graph currently holds things like active vertex and active edge used
         # edit the graph interactively. Pull them out of the graph and into the context.
+
+    def help_text(self):
+        return ('Edit a graph (aka roadmap)'
+                '\n\tEdit existing features'
+                '\n\t\tmove mouse - hover over vertex to highlight it'
+                '\n\t\tShift + move moouse - hover over edge to highlight it'
+                '\n\t\tleft-drag - move highlighted vertex (not edge)'
+                '\n\t\tDelete - delete highlighted feature (vertex or edge)'
+                '\n\tAdd new features'
+                '\n\t\tLeft click on empty space - add new vertex'
+                '\n\t\tMiddle drag from vertex to vertex - add new edge'
+                '\n\t\tMiddle drag from empty space to vertex - add new vertex and edge'
+                '\n\tCtrl-s - save current graph as "temp.graph"')
 
     def handleKeyboard(self, event, view):
         '''Handle keyboard events'''
@@ -1024,24 +1051,26 @@ class FsmContext(PGContext):
     RADIUS = 5
 
     INIT_FINAL_FORCE = np.array(((-1, 0),), dtype=np.float)
-
-    HELP_TEXT = GraphContext.HELP_TEXT + \
-    ('\n\tRight arrow - update the graph by relaxing one step'
-     '\n\tShift + Right arrow - fully relax the graph')
     
     def __init__(self):
         '''Constructor.'''
         PGContext.__init__(self)
         #GraphMoveContext.__init__(self, graph, file_name)
-        if (HAS_CAIRO):
-            # TODO: Make this invariant to the number of contexts instantiated.
-            self.HELP_TEXT += '\n\tAlt + Shift + s - write out svg file'
         # Cached data structures for performing computation
         self.fsm = None
         self.pos = None
         self.edge_matrix = None
         self.forces = None
         self.view = None
+
+    def help_text(self):
+        # TODO: Inherit from graph moving context
+        s = ('\n\tRight arrow - update the graph by relaxing one step'
+             '\n\tShift + Right arrow - fully relax the graph')
+        if HAS_CAIRO:
+            # TODO: Make this invariant to the number of contexts instantiated.
+            s += '\n\tAlt + Shift + s - write out svg file'
+        return s
 
     def set_fsm(self, file_name):
         '''Attempts to load the fsm indicated by file name. For a file name of the form
@@ -1454,24 +1483,6 @@ class FsmContext(PGContext):
             
 class EditPolygonContext( PGContext, MouseEnabled ):
     '''A context for editing obstacles'''
-    HELP_TEXT = 'Edit polygon' + \
-                '\n\tEdit the properties of a polygonal shape\n' + \
-                '\n\tv      Edit vertices' + \
-                '\n\t\tLeft-click and drag          Move highlighted vertex' +\
-                '\n\t\tRight-click while dragging   Cancel move' + \
-                '\n\t\tc                            Clear highlighted vertex' + \
-                '\n\t\t                             Removes polygons with < 3 vertices' + \
-                '\n\te      Edit edges' + \
-                '\n\t\tMiddle-click and drag        Insert vertex into highlighted edge' + \
-                '\n\t\tRight-click while draggin    Cancel insertion' + \
-                '\n\t\tc                            Collapse the highlighted edge' + \
-                '\n\t\t                             Removes polygon when it has < 3 vertices' + \
-                '\n\tp      Edit polygons' + \
-                '\n\t\tLeft-click and drag          Move highlighted polygon' + \
-                '\n\t\tRight-click while dragging   Cancel move' + \
-                '\n\t\tc                            Clears the highlighted polygon' + \
-                '\n\t\tr                            Reverse winding of highlighted polygon' + \
-                ''
     #states for editing
     NO_EDIT = 0
     VERTEX = 1
@@ -1490,6 +1501,25 @@ class EditPolygonContext( PGContext, MouseEnabled ):
         self.edgeDir = None
         self.activeID = -1
         self.activePoly = None
+
+    def help_text(self):
+        return ('Edit polygon'
+                '\n\tEdit the properties of a polygonal shape\n'
+                '\n\tv      Edit vertices'
+                '\n\t\tLeft-click and drag          Move highlighted vertex'
+                '\n\t\tRight-click while dragging   Cancel move'
+                '\n\t\tc                            Clear highlighted vertex'
+                '\n\t\t                             Removes polygons with < 3 vertices'
+                '\n\te      Edit edges'
+                '\n\t\tMiddle-click and drag        Insert vertex into highlighted edge'
+                '\n\t\tRight-click while draggin    Cancel insertion'
+                '\n\t\tc                            Collapse the highlighted edge'
+                '\n\t\t                             Removes polygon when it has < 3 vertices'
+                '\n\tp      Edit polygons'
+                '\n\t\tLeft-click and drag          Move highlighted polygon'
+                '\n\t\tRight-click while dragging   Cancel move'
+                '\n\t\tc                            Clears the highlighted polygon'
+                '\n\t\tr                            Reverse winding of highlighted polygon')
         
     def activate( self ):
         '''Called when the context is first activated'''
@@ -1705,16 +1735,6 @@ class EditPolygonContext( PGContext, MouseEnabled ):
         
 class DrawPolygonContext( PGContext, MouseEnabled ):
     '''A context for drawing a closed polygon'''
-    HELP_TEXT = 'Draw polygon' + \
-                '\n\tAllows the creation of a polygonal shape' + \
-                '\n\tLeft-click        Create a vertex' + \
-                '\n\t                  It will be connected to previous vertices in a' + \
-                '\n\t                  closed polygon' + \
-                '\n\tRight click       Finish polygon and add to obstacle set' + \
-                '\n\tDelete            Cancel current polygon' + \
-                '\n\tCtrl-z            Remove the last vertex added' + \
-                '\n\tf                 Flip obstacle sinding' + \
-                '\n\n\tYou must define a polygon with at least three vertices'
 
     # states for drawing
     WAITING = 0
@@ -1725,6 +1745,18 @@ class DrawPolygonContext( PGContext, MouseEnabled ):
         PGContext.__init__( self )
         MouseEnabled.__init__( self )
         self.activate()
+
+    def help_text(self):
+        return ('Draw polygon'
+                '\n\tAllows the creation of a polygonal shape'
+                '\n\tLeft-click        Create a vertex'
+                '\n\t                  It will be connected to previous vertices in a'
+                '\n\t                  closed polygon'
+                '\n\tRight click       Finish polygon and add to obstacle set'
+                '\n\tDelete            Cancel current polygon'
+                '\n\tCtrl-z            Remove the last vertex added'
+                '\n\tf                 Flip obstacle sinding'
+                '\n\n\tYou must define a polygon with at least three vertices')
 
     def activate( self ):
         '''Called when the context is first activated'''
@@ -1837,21 +1869,23 @@ class DrawPolygonContext( PGContext, MouseEnabled ):
      
 class AgentContext( PGContext, MouseEnabled ):
     '''A context for adding agents and editing agent positions'''
-    HELP_TEXT = 'Agent context' + \
-                '\n\tCreate new agent - left-click in space and drag to position' + \
-                '\n\tEdit agent position - hover over agent, left-click and drag to move' + \
-                '\n\tDelete agent - hover over agent, hit delete' + \
-                '\n\tIncrease NEW agent radius - up arrow (with no agent highlighted)' + \
-                '\n\tDecrease NEW agent radius - down arrow (with no agent highlighted)' + \
-                '\n\tIncrease specific agent radius - highlight agent/goal, up arrow' + \
-                '\n\tDecrease specific agent radius - highlight agent/goal, down arrow' + \
-                '\n\tSave out agents.xml - Ctrl + S'
     def __init__( self, agentSet ):
         PGContext.__init__( self )
         MouseEnabled.__init__( self )
         self.agents = agentSet
         self.agtRadius = self.agents.defRadius
         self.downPos = None     # the position of the active agent when the mouse was pressed
+
+    def help_text(self):
+        return ('Agent context'
+                '\n\tCreate new agent - left-click in space and drag to position'
+                '\n\tEdit agent position - hover over agent, left-click and drag to move'
+                '\n\tDelete agent - hover over agent, hit delete'
+                '\n\tIncrease NEW agent radius - up arrow (with no agent highlighted)'
+                '\n\tDecrease NEW agent radius - down arrow (with no agent highlighted)'
+                '\n\tIncrease specific agent radius - highlight agent/goal, up arrow'
+                '\n\tDecrease specific agent radius - highlight agent/goal, down arrow'
+                '\n\tSave out agents.xml - Ctrl + S')
 
     def activate( self ):
         '''Enables the agent set for editing'''
@@ -2087,12 +2121,14 @@ class FieldEditContext( VFieldContext ):
             
 class FieldStrokeContext( VFieldContext ):
     '''The basic context for editing fields with instantaneous strokes'''
-    HELP_TEXT = '\n\tUp arrow - increase brush size\n\tdown arrow - decrease brush size'
     def __init__( self, vfield ):
         VFieldContext.__init__( self, vfield )
         self.brushID = 0        # opengl brush id
         self.brushPos = (0.0, 0.0)  # position, in world space of the brush
         self.setBrushSize( 2.0 ) # size of brush (in meters)
+
+    def help_text(self):
+        return '\n\tUp arrow - increase brush size\n\tdown arrow - decrease brush size'
 
     def setBrushSize( self, size ):
         '''This sets the size of the brush - the absolute radius of the brush'''
@@ -2208,9 +2244,11 @@ class FieldStrokeContext( VFieldContext ):
         
 class FieldStrokeDirContext( FieldStrokeContext ):
     '''A context for editing the DIRECTION field by applying "instantaneous" strokes'''
-    HELP_TEXT = 'Edit the direction of the vectors' + FieldStrokeContext.HELP_TEXT
     def __init__( self, vfield ):
         FieldStrokeContext.__init__( self, vfield )
+
+    def help_text(self):
+        return 'Edit the direction of the vectors' + FieldStrokeContext.help_text(self)
 
     def doWork( self, mouseDelta ):
         '''Perofrm the work of the stroke based on the given mouse movement'''
@@ -2225,15 +2263,17 @@ class FieldStrokeSmoothContext( FieldStrokeContext ):
     '''A context for SMOOTHING the field by applying "instantaneous" strokes'''
     STRENGTH_CHANGE = 0.01
     KERNEL_CHANGE = 0.25
-    HELP_TEXT = 'Smooth the vector field' + FieldStrokeContext.HELP_TEXT + \
-        '\n\tright arrow - increase smooth strength' + \
-        '\n\tleft arrow - decrease smooth strength' + \
-        '\n\t[ - decrease kernel size' + \
-        '\n\t] - increase kernel size'
     def __init__( self, vfield ):
         FieldStrokeContext.__init__( self, vfield )
         self.smoothStrength = 1.0
         self.kernelSize = 1.0   # in meters
+
+    def help_text(self):
+        return ('Smooth the vector field' + FieldStrokeContext.help_text(self) +
+                '\n\tright arrow - increase smooth strength'
+                '\n\tleft arrow - decrease smooth strength'
+                '\n\t[ - decrease kernel size'
+                '\n\t] - increase kernel size')
         
     def drawGL( self, view ):
         '''Draws the brush size and the kernel size in the window'''
@@ -2290,12 +2330,14 @@ class FieldStrokeSmoothContext( FieldStrokeContext ):
         
 class FieldStrokeLenContext( FieldStrokeContext ):
     '''A context for editing the MAGNITUDE of the field by applying "instantaneous" strokes'''
-    HELP_TEXT = 'Edit the length of the vectors' + FieldStrokeContext.HELP_TEXT + \
-                '\n\tright arrow - increase length' + \
-                '\n\tleft arrow - decrease length'
     def __init__( self, vfield ):
         FieldStrokeContext.__init__( self, vfield )
         self.factor = 1.0
+
+    def help_text(self):
+        return ('Edit the length of the vectors' + FieldStrokeContext.help_text(self) +
+                '\n\tright arrow - increase length'
+                '\n\tleft arrow - decrease length')
 
     def handleKeyboard( self, event, view ):
         result = FieldStrokeContext.handleKeyboard( self, event, view )
@@ -2396,11 +2438,6 @@ class FieldPathContext( VFieldContext ):
             
 class FieldDomainContext( VFieldContext, MouseEnabled ):
     '''A context for editing the boundaries and resolution of a field'''
-    HELP_TEXT = 'Edit field domain properties' + \
-                '\n\tIncrease cell size - right arrow' + \
-                '\n\tDecrease cell size - left arrow' + \
-                '\n\t\t* holding Ctrl/Alt/Shift changes the cell size change rate'
-
     NO_EDIT = 0
     EDIT_HORZ = 1
     EDIT_VERT = 2
@@ -2410,6 +2447,13 @@ class FieldDomainContext( VFieldContext, MouseEnabled ):
         self.corners = vField.getCorners()
         self.size = vField.size # the size is (height, width)
         self.activeEdge = None
+
+    def help_text(self):
+        return ('Edit field domain properties'
+                '\n\tIncrease cell size - right arrow'
+                '\n\tDecrease cell size - left arrow'
+                '\n\t\t* holding Ctrl/Alt/Shift changes the cell size change rate'
+                )
 
     def activate( self  ):
         '''Begin boundary edit'''
