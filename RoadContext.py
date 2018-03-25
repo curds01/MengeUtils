@@ -13,6 +13,8 @@ import paths
 import numpy as np
 import os
 
+from fsm import FSM
+
 try:
     import cairo
     HAS_CAIRO = True
@@ -1011,13 +1013,14 @@ class GraphContext(PGContext):
         '''Callback invoked after a feature (vertex or edge) has been invoked'''
         pass
 
-class FsmContext(GraphMoveContext):
+class FsmContext(PGContext):
     '''A context that assists in visualizing an FSM graph'''
     # Force constants
     CHARGE_K = 15
     SPRING_K = .1
 
     TIME_STEP = 0.5
+    RADIUS = 5
 
     INIT_FINAL_FORCE = np.array(((-1, 0),), dtype=np.float)
 
@@ -1025,21 +1028,62 @@ class FsmContext(GraphMoveContext):
     ('\n\tRight arrow - update the graph by relaxing one step'
      '\n\tShift + Right arrow - fully relax the graph')
     
-    def __init__(self, graph, file_name=None):
-        '''Constructor.
-        @param graph        An instance of Graph. The graph to work with.
-        @param file_name    A string. The optional name of the file. If saved, the
-                            graph will be written to filename.graph.
-        '''
-        GraphMoveContext.__init__(self, graph, file_name)
+    def __init__(self):
+        '''Constructor.'''
+        PGContext.__init__(self)
+        #GraphMoveContext.__init__(self, graph, file_name)
         if (HAS_CAIRO):
             # TODO: Make this invariant to the number of contexts instantiated.
             self.HELP_TEXT += '\n\tAlt + Shift + s - write out svg file'
         # Cached data structures for performing computation
+        self.fsm = None
         self.pos = None
         self.edge_matrix = None
         self.forces = None
         self.view = None
+
+    def set_fsm(self, file_name):
+        '''Attempts to load the fsm indicated by file name. For a file name of the form
+        "path/file.xml", it also looks for the file "path/file.graph" to see if the
+        fsm has already been laid out'''
+        # Initialize the fsm
+        self.fsm = FSM()
+        self.fsm.initFromFile(file_name)
+        self.build_graph()
+        
+        # Test for the .graph file
+        base, ext = os.path.splitext(file_name)
+        graph_file = base + '.graph'
+        already_positioned = False
+        if os.path.exists(graph_file):
+            already_positioned = self.read_graph_file(graph_file)
+            
+        # In the absence of the graph file, position the states.
+        if not already_positioned:
+            self.fully_relax()
+
+    def read_graph_file(self, file_name):
+        '''Reads the graph file onto the current fsm. Returns True if the parse was successful.'''
+        assert(self.fsm is not None)
+        try:
+            pos = np.empty_like(self.pos)
+            with open(graph_file, 'r') as f:
+                for line in f.xreadlines():
+                    line = line.strip()
+                    if not line: continue
+                    tokens = line.split(';')
+                    name = tokens[0]
+                    pos = map(lambda x: float(x), tokens[1:])
+                    s = self.fsm.get_state(name)
+                    if s is None:
+                        print "Error reading graph file: {}. Listed state incompatible with FSM: {}".format(file_name, name)
+                        return False
+                    pos[s.id, 0, :] = pos
+            self.pos[:, :, :] = pos
+        except:
+            print "Error loading graph file {}".format(file_name)
+            return False
+        return True
 
     def add_feature_cb(self):
         '''Callback invoked after a feature (vertex or edge) has been invoked'''
@@ -1049,7 +1093,7 @@ class FsmContext(GraphMoveContext):
 
     def handleKeyboard(self, event, view):
         '''Handle keyboard events'''
-        result = GraphMoveContext.handleKeyboard(self, event, view)
+        result = PGContext.handleKeyboard(self, event, view)
         if (not result.isHandled()):
             mods = pygame.key.get_mods()
             hasCtrl = mods & pygame.KMOD_CTRL
@@ -1162,29 +1206,31 @@ class FsmContext(GraphMoveContext):
     def build_graph( self ):
         '''Builds the underlying data structures for doing the relaxation from the
         graph.'''
-        v_count = len(self.graph.vertices)
+        s_count = len(self.fsm.states)
         # The graph is a N x 1 X 2 graph
         #   self.pos[i, 0, :] is the position of the ith node
-        self.pos = np.empty((v_count, 1, 2), dtype=np.float)
+        self.pos = np.empty((s_count, 1, 2), dtype=np.float)
         # init_final encodes if a state is initial (1), final (-1), or neither
         #   Causes the initial and final states to gravitate in opposite directions
-        self.init_final = np.zeros((v_count, 1), dtype=np.float)
-        for v_idx, v in enumerate(self.graph.vertices):
+        self.init_final = np.zeros((s_count, 1), dtype=np.float)
+        for state in self.fsm.states:
             # Perturb the intial conditions slightly; so that if I have vertices on
             # top of each other, they won't be.
             perturb = np.random.random(2) * 2 - 1
-            self.pos[v_idx, 0, :] = v.pos + perturb
+            self.pos[state.id, 0, :] = perturb
             try:
-                # This will only work for fsm vertices and not base vertices
-                if v.is_final: self.init_final[v_idx, 0] = -1
-                elif v.is_start: self.init_final[v_idx, 0] = 1
+                if state.is_final:
+                    self.init_final[state.id, 0] = -1
+                elif state.is_start:
+                    self.init_final[state.id, 0] = 1
             except:
                 pass
             
-        self.edge_matrix = np.zeros((v_count, v_count, 1), dtype=np.float)
-        for edge in self.graph.edges:
-            self.edge_matrix[edge.start.id, edge.end.id, 0] = 1
-            self.edge_matrix[edge.end.id, edge.start.id, 0] = 1
+        self.edge_matrix = np.zeros((s_count, s_count, 1), dtype=np.float)
+        for trans in self.fsm.transitions:
+            for target in trans.to_states:
+                self.edge_matrix[trans.from_state.id, target.id, 0] = 1
+                self.edge_matrix[target.id, trans.from_state.id, 0] = 1
 
     def calc_forces(self):
         '''Computes the net forces on each of the graph nodes'''
@@ -1232,22 +1278,34 @@ class FsmContext(GraphMoveContext):
     def fully_relax(self):
         last_cost = np.inf
         cost = self.cost()
+        s = 0
         while np.abs(last_cost - cost) > 1e-5:
             self.relax_step()
             last_cost = cost
             cost = self.cost()
+            s += 1
+        print "Relaxed in {} steps".format(s)
         self.center()
+
+    def print_positions(self):
+        if self.fsm:
+            for s in self.fsm.states:
+                print '{}({}) - {}'.format(s.name, s.id, self.pos[s.id, 0, :])
 
     def center(self):
         '''Moves all of the positions of the graph so that the bounding box of the
         vertices is centered on the origin'''
-        min_pt = np.min(self.pos[:, 0, :], axis=0)
-        max_pt = np.max(self.pos[:, 0, :], axis=0)
-        center = (max_pt + min_pt) / 2
+        print "Center"
+        if True:
+            # Center on mean position
+            center = np.mean(self.pos[:, 0, :], axis=0)
+        else:
+            # Center on bounding box center
+            min_pt = np.min(self.pos[:, 0, :], axis=0)
+            max_pt = np.max(self.pos[:, 0, :], axis=0)
+            center = (max_pt + min_pt) / 2
         center.shape = (1, 2)
         self.pos[:, 0, :] -= center
-        for i, v in enumerate(self.graph.vertices):
-            v.pos = tuple(np.array(v.pos) - center[0,:])
             
     def relax_step(self):
         '''Performs an integration step on the graph vertices'''
@@ -1259,8 +1317,6 @@ class FsmContext(GraphMoveContext):
         # double integrate
         delta_v = self.calc_forces() * self.TIME_STEP
         new_pos = self.pos[:, 0, :] + delta_v
-        for i in xrange(v_count):
-            self.graph.vertices[i].pos = list(new_pos[i, :])
         self.pos[:, 0, :] = new_pos
         self.forces = None
 
@@ -1282,12 +1338,108 @@ class FsmContext(GraphMoveContext):
         PGContext.drawGL(self, view)
         # The context has the view -- it should be drawing the FSM
         view.printText('Relax graph edit\n  cost: %f' % self.cost(), (10, 30))
-        if (self.graph):
-            self.graph.drawGL(editable=True)
-            # draw state names
-            for state in self.graph.vertices:
-                screenPos = gluProject(state.pos[0], state.pos[1], 0)
-                view.printText(state.name, (int(screenPos[0]), int(screenPos[1])))
+        if self.fsm:
+            # TODO: Handle selection
+            self.drawTransitions()
+            self.drawStates(view)
+            
+    def drawStates(self, view, select=False):
+        theta = np.linspace(0, np.pi * 2, 32)
+        cTheta = np.cos(theta)
+        sTheta = np.sin(theta)
+        glPolygonMode(GL_FRONT, GL_FILL)
+        glPushAttrib(GL_COLOR_BUFFER_BIT)
+        glColor3f(1, 1, 1)
+        
+        def circle(scale, id):
+            # TODO: Push this into a display list
+            # TODO: This should really be part of the context and *not* the class.
+            glPushMatrix()
+            glTranslatef(self.pos[id, 0, 0], self.pos[id, 0, 1], 0)
+            glScalef(scale, scale, scale)
+            glBegin(GL_TRIANGLE_FAN)
+            glVertex3f(0, 0, 0)
+            for c, s in zip(cTheta, sTheta):
+                glVertex3f(c, s, 0)
+            glEnd()
+            glPopMatrix()
+            
+        for state in self.fsm.states:
+            if select:
+                glLoadName(state.id)
+            if state.is_final and not select:
+                glColor3f(1, .2, .2)
+                circle(self.RADIUS + 1, state.id)
+                glColor3f(1, 1, 1)
+            elif state.is_start and not select:
+                glColor3f(.2, 0.8, .2)
+                circle(self.RADIUS + 1, state.id)
+                glColor3f(1, 1, 1)
+            circle(self.RADIUS, state.id)
+        glPopAttrib()
+        
+        for state in self.fsm.states:
+            pos = self.pos[state.id, 0, :]
+            screenPos = gluProject(pos[0], pos[1], 0)
+            view.printText(state.name, (int(screenPos[0]), int(screenPos[1])))
+    
+    def drawTransitions(self):
+        # Condition types to handle
+        #   conjunctions: and, not, or
+        colors = {'goal_reached':(1, 0, 0),
+                  'timer':(0, 1, 0),
+                  'auto':(1, 1, 1),
+                  'AABB':(1, 1, 1),
+                  }
+        glPushAttrib(GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT)
+        glDisable(GL_DEPTH_TEST)
+        glLineWidth(3)
+        # TODO:
+        #   Handle loop back to self
+        #   Handle probabilitic target
+        #   Label transitions
+        #       Include conjunctions
+        # Draw the lines
+        glBegin(GL_LINES)
+        for t in self.fsm.transitions:
+            color = colors.get(t.cond_type, (0.4, 0.4, 0.4))
+            glColor3fv(color)
+            p1 = self.pos[t.from_state.id, 0, :]
+            for to_state in t.to_states:
+                p2 = self.pos[to_state.id, 0, :]
+                glVertex3f(p1[0], p1[1], 0)
+                glVertex3f(p2[0], p2[1], 0)
+        glEnd()
+        # Draw the arrow
+        glPushMatrix()
+        glPolygonMode(GL_FRONT, GL_FILL)
+        for t in self.fsm.transitions:
+            color = colors.get(t.cond_type, (0.4, 0.4, 0.4))
+            glColor3fv(color)
+            p1 = self.pos[t.from_state.id, 0, :]
+            for to_state in t.to_states:
+                p2 = self.pos[to_state.id, 0, :]
+                dir = p2 - p1
+                # NOTE: This fails for loop transitions -- where from state is to state
+                dir /= np.sqrt(dir.dot(dir))
+                r = self.RADIUS
+                if to_state.is_start or to_state.is_final:
+                    # Account for the fact that I inflate final and initial states
+                    r += 1
+                p = p2 - r * dir
+                glLoadMatrixf((dir[0], dir[1], 0, 0,
+                              -dir[1], dir[0], 0, 0,
+                              0, 0, 1, 0,
+                              p[0], p[1], 0, 1))
+                
+                glBegin(GL_TRIANGLES)
+                glVertex3f(0, 0, 0)
+                glVertex3f(-3, 1.5, 0)
+                glVertex3f(-3, -1.5, 0)
+                glEnd()
+        glPopMatrix()
+        glPopAttrib()
+        glLineWidth(1.0)
             
 class EditPolygonContext( PGContext, MouseEnabled ):
     '''A context for editing obstacles'''

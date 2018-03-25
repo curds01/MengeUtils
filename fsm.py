@@ -2,11 +2,10 @@
 #
 import lxml.etree as ET
 import os
-##from OpenGL.GL import *
-##import numpy as np
 
 class State:
     '''Represents the state (equivalent to a vertex in a graph)'''
+    IDS = 0
     def __init__(self, name, is_final=False):
         '''Constructor.
         @param name     A string: the unique name of the state.
@@ -15,6 +14,8 @@ class State:
         self.name = name
         self.is_final = is_final
         self.is_start = False
+        self.id = State.IDS
+        State.IDS += 1
 
     def __str__(self):
         return "State{}({}, is_final={})".format(self.is_start * '*',
@@ -24,6 +25,8 @@ class State:
 class Transition:
     '''Represents the state transitions (equivalent ot an edge in
     a graph'''
+    IDS = 0
+    
     def __init__(self, cond_type, from_state, to_states):
         '''Constructor.
         @param cond_type    A string - the type of condition this transition works on.
@@ -34,6 +37,8 @@ class Transition:
         self.cond_type = cond_type
         self.from_state = from_state
         self.to_states = to_states
+        self.id = Transition.IDS
+        Transition.IDS += 1
 
     def __str__(self):
         '''String representation of the transition'''
@@ -45,13 +50,9 @@ class Transition:
 # Condition parsers
 
 class FSM:
-    # The radius of the state -- move to context.
-##    RADIUS = 5
     def __init__(self):
         self.states = []
         self.transitions = []
-        # Reports if the states have ben positioned (as opposed to randomly loaded).
-##        self.is_positioned = False
         self.cond_table = {
                 'and':self.make_and_condition,
                 'or':self.make_or_condition,
@@ -66,6 +67,15 @@ class FSM:
         for t in self.transitions:
             s += '\n\t{}'.format(t)
         return s
+
+    def get_state(self, name):
+        '''Retrieves the given state by name -- None if the state is not found'''
+        match = filter(lambda s: s.name == name, self.states)
+        if match:
+            assert(len(match) == 1)
+            return match[0]
+        else:
+            return None
 
 ##    def drawGL(self, select=False, selectEdges=False, editable=False):
 ##        '''Overrides the parent class to draw an FSM'''
@@ -171,35 +181,10 @@ class FSM:
 
         self.update_start_states()
 
-        base, ext = os.path.splitext(file_name)
-        graph_file = base + '.graph'
-        if os.path.exists(graph_file):
-            self.position(graph_file)
-
 ##    def format_file(self):
 ##        '''A file that writes a file of this FSM's positions for reloading later'''
 ##        state_data = ['{};{};{}'.format(s.name, s.pos[0], s.pos[1]) for s in self.vertices]
 ##        return '\n'.join(state_data)
-        
-##    def position(self, graph_file):
-##        '''Positions the states according to the graph file indicated. If there is an error
-##        in reading the graph file, all states will be returned to the zero position'''
-##        try:
-##            with open(graph_file, 'r') as f:
-##                for line in f.xreadlines():
-##                    if not line: continue
-##                    tokens = line.split(';')
-##                    name = tokens[0]
-##                    x = float(tokens[1])
-##                    y = float(tokens[2])
-##                    match = filter(lambda x: x.name == name, self.vertices)
-##                    match[0].setPosition((x, y))
-##        except:
-##            print "Error loading position data: {}".format(graph_file)
-##            for s in self.vertices:
-##                s.setPosition((0, 0))
-##            return
-##        self.is_positioned = True
                 
     def update_start_states(self):
         '''Examines the transitions to determine if there are any obvious start states

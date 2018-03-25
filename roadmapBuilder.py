@@ -12,7 +12,6 @@ from agent import *
 from graph import *
 from obstacles import *
 from vField import GLVectorField
-from fsm import FSM
 
 # contexts
 from RoadContext import ContextSwitcher, AgentContext, FieldEditContext
@@ -281,12 +280,8 @@ def main():
         context.addContext( SCBContext( scbName, obstacles, agents.defRadius ), pygame.K_s )
 
     if behaveName:
-        fsm = FSM()
-        fsm.initFromFile(behaveName)
-        ctx = FsmContext(fsm, behaveName)
-        if not fsm.is_positioned:
-            print "Relaxing!"
-            ctx.fully_relax()
+        ctx = FsmContext()
+        ctx.set_fsm(behaveName)
         context.addContext(ctx, pygame.K_v)
         
     context.newGLContext()
