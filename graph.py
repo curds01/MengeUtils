@@ -2,6 +2,9 @@
 from OpenGL.GL import *
 from math import sqrt
 
+# global variable to facilitate parsing error messages
+line_num = 1
+
 class Vertex:
     """Graph vertex"""
     COUNT = 0
@@ -53,11 +56,32 @@ class Graph:
         self.testEdge = Edge()
         
     def initFromFile( self, fileName ):
+        global line_num
+        line_num = 1
+        
+        def readline():
+            '''Reads a single line, returning its stripped contents;
+            also increments line number'''
+            global line_num
+            line_num += 1
+            return f.readline().strip()
+
+        def read_int(msg):
+            '''Tries to convert the next non-empty line into an int.
+            If it fails, it prints error information.'''
+            s = ''
+            while not s:
+                s = readline()
+            try:
+                return int(s)
+            except ValueError:
+                raise ValueError, "Error reading int from line {} - read '{}' for {}".format(line_num, s, msg)
+        
         print "Roadmap initfromFile", fileName
         f = open( fileName, 'r' )
-        vertCount = int( f.readline() )
+        vertCount = read_int("vertex count")
         for i in range( vertCount ):
-            line = f.readline()
+            line = readline()
             tokens = line.strip().split()
             if ( len( tokens ) == 3 ):
                 x = float( tokens[1] )
@@ -70,9 +94,9 @@ class Graph:
                 print "Error reading input file:", fileName
                 return
             self.addVertex( (x, y ) )
-        edgeCount = int( f.readline() )
+        edgeCount = read_int("edge count")
         for i in range( edgeCount ):
-            line = f.readline()
+            line = readline()
             tokens = line.strip().split()
             v1 = int( tokens[0] )
             v2 = int( tokens[1] )
