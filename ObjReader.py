@@ -344,6 +344,8 @@ class ObjFile:
         self.currGroup = None #self.groups['default']
         self.mtllib = None
         self.currMatName = 'default'
+        # A map from each vertex, normal, uv and face read and which line it was found.
+        self.object_line_numbers = {}
         if ( filename != None ):
             self.readFile( filename )
 
@@ -371,6 +373,7 @@ class ObjFile:
                 if ( match ):
                     try:
                         self.normSet.append(Vector3( match.group(1), match.group(2), match.group(3) ) )
+                        self.object_line_numbers[self.normSet[-1]] = lineNum
                     except:
                         raise IOError, "Expected vertex normal definition, line %d -- read: %s" % ( lineNum, line)
                 else:
@@ -380,6 +383,7 @@ class ObjFile:
                 if ( match ):
                     try:
                         self.uvSet.append(Vector2( match.group(1), match.group(2) ) )
+                        self.object_line_numbers[self.uvSet[-1]] = lineNum
                     except:
                         raise IOError, "Expected texture vertex definition, line %d -- read: %s" % ( lineNum, line)
                 else:
@@ -390,6 +394,7 @@ class ObjFile:
                     try:
                         v = Vector3( match.group(1), match.group(2), match.group(3) )
                         self.vertSet.append( v )
+                        self.object_line_numbers[v] = lineNum
                     except:
                         raise IOError, "Expected vertex definition, line %d -- read: %s" % ( lineNum, line)
                 else:
@@ -446,6 +451,7 @@ class ObjFile:
                     self.currGroup = Group( groupName )
                     self.groups[ groupName ] = self.currGroup
                 self.currGroup.addFace( f, self.currMatName )
+                self.object_line_numbers[f] = lineNum
             
 
     def writeOBJ( self, outfile ):

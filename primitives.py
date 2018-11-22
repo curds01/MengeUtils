@@ -2,7 +2,7 @@ from copy import deepcopy
 from struct import pack
 from math import sqrt
 
-class Vector2:
+class Vector2(object):
     def __init__(self, x, y):
         self.x = float(x)
         self.y = float(y)
@@ -101,7 +101,7 @@ class Vector2:
         self.x = -self.x
         self.y = -self.y
 
-class Vector3:
+class Vector3(object):
     def __init__( self, x, y, z ):
         self.x = float(x)
         self.y = float(y)
@@ -162,7 +162,6 @@ class Vector3:
         self.y += v.y
         self.z += v.z
         return self
-    
 
     def asTuple( self ):
         return (self.x, self.y, self.z)
@@ -213,7 +212,7 @@ class Vector3:
             dir = 2
         return dir
         
-class Face:
+class Face(object):
     def __init__( self, v = None, vn = None, vt = None ):
         if ( v == None ):
             self.verts = []

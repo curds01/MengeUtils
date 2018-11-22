@@ -155,11 +155,45 @@ def processObstacles( obstacles, vertObstMap, vertNodeMap, navMesh ):
     
 
 def projectVertices( vertexList ):
-    '''Given 3D vertices, projects them to 2D for the navigation mesh.'''
+    '''Given 3D vertices, projects them to 2D for the navigation mesh. Specifically,
+    projects them to the plane perpendicular to the y-axis.'''
     #TODO: Eventually the navigation mesh will require 3D data when it is no longer topologically planar
     verts = map( lambda x: (x[0], x[2]), vertexList )
     return verts
 
+def computeFacePlane(face, objFile):
+    '''Given a face, calculates properties of the face:
+        The normal, n, the plane (Vector3)
+        the offset, d, of the plane (float), such that n.x + d = 0 for all vertices of the face, and
+        the mean vertex position, p.
+    We assume that face has counter-clockwise winding and is planar.'''
+    vCount = len(face.verts)
+    vertices = map(lambda v_idx: objFile.vertSet[v_idx], face.verts)
+    mean_point = reduce(lambda x, y: x + y, vertices) / float(vCount)
+    if (vCount == 3):
+        # Three vertices simply define a plane
+        a, b, c = vertices
+        u = b - a
+        v = c - a
+        n = u.cross(v)
+        n_mag = n.length()
+        if (n_mag < 1e-8):
+            raise Exception("The face on line {} has degenerate area".format(objFile.object_line_numbers[face]))
+        n /= n_mag
+        d = -n.dot(a)
+    elif (vCount > 3):
+        
+        M = np.ones((vCount, 4), dtype=np.float64)
+        b = np.zeros((vCount, 1), dtype=np.float64)
+        for r, v in enumerate(vertices):
+            M[r, :3] = (v.x, v.y, v.z)
+        x, resid, rank, s = np.linalg.lstsq( M, b )
+        A, B, C, d = x
+        n = Vector3(A, B, C)
+    else:
+        raise Exception("The face on line {} has insufficient vertices".format(objFile.object_line_numbers[face]))
+    return n, d, mean_point
+    
 def buildNavMesh( objFile ):
     '''Given an ObjFile object, constructs the navigation mesh.writeNavFile
 
@@ -214,7 +248,11 @@ def buildNavMesh( objFile ):
         node.center.y = Z / vCount
         if ( vCount == 3 ):
             # solve explicitly
-            A, B, C = np.linalg.solve( M, b )
+            try:
+                A, B, C = np.linalg.solve( M, b )
+            except np.linalg.linalg.LinAlgError as err:
+                print M, b
+                raise FloatingPointError("Face defined on line {} has a linear algebra error: {}".format(objFile.object_line_numbers[face], str(err)))
         else:
             # least squares
             x, resid, rank, s = np.linalg.lstsq( M, b )
@@ -289,7 +327,9 @@ def buildNavMesh( objFile ):
 def main():
     import sys, os, optparse
     parser = optparse.OptionParser()
-    parser.set_description( 'Given an obj which defines a navigation mesh, this outputs the corresponding navigation mesh file.' )
+    parser.set_description( 'Given an obj which defines a navigation mesh, this outputs '
+                            'the corresponding navigation mesh file. The mesh must be '
+                            'defined in a y-up world.' )
     parser.add_option( "-i", "--input", help="Name of obj file to convert",
                        action="store", dest="objFileName", default='' )
     parser.add_option( "-o", "--output", help="The name of the output file. The extension will automatically be added (.nav for ascii, .nbv for binary).",

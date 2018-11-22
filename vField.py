@@ -296,6 +296,7 @@ class GLVectorField( VectorField ):
 
         Grid cells will ALWAYS be square.  The size of the domain will expand such that
         the dimensions of the span is an integer multiple of the cell size.'''
+        self.has_context = False
         VectorField.__init__( self, minPoint, size, cellSize )
         
         self.arrowID = 0    # the identifier for the arrow display list
@@ -310,12 +311,14 @@ class GLVectorField( VectorField ):
     def gridChanged( self ):
         '''Reports a change to the grid'''
         VectorField.gridChanged( self )
-        self.genArrowDL()
-        self.genGridDL()
+        if self.has_context:
+            self.genArrowDL()
+            self.genGridDL()
     
     def newGLContext( self ):
         '''When a new OpenGL context is created, this gives the field the chance to update
         its OpenGL objects'''
+        self.has_context = True
         self.genArrowDL()
         self.genGridDL()
 

@@ -575,7 +575,8 @@ class ObstacleContext( PGContext, MouseEnabled ):
                 '\n\t0            Do nothing' + \
                 '\n\t1            Create polygons' + \
                 '\n\t2            Edit polygons' + \
-                '\n\tCtrl+s       Save the obstacle file to "obstacles.xml"'
+                '\n\tCtrl+s       Save the obstacle file to "obstacles.xml"' + \
+                '\n\tShift+s      Save the obstacle file to "obstacles.obj"'
 
     NO_ACTION = 0
     NEW_POLY = 1
@@ -648,18 +649,26 @@ class ObstacleContext( PGContext, MouseEnabled ):
                         self.drawNormal = not self.drawNormal
                         self.obstacleSet.visibleNormals = self.drawNormal
                         result.set( True, True )
-                    elif ( self.obstacleSet and event.key == pygame.K_s and hasCtrl ):
-                        path = paths.getPath( 'obstacles.xml', False )
-                        print "Writing obstacles to:", path
-                        f = open( path, 'w' )
-                        f.write ('''<?xml version="1.0"?>
-<Experiment version="2.0">
+                    elif ( self.obstacleSet and event.key == pygame.K_s ):
+                        if hasCtrl and not hasShift and not hasAlt:
+                            path = paths.getPath( 'obstacles.xml', False )
+                            print "Writing obstacles to:", path
+                            f = open( path, 'w' )
+                            f.write ('''<?xml version="1.0"?>
+    <Experiment version="2.0">
 
-    <ObstacleSet type="explicit" class="1"> ''')
-                        f.write( '%s' % self.obstacleSet.xml() )
-                        f.write( '\n\t</ObstacleSet>\n\n</Experiment>' )
-                        f.close()
-                        result.set( True, False )
+        <ObstacleSet type="explicit" class="1"> ''')
+                            f.write( '%s' % self.obstacleSet.xml() )
+                            f.write( '\n\t</ObstacleSet>\n\n</Experiment>' )
+                            f.close()
+                            result.set( True, False )
+                        elif hasShift and not hasCtrl and not hasAlt:
+                            path = paths.getPath('obstacles.obj', False)
+                            print "Writing obj from obstacles to {}".format(path)
+                            with open(path, 'w') as f:
+                                f.write(self.obstacleSet.obj())
+                            result.set(True, False)
+
         return result    
 
     def handleMouse( self, event, view ):

@@ -118,6 +118,23 @@ class ObstacleSet:
         for p in self.polys:
             s += '\n{0}'.format( p.xml(2) )
         return s
+
+    def obj(self):
+        '''Returns an obj representation of the obstacle set'''
+        s = '# Computed by MengeUtils from xml specification' # TODO: Add date
+        vertices = []
+        for p in self.polys:
+            vertices += p.vertices
+        for v in vertices:
+            s += '\nv {} {} {}'.format(v.x, v.y, 0)
+        i = 1
+        for p in self.polys:
+            v_count = len(p.vertices)
+            v_indices = ' '.join(map(lambda x: str(x), xrange(i, i + v_count)))
+            s += '\nf {}'.format(v_indices)
+            i += v_count
+        s += '\n'
+        return s
     
     def __iter__( self ):
         return self.polys.__iter__()
