@@ -75,6 +75,12 @@ class View:
         
 
     def select( self, x, y, selectable, selectEdges=False ):
+        '''Performs a selection pass on the `selectable` scene graph object.
+        Returns the label value of the selected object (see Selectable).'''
+        #TODO: This is horrible that it assumes an orthographic projection
+        #TODO: This is horrible that "select edges" gets passed. This shouldn't
+        #      have any knowledge about what is being selected or why. It *should*
+        #      simply be kwargs passed to the selectable's draw method.
         self._setOrtho( True, x, y )
         
         # this needs to be large enough to handle evrything that can push into
