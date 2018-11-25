@@ -13,42 +13,7 @@ from math import sqrt
 class GoalContext( PGContext, MouseEnabled ):
     '''A context for drawing goal regions (for now just AABB)'''
     #TODO: Add other goal types
-    HELP_TEXT = 'Goal Context' + \
-                '\n\tWork with Goals and GoalSets' + \
-                '\n' + \
-                '\n\tLeft arrow         Select previous goal set' + \
-                '\n\tRight arrow        Select next goal set' + \
-                '\n\tCtrl-s             Save goal sets to "goals.xml"' + \
-                '\n\tCtrl-n             Create new goal set' + \
-                '\n\tCtrl-delete        Delete current goal set (and all goals)' + \
-                '\n\tCtrl-x             Delete highlighted goal' + \
-                '\n\tLeft click         Begin editing active goal' + \
-                '\n\tp                  Create point goals' + \
-                '\n\t\tLeft click       In empty space to create a point goal' +\
-                '\n\t\tLeft drag        To move highlighted point goal' +\
-                '\n\tc                  Create circle goals' + \
-                '\n\t\tLeft click       In empty space to create a circle goal' + \
-                '\n\t\tLeft click       On highlighted circle goal to begin editing' + \
-                '\n\t\tLeft drag        On circle center to move' + \
-                '\n\t\tLeft drag        On circle permiter to change radius' + \
-                '\n\t\tLeft click       In empty space to stop editing' + \
-                '\n\t\tRight click      To cancel move/radius operation or end editing' + \
-                '\n\ta                  Create AABB goals' + \
-                '\n\t\tLeft drag        In empty space to draw a new AABB goal' + \
-                '\n\t\tLeft click       On highlighted AABB to edit' + \
-                '\n\t\tLeft drag        On highlighted corner to reshape AABB' + \
-                '\n\t\tLeft drag        Inside to move the AABB' + \
-                '\n\t\tLeft click       In empty space to stop editing' + \
-                '\n\t\tRight click      To cancel movement of AABB corner or end editing' + \
-                '\n\to                 Create OBB goals' + \
-                '\n\t\tLeft drag        In empty space to draw a new OBB goal' + \
-                '\n\t\tLeft click       On highlighted OBB to edit' + \
-                '\n\t\tLeft drag        Inside to move OBB' + \
-                '\n\t\tLeft drag        On red corner to resize OBB' + \
-                '\n\t\tLeft drag        On blue corner to reorient OBB' + \
-                '\n\t\tLeft click       In empty space to stop editing' + \
-                '\n\t\tRight click      To cancel movement of OBB corner or end editing' + \
-                ''
+
     # state for acting on goal sets
     POINT = 1
     CIRCLE = 2
@@ -88,7 +53,44 @@ class GoalContext( PGContext, MouseEnabled ):
         self.editGoal = None
 
         self.lastActive = 0
-        
+
+    def help_text(self):
+        return ('Goal Context'
+                '\n\tWork with Goals and GoalSets'
+                '\n'
+                '\n\tLeft arrow         Select previous goal set'
+                '\n\tRight arrow        Select next goal set'
+                '\n\tCtrl-s             Save goal sets to "goals.xml"'
+                '\n\tCtrl-n             Create new goal set'
+                '\n\tCtrl-delete        Delete current goal set (and all goals)'
+                '\n\tCtrl-x             Delete highlighted goal'
+                '\n\tLeft click         Begin editing active goal'
+                '\n\tp                  Create point goals'
+                '\n\t\tLeft click       In empty space to create a point goal'
+                '\n\t\tLeft drag        To move highlighted point goal'
+                '\n\tc                  Create circle goals'
+                '\n\t\tLeft click       In empty space to create a circle goal'
+                '\n\t\tLeft click       On highlighted circle goal to begin editing'
+                '\n\t\tLeft drag        On circle center to move'
+                '\n\t\tLeft drag        On circle permiter to change radius'
+                '\n\t\tLeft click       In empty space to stop editing'
+                '\n\t\tRight click      To cancel move/radius operation or end editing'
+                '\n\ta                  Create AABB goals'
+                '\n\t\tLeft drag        In empty space to draw a new AABB goal'
+                '\n\t\tLeft click       On highlighted AABB to edit'
+                '\n\t\tLeft drag        On highlighted corner to reshape AABB'
+                '\n\t\tLeft drag        Inside to move the AABB'
+                '\n\t\tLeft click       In empty space to stop editing'
+                '\n\t\tRight click      To cancel movement of AABB corner or end editing'
+                '\n\to                 Create OBB goals'
+                '\n\t\tLeft drag        In empty space to draw a new OBB goal'
+                '\n\t\tLeft click       On highlighted OBB to edit'
+                '\n\t\tLeft drag        Inside to move OBB'
+                '\n\t\tLeft drag        On red corner to resize OBB'
+                '\n\t\tLeft drag        On blue corner to reorient OBB'
+                '\n\t\tLeft click       In empty space to stop editing'
+                '\n\t\tRight click      To cancel movement of OBB corner or end editing')
+
     def activate( self ):
         '''Called when the set gets activated'''
         self.goalEditor.editSet = self.lastActive

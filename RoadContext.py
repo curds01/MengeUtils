@@ -11,7 +11,9 @@ from primitives import Vector2
 from obstacles import GLPoly
 import paths
 import numpy as np
+import inspect
 import os
+import re
 
 from fsm import FSM
 
@@ -21,6 +23,12 @@ try:
 except ImportError:
     print "pycairo is not available.  You will not be able to output a pdf of the scene"
     HAS_CAIRO = False
+
+# Utility to get the name of the function that calls `func_name`
+FUNC_NAME_RE = re.compile('<function .+\.(.*)>')
+def func_name(frame=inspect.currentframe()):
+    '''Prints the name of the *calling* function'''
+    return FUNC_NAME_RE.match(frame.f_code.co_name).group(1)
 
 # This is here instead of Context.py because this is pygame dependent and that is QT dependent.
 #   I need to unify those.
@@ -92,7 +100,7 @@ class ContextSwitcher( PGContext ):
         '''Reports if the screen should be exported to an image'''
         if ( self.activeContext ):
             return self.activeContext.exportDisplay()
-        return None        
+        return None
 
     def help_text(self):
         return self.help
@@ -727,9 +735,13 @@ class ObstacleNullContext( PGContext ):
 #       3) Reverse winding
 
 class GraphMoveContext(PGContext):
-    '''A context for *moving* graph elements (edges and vertices). The goal is to make
-    this sufficiently generic that the exact representation of edges and vertices
-    dont't matter.'''
+    '''A context for *moving* graph elements (edges and vertices). This works with
+    *abstract* graphs. Graphs that don't have spatial data themselves, per se.
+    It requires that the graph can be drawn in a OpenGL selection context - this is
+    the mechanism by which it is determined what is under the mouse during operations.
+    '''
+    # TODO: Make this work regardless of whether the position data is stored in a
+    # child context or in the graph object being manipulated.
     HOVER = 0
     MOVE_FEATURE = 1
     
@@ -746,16 +758,21 @@ class GraphMoveContext(PGContext):
         self.downX = 0      # the screen space coordinates where the mouse was pressed (x)
         self.downY = 0      # the screen space coordinates where the mouse was pressed (y)
         self.downPos = None # the world coordinates of where the mouse was pressed (x, y)
+        self.file_name = file_name
         if file_name is None:
             self.file_name = 'temp.graph'
-        else:
-            base, ext = os.path.splitext(file_name)
-            self.file_name = base + ".graph"
         # TODO: The Graph currently holds things like active vertex and active edge used
         # edit the graph interactively. Pull them out of the graph and into the context.
+        # I suspect I don't need from_id and to_id as these are *creation* data members
+        # and this class is purely about moving.
+        self.from_id = None         # TODO: What are the types of these variables?
+        self.to_id = None
+        self.active_edge = None
+        self.active_vertex = None
 
     def help_text(self):
-        return ('Edit a graph (aka roadmap)'
+        return ('Edit the visualization of a graph by moving the spatial arrangement of'
+                'its vertices'
                 '\n\tEdit existing features'
                 '\n\t\tmove mouse - hover over vertex to highlight it'
                 '\n\t\tleft-drag - move highlighted vertex'
@@ -763,8 +780,7 @@ class GraphMoveContext(PGContext):
                 '\n\t\tShift + left-drag - move highlighted edge'
                 '\n\tCtrl-s - save current graph as "{}"').format(self.save_name())
 
-    @staticmethod
-    def save_name(cls):
+    def save_name():
         '''Reports the name of the file created by saving from this context. Sub-classes
         should override this as appropriate to distinguish graph types.'''
         # TODO: This should be part of a generic graph context.
@@ -782,12 +798,18 @@ class GraphMoveContext(PGContext):
 
             if (event.type == pygame.KEYDOWN):
                 if (event.key == pygame.K_s and hasCtrl):
-                    fileName = paths.getPath(self.file_name, False)
+                    fileName = paths.getPath(self.save_name(), False)
                     with open(fileName, 'w') as f: 
                         f.write('%s\n' % self.graph.format_file())
                         print "Graph saved!", fileName
                     result.setHandled(True)
         return result
+
+
+    def select_drawable(self):
+        '''Returns a selectable object that can be passed to the view.select()
+        method'''
+        return self.graph
 
     def handleMouse(self, event, view):
         """The context handles the mouse event as it sees fit and reports it's status
@@ -804,63 +826,137 @@ class GraphMoveContext(PGContext):
             if (event.type == pygame.MOUSEMOTION):
                 if (self.move_state == self.HOVER):
                     pX, pY = event.pos
-                    selected = view.select(pX, pY, self.graph, hasShift)
+                    # NOTE: selected is an OpenGl selection label.
+                    selected = view.select(pX, pY, self.select_drawable(), hasShift)
                     if (selected == -1):
-                        self.graph.activeEdge = None
-                        self.graph.fromID = self.graph.toID = None
+                        # Nothing selected; deselect everything.
+                        self.active_edge = None
+                        self.from_id = self.to_id = None
                         result.setNeedsRedraw(True)
                     else:
-                        if (hasShift):
-                            selEdge = self.graph.edges[selected]
-                            self.graph.fromID = self.graph.toID = None
-                            # select edges
-                            if (selEdge != self.graph.activeEdge):
-                                self.graph.activeEdge = selEdge
+                        if hasShift:
+                            # Activated edge selection
+                            selected_edge = self.edge_from_id(selected)
+                            self.from_id = self.to_id = None
+                            if (selected_edge != self.active_edge):
+                                self.active_edge = selected_edge
                                 result.setNeedsRedraw(True)
                         else:
-                            self.graph.activeEdge = None
-                            selVert = self.graph.vertices[selected]
-                            if (self.graph.fromID != selVert):
+                            # Activated vertex selection
+                            self.active_edge = None
+                            selected_vertex = self.vertex_from_id(selected)
+                            if (self.active_vertex != selected_vertex):
+                                self.active_vertex = selected_vertex
                                 result.setNeedsRedraw(True)
-                                self.graph.fromID = selVert
                         
                 elif (self.move_state == self.MOVE_FEATURE):
                     dX, dY = view.screenToWorld((self.downX, self.downY))
                     pX, pY = view.screenToWorld(event.pos)
                     newX = self.downPos[0] + (pX - dX)
                     newY = self.downPos[1] + (pY - dY)
-                    self.graph.fromID.setPosition((newX, newY))
+                    if self.active_vertex:
+                        self.set_vertex_position((newX, newY))
+                    elif self.active_edge:
+                        self.set_edge_position((newX, newY))
+                    else:
+                        raise ArgumentError, "In MOVE_FEATURE mode without an active feature"
                     result.setNeedsRedraw(True)
                     
             elif (event.type == pygame.MOUSEBUTTONUP):
                 if (self.move_state == self.MOVE_FEATURE):
-                    self.doMoveFeature()
+                    self.finish_active_move()
                 self.move_state = self.HOVER
+
             elif (event.type == pygame.MOUSEBUTTONDOWN and noMods):
                 if (event.button == PGMouse.LEFT):
-                    self.downX, self.downY = event.pos
-                    print self.graph.fromID
-                    if (self.graph.fromID is not None):
-                        self.downPos = (self.graph.fromID.pos[0], self.graph.fromID.pos[1])
+                    if self.active_vertex:
+                        self.downPos = self.get_vertex_position(self.active_vertex)
                         self.move_state = self.MOVE_FEATURE
-                    elif (self.graph.activeEdge is not None):
-                        print "Should be moving an edge"
+                    elif self.active_edge:
+                        self.downPos = self.get_edge_position(self.active_edge)
+                        self.move_state = self.MOVE_FEATURE
                 elif (event.button == PGMouse.RIGHT):
                     if (self.move_state == self.MOVE_FEATURE):
-                        self.graph.fromID.setPosition(self.downPos)
+                        self.move_active_feature(self.downPos)
                         result.setNeedsRedraw(True)
         return result
 
-    def doMoveFeature(self):
-        '''Callback for when a feature is moved'''
-        #TODO: Deliniate between what type of feature is moved.
+    def edge_from_id(self, edge_id):
+        '''A function that maps the edge id returned by the selection process into an
+        edge data object sufficient to draw an "active" edge. If the id does not map
+        to an edge, None should be returned.
+        Sub-classes of this context are required to implement this method.'''
+        raise NotImplementedError, "Sub-classes need to implement {}".format(func_name())
+
+    def vertex_from_id(self, vertex_id):
+        '''A function that maps the vertex id returned by the selection process into a
+        vertex data object sufficient to draw an "active" vertex. if the id does not map
+        to a vertex, None should be returned.
+        Sub-classes of this context are required to implement this method.'''
+        raise NotImplementedError, "Sub-classes need to implement {}".format(func_name())
+
+    def get_vertex_position(self, vertex):
+        '''Reports the 2D position of the given vertex in world space. If the returned
+        value is immediately passed into set_vertex_position(), the vertex should not
+        move at all. Sub-classes of this context are required to implement this method.
+
+        @param vertex  The same data structure returned by vertex_from_id().
+        @returns  Any object meaningfully compatible with a 2-tuple of floats -- the 2D
+        position of the vertex.
+        '''
+        raise NotImplementedError, "Sub-classes need to implement {}".format(func_name())
+
+    def set_vertex_position(self, vertex, pos):
+        '''Moves the given vertex to the given position. This works in conjunction with
+        get_vertex_position() to define the meaning of "position" of the vertex.
+
+        @param vertex  The vertex to move. The type should be the same as returned by
+                       vertex_from_id()
+        @param pos     Any object meaningfully compatible with a 2-tuple of floats -- the
+                       2D position of the vertex.
+        '''
+        raise NotImplementedError, "Sub-classes need to implement {}".format(func_name())
+
+    def get_edge_position(self, edge):
+        '''Reports the 2D position of the given edge in world space. If the returned
+        value is immediately passed into set_edge_position(), the edge should not
+        move at all. Sub-classes of this context are required to implement this method.
+
+        @param edge  The same data structure returned by edge_from_id().
+        @returns  Any object meaningfully compatible with a 2-tuple of floats -- the 2D
+        position of the edge.
+        '''
+        raise NotImplementedError, "Sub-classes need to implement {}".format(func_name())
+
+    def set_edge_position(self, edge, pos):
+        '''Moves the given edge to the given position. This works in conjunction with
+        get_edge_position() to define the meaning of "position" of the edge.
+
+        @param edge    The edge to move. The type should be the same as returned by
+                       edge_from_id()
+        @param pos     Any object meaningfully compatible with a 2-tuple of floats -- the
+                       2D position of the edge.
+        '''
+        raise NotImplementedError, "Sub-classes need to implement {}".format(func_name())
+
+    def finish_active_move(self):
+        '''Callback for completing the movement of the active feature. This should only
+        be called if there is an active edge or vertex. Sub-classes only need to override
+        this if simply setting the position in move_active_feature() is insufficient.'''
         pass
 
+    def context_title(self):
+        '''The name of the context, written in the 2D UI'''
+        return 'Graph edit'
+
     def drawGL(self, view):
+        '''The drawing operation; calls an overriden doDrawGL method provided by sub-class'''
         PGContext.drawGL(self, view)
-        view.printText('Graph edit', (10, 10))
-        if (self.graph):
-            self.graph.drawGL(editable=True)
+        view.printText(self.context_title(), (10, 10))
+        self.doDrawGL(view)
+
+    def doDrawGL(self, view):
+        pass
 
 # TODO: Refactor this on top of GraphMoveContext
 class GraphContext(PGContext):
@@ -1040,7 +1136,7 @@ class GraphContext(PGContext):
         '''Callback invoked after a feature (vertex or edge) has been invoked'''
         pass
 
-class FsmContext(PGContext):
+class FsmContext(GraphMoveContext):
     '''A context that assists in visualizing an FSM graph'''
     # Force constants
     CHARGE_K = 15
@@ -1054,18 +1150,20 @@ class FsmContext(PGContext):
     
     def __init__(self):
         '''Constructor.'''
-        PGContext.__init__(self)
+        GraphMoveContext.__init__(self, None)
         #GraphMoveContext.__init__(self, graph, file_name)
         # Cached data structures for performing computation
         self.fsm = None
         self.pos = None
         self.edge_matrix = None
+        self.edge_count = 0
         self.forces = None
         self.view = None
 
     def help_text(self):
         # TODO: Inherit from graph moving context
-        s = ('\n\tRight arrow - update the graph by relaxing one step'
+        s = GraphMoveContext.help_text(self)
+        s += ('\n\tRight arrow - update the graph by relaxing one step'
              '\n\tShift + Right arrow - fully relax the graph')
         if HAS_CAIRO:
             # TODO: Make this invariant to the number of contexts instantiated.
@@ -1083,7 +1181,7 @@ class FsmContext(PGContext):
         
         # Test for the .graph file
         base, ext = os.path.splitext(file_name)
-        graph_file = base + '.graph'
+        graph_file = base + '.fsm'
         already_positioned = False
         if os.path.exists(graph_file):
             already_positioned = self.read_graph_file(graph_file)
@@ -1115,15 +1213,15 @@ class FsmContext(PGContext):
             return False
         return True
 
-    def add_feature_cb(self):
-        '''Callback invoked after a feature (vertex or edge) has been invoked'''
-        self.pos = None
-        self.edge_matrix = None
-        self.forces = None
+##    def add_feature_cb(self):
+##        '''Callback invoked after a feature (vertex or edge) has been invoked'''
+##        self.pos = None
+##        self.edge_matrix = None
+##        self.forces = None
 
     def handleKeyboard(self, event, view):
         '''Handle keyboard events'''
-        result = PGContext.handleKeyboard(self, event, view)
+        result = GraphMoveContext.handleKeyboard(self, event, view)
         if (not result.isHandled()):
             mods = pygame.key.get_mods()
             hasCtrl = mods & pygame.KMOD_CTRL
@@ -1236,6 +1334,7 @@ class FsmContext(PGContext):
     def build_graph( self ):
         '''Builds the underlying data structures for doing the relaxation from the
         graph.'''
+        self.edge_count = 0
         s_count = len(self.fsm.states)
         # The graph is a N x 1 X 2 graph
         #   self.pos[i, 0, :] is the position of the ith node
@@ -1268,6 +1367,7 @@ class FsmContext(PGContext):
         self.edge_matrix = np.zeros((s_count, s_count, 1), dtype=np.float)
         for trans in self.fsm.transitions:
             for target in trans.to_states:
+                self.edge_count += 1
                 self.edge_matrix[trans.from_state.id, target.id, 0] = 1
                 self.edge_matrix[target.id, trans.from_state.id, 0] = 1
 
@@ -1372,18 +1472,13 @@ class FsmContext(PGContext):
         if self.pos is not None:
             state = self.graph.fromID
             self.pos[state.id, 0, :] = state.pos
-
-    def drawGL(self, view):
-        self.view = view
-        PGContext.drawGL(self, view)
-        # The context has the view -- it should be drawing the FSM
-        view.printText('Relax graph edit\n  cost: %f' % self.cost(), (10, 30))
-        if self.fsm:
-            # TODO: Handle selection
-            self.drawTransitions()
-            self.drawStates(view)
             
-    def drawStates(self, view, select=False):
+    def drawStates(self, view, select):
+        '''Draws the states to the OpenGL context.
+
+        @param view             An instance of View.
+        @param select           A bool; True if the states are being drawn for seleciton.
+        '''
         theta = np.linspace(0, np.pi * 2, 32)
         cTheta = np.cos(theta)
         sTheta = np.sin(theta)
@@ -1393,7 +1488,6 @@ class FsmContext(PGContext):
         
         def circle(scale, id):
             # TODO: Push this into a display list
-            # TODO: This should really be part of the context and *not* the class.
             glPushMatrix()
             glTranslatef(self.pos[id, 0, 0], self.pos[id, 0, 1], 0)
             glScalef(scale, scale, scale)
@@ -1403,18 +1497,20 @@ class FsmContext(PGContext):
                 glVertex3f(c, s, 0)
             glEnd()
             glPopMatrix()
-            
+
+        label_offset = self.edge_count + 1
         for state in self.fsm.states:
             if select:
-                glLoadName(state.id)
-            if state.is_final and not select:
-                glColor3f(1, .2, .2)
-                circle(self.RADIUS + 1, state.id)
-                glColor3f(1, 1, 1)
-            elif state.is_start and not select:
-                glColor3f(.2, 0.8, .2)
-                circle(self.RADIUS + 1, state.id)
-                glColor3f(1, 1, 1)
+                glLoadName(state.id + label_offset)
+            else:
+                if state.is_final:
+                    glColor3f(1, .2, .2)
+                    circle(self.RADIUS + 1, state.id)
+                    glColor3f(1, 1, 1)
+                elif state.is_start:
+                    glColor3f(.2, 0.8, .2)
+                    circle(self.RADIUS + 1, state.id)
+                    glColor3f(1, 1, 1)
             circle(self.RADIUS, state.id)
         glPopAttrib()
         
@@ -1423,7 +1519,7 @@ class FsmContext(PGContext):
             screenPos = gluProject(pos[0], pos[1], 0)
             view.printText(state.name, (int(screenPos[0]), int(screenPos[1])))
     
-    def drawTransitions(self):
+    def drawTransitions(self, select):
         # Condition types to handle
         #   conjunctions: and, not, or
         colors = {'goal_reached':(1, 0, 0),
@@ -1434,53 +1530,155 @@ class FsmContext(PGContext):
         glPushAttrib(GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT)
         glDisable(GL_DEPTH_TEST)
         glLineWidth(3)
+        label = 1
         # TODO:
         #   Handle loop back to self
         #   Handle probabilitic target
         #   Label transitions
         #       Include conjunctions
         # Draw the lines
-        glBegin(GL_LINES)
-        for t in self.fsm.transitions:
-            color = colors.get(t.cond_type, (0.4, 0.4, 0.4))
-            glColor3fv(color)
-            p1 = self.pos[t.from_state.id, 0, :]
-            for to_state in t.to_states:
-                p2 = self.pos[to_state.id, 0, :]
-                glVertex3f(p1[0], p1[1], 0)
-                glVertex3f(p2[0], p2[1], 0)
-        glEnd()
-        # Draw the arrow
-        glPushMatrix()
-        glPolygonMode(GL_FRONT, GL_FILL)
-        for t in self.fsm.transitions:
-            color = colors.get(t.cond_type, (0.4, 0.4, 0.4))
-            glColor3fv(color)
-            p1 = self.pos[t.from_state.id, 0, :]
-            for to_state in t.to_states:
-                p2 = self.pos[to_state.id, 0, :]
-                dir = p2 - p1
-                # NOTE: This fails for loop transitions -- where from state is to state
-                dir /= np.sqrt(dir.dot(dir))
-                r = self.RADIUS
-                if to_state.is_start or to_state.is_final:
-                    # Account for the fact that I inflate final and initial states
-                    r += 1
-                p = p2 - r * dir
-                glLoadMatrixf((dir[0], dir[1], 0, 0,
-                              -dir[1], dir[0], 0, 0,
-                              0, 0, 1, 0,
-                              p[0], p[1], 0, 1))
-                
-                glBegin(GL_TRIANGLES)
-                glVertex3f(0, 0, 0)
-                glVertex3f(-3, 1.5, 0)
-                glVertex3f(-3, -1.5, 0)
-                glEnd()
+        if select:
+            glBegin(GL_LINES)
+            for t in self.fsm.transitions:
+                glLoadName(label)
+                label += 1
+                p1 = self.pos[t.from_state.id, 0, :]
+                for to_state in t.to_states:
+                    p2 = self.pos[to_state.id, 0, :]
+                    glVertex3f(p1[0], p1[1], 0)
+                    glVertex3f(p2[0], p2[1], 0)
+            glEnd()
+        else:
+            glBegin(GL_LINES)
+            for t in self.fsm.transitions:
+                color = colors.get(t.cond_type, (0.4, 0.4, 0.4))
+                glColor3fv(color)
+                p1 = self.pos[t.from_state.id, 0, :]
+                for to_state in t.to_states:
+                    p2 = self.pos[to_state.id, 0, :]
+                    glVertex3f(p1[0], p1[1], 0)
+                    glVertex3f(p2[0], p2[1], 0)
+            glEnd()
+            # Draw the arrow
+            glPushMatrix()
+            glPolygonMode(GL_FRONT, GL_FILL)
+            for t in self.fsm.transitions:
+                color = colors.get(t.cond_type, (0.4, 0.4, 0.4))
+                glColor3fv(color)
+                p1 = self.pos[t.from_state.id, 0, :]
+                for to_state in t.to_states:
+                    p2 = self.pos[to_state.id, 0, :]
+                    dir = p2 - p1
+                    # NOTE: This fails for loop transitions -- where from state is to state
+                    dir /= np.sqrt(dir.dot(dir))
+                    r = self.RADIUS
+                    if to_state.is_start or to_state.is_final:
+                        # Account for the fact that I inflate final and initial states
+                        r += 1
+                    p = p2 - r * dir
+                    glLoadMatrixf((dir[0], dir[1], 0, 0,
+                                  -dir[1], dir[0], 0, 0,
+                                  0, 0, 1, 0,
+                                  p[0], p[1], 0, 1))
+
+                    glBegin(GL_TRIANGLES)
+                    glVertex3f(0, 0, 0)
+                    glVertex3f(-3, 1.5, 0)
+                    glVertex3f(-3, -1.5, 0)
+                    glEnd()
         glPopMatrix()
         glPopAttrib()
         glLineWidth(1.0)
-            
+
+    def drawTransition(self, transition, select):
+        '''Draws the transition'''
+        # Source leads to single, different target
+        #   Rendered as a straight-line along shortest path
+        # Source leads back to self
+        #   Rendered as semi-circular (possibly elliptical) loop back to itself.
+        #   It shouldn't intersect with other transitions
+        #   Which means the angular position of exit and enter should span a range
+        #     from which no transitions enter or exit
+        # Source leads to multiple targets
+        #   Multiple lines/arcs leave a *common* point and move to the neighbors
+        #   It is important that the neighbors create some local fan that doesn't cross
+        #   other exiting transitions
+        #   This depends on state positioning and will be deferred
+        pass
+
+    # overrides of GraphMoveContext
+    def save_name():
+        '''Reports the name of the file created by saving from this context. Sub-classes
+        should override this as appropriate to distinguish graph types.'''
+        # TODO: This should be part of a generic graph context.
+        return 'temp.fsm'
+
+    class SelectableFsm:
+        '''Inner class for drawing the selectable FSM'''
+        def __init__(self, context):
+            self.context = context
+
+        def drawGL(self, selected, select_edges):
+            '''Draws the context in a select mode.
+            @param selected  A bool; should *always* be True. As this is only intended
+                             to be invoked by view.select()
+            @param select_edges An anachronism; should be eliminated from the view.select()
+                                invocation.'''
+            self.context.doDrawGL(None, True)
+
+    def select_drawable(self):
+        return self.SelectableFsm(self)
+
+    def edge_from_id(self, edge_id):
+        '''All edges are given by .... what?'''
+        if edge_id > self.edge_count:
+            # *Not* an edge id
+            return None
+        # The edge_id is a valid OpenGL label for edges.
+        #   I now need to grab the pair of states for which this edge applies
+        #   An edge should be the indices of the (from, to) state pair.
+        raise NotImplementedError, "We don't support edges yet"
+
+    def vertex_from_id(self, vertex_id):
+        '''The object for a "vertex" (i.e., state) is its index.
+        @param vertex_id  The value returned from view.select()'''
+        if edge_id <= self.edge_count:
+            # This *cannot* be a vertex_id
+            return None
+        index = vertex_id - 1 - self.edge_count
+        if index >= self.pos.size[0]:
+            # The vertex id is too large to be a vertex
+            return None
+        return index
+
+    def get_vertex_position(self, vertex):
+        return self.pos[vertex, 0, :]
+
+    def set_vertex_position(self, vertex, pos):
+        self.pos[vertex, 0, :] = pos
+
+    def get_edge_position(self, edge):
+        pass
+
+    def set_edge_position(self, edge, pos):
+        pass
+
+    def context_title(self):
+        return 'FSM display'
+
+    def doDrawGL(self, view, select=False):
+        if view is not None:
+            self.view = view
+        print 'doDrawGL', self.__class__, view.__class__
+        # THIS IS A HORRENDOUS CIRCULAR CALL - STACK OVERFLOW
+        GraphMoveContext.drawGL(self, view)
+        # The context has the view -- it should be drawing the FSM
+        view.printText('Relax graph edit\n  cost: %f' % self.cost(), (10, 30))
+        if self.fsm:
+            # TODO: Handle selection
+            self.drawTransitions(select)
+            self.drawStates(view, select)
+
 class EditPolygonContext( PGContext, MouseEnabled ):
     '''A context for editing obstacles'''
     #states for editing
