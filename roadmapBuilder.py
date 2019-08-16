@@ -17,6 +17,8 @@ from vField import GLVectorField
 from RoadContext import ContextSwitcher, AgentContext, FieldEditContext, SCBContext, PositionContext, ObstacleContext
 from GoalContext import GoalContext
 from GoalEditor import GoalEditor
+from nav_mesh_context import NavMeshContext
+from navMesh import NavMesh
 import Goals
 from Context import ContextResult
 
@@ -276,6 +278,8 @@ def main():
     parser = optparse.OptionParser()
     parser.add_option( "-r", "--roadmap", help="Optional roadmap file to load",
                        action="store", dest="roadmapName", default='' )
+    parser.add_option( "-n", "--nav_mesh", help="Optional nav mesh file to load",
+                       action="store", dest="navmeshName", default='' )
     parser.add_option( "-g", "--goals", help="Optional goal definition file to load",
                        action="store", dest="goalsName", default='' )
     parser.add_option( "-b", "--obstacle", help="Optional obstacle file to load.",
@@ -301,6 +305,7 @@ def main():
     obstName = paths.getPath( options.obstName )
     agtName = paths.getPath( options.agtName )
     roadmapName = paths.getPath( options.roadmapName )
+    navmeshName = paths.getPath(options.navmeshName)
     fieldName = paths.getPath( options.fieldName )
     scbName = paths.getPath( options.scbName )
     goalsName = paths.getPath( options.goalsName )
@@ -310,6 +315,7 @@ def main():
     print "\tobstacles: ", obstName
     print "\tagents:    ", agtName
     print "\troad map:  ", roadmapName
+    print "\tnav mesh:  ", navmeshName
     print "\tfield:     ", fieldName
     print "\tscbName:   ", scbName
     print "\tGoals:     ", goalsName
@@ -322,10 +328,17 @@ def main():
             bb.min = Vector3( options.boundRegion[0], options.boundRegion[1], 0 )
             bb.max = Vector3( options.boundRegion[2], options.boundRegion[3], 0 )
             print bb
-        else:
-            bb.min = Vector3( -100, -100, 0 )
-            bb.max = Vector3( 100, 100, 0 )
 
+    nav_mesh = NavMesh()
+    if navmeshName:
+        nav_mesh.readNavFile(navmeshName)
+    bb.extend(nav_mesh.getBB())
+
+    if bb.area2D() < 1e-3:
+        bb.min = Vector3( -100, -100, 0 )
+        bb.max = Vector3( 100, 100, 0 )
+    print "Region of obstacles and navigation mesh:", bb
+        
     agents = AgentSet( 0.23 )
     if ( agtName ):
         agents.initFromFile( agtName )
@@ -357,6 +370,8 @@ def main():
 
     w = bb.max.x - bb.min.x
     h = bb.max.y - bb.min.y
+    # TODO: If the bounding box aspect ratio is different from the view aspect ratio, I
+    # to modify the image/view properties so that the bounding box fits.
     view = View( (w,h), (bb.min.x, bb.min.y), (w,h), (bb.min.x, bb.min.y), (800, 600), font )
     view.HELP_TEXT = 'View controls:' + \
                      '\n\tpan - Ctrl + left mouse button' + \
@@ -392,6 +407,7 @@ def main():
         context.addContext( FieldEditContext( field ), pygame.K_f )
     if ( scbName != '' ):
         context.addContext( SCBContext( scbName, obstacles, agents.defRadius ), pygame.K_s )
+    context.addContext(NavMeshContext(nav_mesh), pygame.K_n)
     context.newGLContext()
 
     redraw = True
