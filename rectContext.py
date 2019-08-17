@@ -177,6 +177,7 @@ class RectContext( BaseContext ):
             if ( event.type == MouseEvent.DOWN ): #QtCore.QEvent.MouseButtonPress ):
                 if ( btn == MouseEvent.LEFT ):
                     self.downPos = Vector2( eX, eY )
+                    # Another "view" that is the GLContext which has a different meaning.
                     x, y = view.screenToWorld( ( eX, eY ) )
                     self.downWorld = ( x, y )
                     self.active = GLRectDomain( ( x, y ), ( 0, 0 ) )
@@ -209,6 +210,7 @@ class RectContext( BaseContext ):
                     result.set( True, True, False )
             elif ( event.type == MouseEvent.MOVE ):
                 if ( self.dragging ):
+                    # Another "view" that is the GLContext which has a different meaning.
                     x, y = view.screenToWorld( ( eX, eY ) )
                     dX = x - self.downWorld[0]
                     dY = y - self.downWorld[1]

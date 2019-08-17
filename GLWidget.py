@@ -229,6 +229,8 @@ class GLWidget( QtOpenGL.QGLWidget ):
 
     def screenToWorld( self, (x, y ) ):
         """Converts a screen-space value into a world-space value"""
+        # TODO: This needs to clearly define "screen space". Is the origin in the
+        # upper or lower left-hand corner?
         x_GL = x / float( self.wWidth ) * self.vWidth + self.vLeft
         y_GL = (1.0 - y / float( self.wHeight ) ) * self.vHeight + self.vBottom
         return x_GL, y_GL

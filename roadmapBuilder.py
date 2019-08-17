@@ -105,8 +105,8 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
         if ( dragging == RECT):
             pass
         elif ( dragging == PAN ):
-            dX, dY = view.screenToWorld( ( downX, downY ) )
-            pX, pY = view.screenToWorld( event.pos )
+            dX, dY = view.imageToWorld((downX, downY))
+            pX, pY = view.imageToWorld(event.pos)
             view.pan( (dX - pX, dY - pY) )
             result.setNeedsRedraw( True )
         elif ( dragging == ZOOM ):
@@ -122,8 +122,8 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
                 graph.testEdge.end = selVert
                 result.setNeedsRedraw( True )
         elif ( dragging == MOVE ):
-            dX, dY = view.screenToWorld( ( downX, downY ) )
-            pX, pY = view.screenToWorld( event.pos )
+            dX, dY = view.imageToWorld((downX, downY))
+            pX, pY = view.imageToWorld(event.pos)
             newX = downPos[0] + ( pX - dX )
             newY = downPos[1] + ( pY - dY )
             if ( editState == GRAPH_EDIT ):
@@ -173,7 +173,7 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
                 view.startPan()
                 dragging = PAN
             elif ( hasShift ):
-                view.startZoom( event.pos )
+                view.startZoom(view.imageToScreen(event.pos))
                 dragging = ZOOM
             else:
                 if ( editState == GRAPH_EDIT ):
@@ -181,7 +181,7 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
                         downPos = ( graph.fromID.pos[0], graph.fromID.pos[1] )
                         dragging = MOVE
                     else:
-                        p = view.screenToWorld( event.pos )
+                        p = view.imageToWorld( event.pos )
                         graph.addVertex( p )
                         graph.fromID = graph.lastVertex()
                         result.setNeedsRedraw( True )
@@ -211,15 +211,15 @@ def handleMouse( event, context, view, graph, obstacles, agents, field ):
                 result.setNeedsRedraw( True )
             dragging = NO_DRAG
         elif ( event.button == WHEEL_UP ):
-            view.zoomIn( event.pos )
+            view.zoomIn(view.imageToScreen(event.pos))
             result.setNeedsRedraw( True )
         elif ( event.button == WHEEL_DOWN ):
-            view.zoomOut( event.pos )
+            view.zoomOut(view.imageToScreen(event.pos))
             result.setNeedsRedraw( True )
         elif ( event.button == MIDDLE ):
             downX, downY = event.pos
             if ( editState == GRAPH_EDIT and graph.fromID == None ):
-                p = view.screenToWorld( event.pos )
+                p = view.imageToWorld(event.pos)
                 graph.addVertex( p )
                 graph.fromID = graph.lastVertex()
                 result.setNeedsRedraw( True )

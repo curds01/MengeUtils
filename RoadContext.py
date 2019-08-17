@@ -432,7 +432,7 @@ class SCBContext( PGContext ):
         
         if ( event.type == pygame.MOUSEBUTTONDOWN ):
             if ( noMods and event.button == PGMouse.LEFT ):
-                pX, pY = view.screenToWorld( event.pos )        
+                pX, pY = view.imageToWorld( event.pos )
                 result.setNeedsRedraw( self.findAgent( pX, pY ) )
         return result
     
@@ -535,7 +535,7 @@ class PositionContext( PGContext, MouseEnabled ):
         """The context handles the mouse event as it sees fit and reports it's status with a ContextResult"""
         result = ContextResult()
         self.downX, self.downY = event.pos
-        self.worldPos = view.screenToWorld( ( self.downX, self.downY ) )
+        self.worldPos = view.imageToWorld(event.pos)
         if ( event.type == pygame.MOUSEBUTTONDOWN ):
             if ( event.button == PGMouse.LEFT ):
                 print "World position: %f %f" % ( self.worldPos[0], self.worldPos[1] )
@@ -547,7 +547,7 @@ class PositionContext( PGContext, MouseEnabled ):
         '''Draws the current rectangle to the open gl context'''
         PGContext.drawGL( self, view )
         posStr = '(%.3f, %.3f)' % ( self.worldPos[0], self.worldPos[1] )
-        view.printText( '%s' % posStr,  (self.downX, view.wHeight - self.downY) )
+        view.printText( '%s' % posStr, view.imageToScreen((self.downX, self.downY)))
 
 # Ideas
 #   1) Load a reference obj that can be drawn on top
@@ -837,7 +837,7 @@ class EditPolygonContext( PGContext, MouseEnabled ):
             if ( noMods ):
                 if ( event.type == pygame.MOUSEBUTTONDOWN ):
                     if ( event.button == PGMouse.LEFT ):
-                        self.downX, self.downY = view.screenToWorld( event.pos )
+                        self.downX, self.downY = view.imageToWorld( event.pos )
                         if ( self.activePoly is not None ):
                             origin = self.activePoly.vertices[ 0 ]
                             self.origin = ( origin.x, origin.y )
@@ -874,7 +874,7 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                         result.set( True, True )
                     elif ( event.button == PGMouse.MIDDLE and self.state == self.EDGE ):
                         if ( self.obstacles.activeEdge is not None ):
-                            self.downX, self.downY = view.screenToWorld( event.pos )
+                            self.downX, self.downY = view.imageToWorld( event.pos )
                             # insert vertex
                             self.obstacles.activeVert = Vector2( self.downX, self.downY )
                             self.activeID = self.obstacles.insertVertex( self.obstacles.activeVert, self.activeID )
@@ -888,7 +888,7 @@ class EditPolygonContext( PGContext, MouseEnabled ):
                         self.dragging = False
                 elif ( event.type == pygame.MOUSEMOTION ):
                     if ( self.dragging ):
-                        pX, pY = view.screenToWorld( event.pos )
+                        pX, pY = view.imageToWorld( event.pos )
                         newX = self.origin[0] + ( pX - self.downX )
                         newY = self.origin[1] + ( pY - self.downY )
                         if ( self.obstacles.activeVert ):
@@ -1056,7 +1056,7 @@ class DrawPolygonContext( PGContext, MouseEnabled ):
                             self.polygon.closed = True
                             self.state = self.DRAWING
                         self.downX, self.downY = event.pos
-                        p = view.screenToWorld( ( self.downX, self.downY ) )
+                        p = view.imageToWorld( ( self.downX, self.downY ) )
                         self.polygon.vertices.append( Vector2( p[0], p[1] ) )
                         self.polygon.updateWinding()
                         self.dragging = True
@@ -1073,7 +1073,7 @@ class DrawPolygonContext( PGContext, MouseEnabled ):
                 elif ( event.type == pygame.MOUSEMOTION ):
                     if ( self.dragging  ):
                         self.downX, self.downY = event.pos
-                        p = view.screenToWorld( ( self.downX, self.downY ) )
+                        p = view.imageToWorld( ( self.downX, self.downY ) )
                         self.polygon.vertices[ -1 ] = Vector2( p[0], p[1] )
                         result.set( True, True )
                         
@@ -1175,8 +1175,8 @@ class AgentContext( PGContext, MouseEnabled ):
         if (event.type == pygame.MOUSEMOTION ):
             if ( self.dragging ):
                 if ( self.agents.activeAgent ):
-                    dX, dY = view.screenToWorld( ( self.downX, self.downY ) )
-                    pX, pY = view.screenToWorld( event.pos )
+                    dX, dY = view.imageToWorld( ( self.downX, self.downY ) )
+                    pX, pY = view.imageToWorld( event.pos )
                     newX = self.downPos[0] + ( pX - dX )
                     newY = self.downPos[1] + ( pY - dY )
                     self.agents.activeAgent.setActivePos( (newX, newY ) )
@@ -1205,7 +1205,7 @@ class AgentContext( PGContext, MouseEnabled ):
                 if ( self.agents.activeAgent ):
                     self.downPos = self.agents.activeAgent.getActivePos()
                 else:
-                    p = view.screenToWorld( event.pos )
+                    p = view.imageToWorld( event.pos )
                     self.downPos = p
                     self.agents.addAgent( p )
                     result.setNeedsRedraw( True )
@@ -1421,7 +1421,7 @@ class FieldStrokeContext( VFieldContext ):
         hasShift = mods & pygame.KMOD_SHIFT
         noMods = not( hasShift or hasCtrl or hasAlt )
 
-        pX, pY = view.screenToWorld( event.pos )
+        pX, pY = view.imageToWorld( event.pos )
         self.brushPos = ( pX, pY )
         result.set( False, True )  # this should be conditional
         if (event.type == pygame.MOUSEMOTION ):
@@ -1439,7 +1439,7 @@ class FieldStrokeContext( VFieldContext ):
                 result.set( True, True )
         elif ( event.type == pygame.MOUSEBUTTONDOWN ):
             if ( event.button == PGMouse.LEFT and noMods ):
-                self.downX, self.downY = view.screenToWorld( event.pos )
+                self.downX, self.downY = view.imageToWorld( event.pos )
                 self.dragging = True
                 result.set( True, True )
         return result
@@ -1619,7 +1619,7 @@ class FieldPathContext( VFieldContext ):
 
         if (event.type == pygame.MOUSEMOTION ):
             if ( self.dragging ):
-                pX, pY = view.screenToWorld( event.pos )
+                pX, pY = view.imageToWorld( event.pos )
                 self.liveStroke.addPoint( pX, pY )
                 result.set( True, True )
         elif ( event.type == pygame.MOUSEBUTTONUP ):
@@ -1628,7 +1628,7 @@ class FieldPathContext( VFieldContext ):
                 self.dragging = False
         elif ( event.type == pygame.MOUSEBUTTONDOWN ):
             if ( event.button == PGMouse.LEFT and noMods ):
-                pX, pY = view.screenToWorld( event.pos )
+                pX, pY = view.imageToWorld( event.pos )
                 self.liveStroke = Path()
                 self.liveStroke.beginPath( pX, pY )
                 self.dragging = True
@@ -1724,7 +1724,7 @@ class FieldDomainContext( VFieldContext, MouseEnabled ):
         noMods = not( hasShift or hasCtrl or hasAlt )
 
         if ( event.type == pygame.MOUSEMOTION ):
-            p = view.screenToWorld( event.pos )
+            p = view.imageToWorld( event.pos )
             if ( self.dragging ):
                 if ( self.dragging == self.EDIT_HORZ ):
                     dX = p[0] - self.downX
@@ -1744,7 +1744,7 @@ class FieldDomainContext( VFieldContext, MouseEnabled ):
                     self.activeEdge = newIdx
         elif ( event.type == pygame.MOUSEBUTTONDOWN ):
             if ( noMods and event.button == PGMouse.LEFT and self.activeEdge is not None ):
-                self.downX, self.downY = view.screenToWorld( event.pos )
+                self.downX, self.downY = view.imageToWorld( event.pos )
                 if ( self.activeEdge % 2 ): # vertical line
                     self.startVal = self.corners[ self.activeEdge ][ 0 ]
                     self.dragging = self.EDIT_HORZ

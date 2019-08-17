@@ -5,7 +5,24 @@ import Select
 
 # OpenGL View
 class View:
-    """Contains the OpenGL view parameters for the scene"""
+    """Contains the OpenGL view parameters for the scene
+
+    The view relates three different frames: image, screen, and world.
+
+      - The world frame W is where all entities are defined. It has a right-handed
+        orthonormal basis.
+      - The screen frame S is aligned with the world frame. However, it's origin is
+        located at p_WSo = [vLeft, vBottom]. However, it's basis is *scaled* relative to
+        the world basis. So, Sx = Wx * wWidth / vWidth and Sy = Wy * wHeight / vHeight.
+        Visible coordinates are in the domain [0, 0], [wWidth, wHeight], with the
+        origin being at the bottom, left corner of the screen.
+      - The image frame I is similar to S. It is pixel valued and visible values lie in
+        the domain [0, 0] X [wWidth, wHeight], however the origin is in the upper *right*
+        corner and grow downard and to the left.
+
+    Distinction of the frames is important. For example, text is defined in the *screen*
+    frame. However, mouse events report mouse position in the *image* frame."""
+    # TODO: Consider renaming "image" frame to mouse frame? pygame frame?
     VIDEO_FLAGS = pygame.OPENGL|pygame.DOUBLEBUF|pygame.RESIZABLE
     HELP_TEXT = 'View has no help'
     def __init__( self, imgSize, imgBottomLeft, viewSize, viewBottomLeft, winSize, font ):
@@ -15,7 +32,24 @@ class View:
         self.bgLeft = imgBottomLeft[0]
         self.bgBottom = imgBottomLeft[1]
         
-        # the current view  - this is the LOGICAL size of what I'm viewing -- not the size of the window
+        # The "view" size and min corner is the region visible in the window.
+        # It should always have the same aspect ratio as the window.
+        # Given a *requested* view, we modify the view size to guarantee the whole view is
+        # in the window.
+        w_ar = float(winSize[0]) / winSize[1]
+        v_ar = float(viewSize[0]) / viewSize[1]
+        if v_ar < w_ar:
+            # The view is taller than the window.
+            w_v = viewSize[1] * w_ar
+            x_v = viewBottomLeft[0] - (w_v - viewSize[0]) / 2
+            viewSize = (w_v, viewSize[1])
+            viewBottomLeft = (x_v, viewBottomLeft[1])
+        elif v_ar > w_ar:
+            # View is wider than window
+            h_v = viewSize[0] / w_ar
+            y_v = viewBottomLeft[1] - (h_v - viewSize[1]) / 2
+            viewSize = (viewSize[0], h_v)
+            viewBottomLeft = (viewBottomLeft[0], y_v)
         self.vWidth = viewSize[ 0 ]
         self.vHeight = viewSize[ 1 ]
         self.vLeft = viewBottomLeft[ 0 ]
@@ -40,17 +74,52 @@ class View:
         pygame.display.set_caption( title )
         self.resizeGL( ( self.wWidth, self.wHeight ) )
         
-    def screenToWorld( self, (x, y ) ):
-        """Converts a screen-space value into a world-space value - the result is a 2-TUPLE"""
-        x_GL = x / float( self.wWidth ) * self.vWidth + self.vLeft
-        y_GL = (1.0 - y / float( self.wHeight ) ) * self.vHeight + self.vBottom
+
+    def imageToScreen(self, (u, v)):
+        '''Transforms the image-space coordinate (u, v) to the screen-space
+        coordinate (su, sv) (see class documentation for information about
+        the frames).'''
+        su = u
+        sv = self.wHeight - v
+        return su, sv
+    
+    def screenToImage(self, (u, v)):
+        '''Transforms the screen-space coordinate (u, v) to the image-space
+        coordinate (su, sv) (see class documentation for information about
+        the frames).'''
+        iu = u
+        iv = self.wHeight - v
+        return iu, iv
+    
+    def imageToWorld(self, (u, v)):
+        '''Transforms the image-space coordinate (u, v) to the world-space
+        coordinate (x, y) (see class documentation for information about
+        the frames).'''
+        screen = self.imageToScreen((u, v))
+        return self.screenToWorld(screen)
+
+    def screenToWorld( self, (u, v) ):
+        '''Transforms the screen-space coordinate (u, v) to the world-space
+        coordinate (x, y) (see class documentation for information about
+        the frames).'''
+        x_GL = u / float( self.wWidth ) * self.vWidth + self.vLeft
+        y_GL = v / float( self.wHeight ) * self.vHeight + self.vBottom
         return x_GL, y_GL
 
-    def worldToScreen( self, (x,y) ):
-        '''Converts world-space value into a screen-space value - the result is a 2-TUPLE'''
-        x_S = int( ( x - self.vLeft ) * self.wWidth / self.vWidth )
-        y_S = int( self.wHeight * ( 1.0 - ( y - self.vBottom ) / self.vHeight ) )
-        return x_S, y_S
+    def worldToScreen( self, (x, y) ):
+        '''Transforms the world-space coordinate (x, y) to the screen-space
+        coordinate (u, v) (see class documentation for information about
+        the frames).'''
+        u = int( ( x - self.vLeft ) * self.wWidth / self.vWidth )
+        v = int( ( y - self.vBottom) * self.wHeight / self.vHeight)
+        return u, v
+
+    def worldToImage(self, (x, y)):
+        '''Transform the world-space coordinates (x, y) to the image-space
+        coordinate (u, v) (see class documentation for information about
+        the frames).'''
+        screen = self.worldToScreen((x, y))
+        return self.screenToImage(screen)
 
     def initGL( self ):
         glClearColor(0.0, 0.0, 0.0, 0.0)
@@ -137,8 +206,8 @@ class View:
         viewScale = 1.0 - pct
         self.vWidth *= viewScale
         self.vHeight *= viewScale
-        self.vLeft = x - ( center[0] / float( self.wWidth) * self.vWidth )
-        self.vBottom = y - ( 1.0 - center[1] / float( self.wHeight) ) * self.vHeight
+        self.vLeft = x - (center[0] / float(self.wWidth) * self.vWidth)
+        self.vBottom = y - (center[1] / float( self.wHeight) * self.vHeight)
         self._setOrtho()
 
     def zoomOut( self, center, pct = 0.10 ):
@@ -149,8 +218,8 @@ class View:
         viewScale = 1.0 + pct
         self.vWidth *= viewScale
         self.vHeight *= viewScale
-        self.vLeft = x - ( center[0] / float( self.wWidth) * self.vWidth )
-        self.vBottom = y - ( 1.0 - center[1] / float( self.wHeight) ) * self.vHeight
+        self.vLeft = x - (center[0] / float( self.wWidth) * self.vWidth )
+        self.vBottom = y - (center[1] / float( self.wHeight) * self.vHeight)
         self._setOrtho()
 
     def windowAspectRatio( self ):
@@ -196,8 +265,7 @@ class View:
         self.vWidth = self.vWidthOld * viewScale
         self.vHeight = self.vHeightOld * viewScale
         self.vLeft = self.zoomCenterWorld[0] - ( self.zoomCenter[0] / float( self.wWidth ) * self.vWidth )
-        val = self.zoomCenterWorld[1] - ( 1 - self.zoomCenter[1] / float( self.wHeight ) ) * self.vHeight
-        self.vBottom = val
+        self.vBottom = self.zoomCenterWorld[1] - ( self.zoomCenter[1] / float( self.wHeight ) * self.vHeight)
         self._setOrtho()
 
     def cancelZoom( self ):

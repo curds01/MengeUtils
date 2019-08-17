@@ -193,6 +193,8 @@ class FlowLineContext( BaseContext ):
             if ( event.type == MouseEvent.DOWN ): #QtCore.QEvent.MouseButtonPress ):
                 if ( btn == MouseEvent.LEFT ):
                     self.downPos = Vector2( eX, eY )
+                    # NOTE: The view in this context is a GLWidget which is *not* the same
+                    # as View. Its mapping from event to world is different.
                     x, y = view.screenToWorld( ( eX, eY ) )
                     p1 = Vector2( x, y )
                     self.activeLine = GLFlowSegment( p1, p1 )

@@ -221,13 +221,13 @@ class GoalContext( PGContext, MouseEnabled ):
                     result.setNeedsRedraw( selID != self.goalEditor.activeGoal )
                     self.goalEditor.activeGoal = selID
                 elif ( self.state == self.EDIT_POINT ):
-                    pX, pY = view.screenToWorld( event.pos )
+                    pX, pY = view.imageToWorld( event.pos )
                     self.editGoal.set( pX, pY )
                     result.set( True, True )
                 elif ( self.state & self.EDIT_CIRCLE ):
                     result.setHandled( True )
                     if ( self.dragging ):
-                        dX, dY = view.screenToWorld( event.pos )
+                        dX, dY = view.imageToWorld( event.pos )
                         if ( self.state == self.MOVE_CIRCLE ):
                             dx = dX - self.downWorld[ 0 ]
                             dy = dY - self.downWorld[ 1 ]
@@ -244,7 +244,7 @@ class GoalContext( PGContext, MouseEnabled ):
                 elif ( self.state & self.EDIT_AABB ):
                     result.setHandled( True )
                     if ( self.dragging ):
-                        x, y = view.screenToWorld( event.pos )
+                        x, y = view.imageToWorld( event.pos )
                         if ( self.state == self.MIN_AABB ):
                             self.editGoal.setMin( x, y )
                         elif ( self.state == self.MAX_AABB ):
@@ -263,7 +263,7 @@ class GoalContext( PGContext, MouseEnabled ):
                 elif ( self.state & self.EDIT_OBB ):
                     result.setHandled( True )
                     if ( self.dragging ):
-                        x, y = view.screenToWorld( event.pos )
+                        x, y = view.imageToWorld( event.pos )
                         if ( self.state == self.MOVE_OBB ):
                             dx = x - self.downWorld[ 0 ]
                             dy = y - self.downWorld[ 1 ]
@@ -277,7 +277,7 @@ class GoalContext( PGContext, MouseEnabled ):
                         result.setNeedsRedraw( self.setOBBEdit( event.pos, view ) )
             elif ( event.type == pygame.MOUSEBUTTONDOWN ):
                 if ( event.button == PGMouse.LEFT ):
-                    self.cacheDownClick( event.pos, view.screenToWorld( event.pos ) )
+                    self.cacheDownClick( event.pos, view.imageToWorld( event.pos ) )
                     if ( self.goalEditor.activeGoal > -1 ):
                         self.startEdit( view )
                         result.set( True, True )
@@ -342,13 +342,13 @@ class GoalContext( PGContext, MouseEnabled ):
                         result.set( True, True )
         return result
 
-    def cacheDownClick( self, screenPos, worldPos ):
+    def cacheDownClick( self, imagePos, worldPos ):
         '''Caches the down click position.
 
-        @param      screenPos       A 2-tuple of ints.  The screenspace position of the mouse.
-        @param      worldPos        A 2-tuple of flaots.  The worldspace position of the mouse.
+        @param      screenPos       A 2-tuple of ints.  The image-space position of the mouse.
+        @param      worldPos        A 2-tuple of flaots.  The world-space position of the mouse.
         '''
-        self.downX, self.downY = screenPos
+        self.downX, self.downY = imagePos
         self.downWorld = worldPos
         
     def startCreate( self, view ):
@@ -413,8 +413,8 @@ class GoalContext( PGContext, MouseEnabled ):
                                     the active object.
         @returns    A boolean if the edit state changed.
         '''
-        cX, cY = view.worldToScreen( ( self.editGoal.p.x, self.editGoal.p.y ) )
-        rX, rY = view.worldToScreen( ( self.editGoal.r + self.editGoal.p.x, self.editGoal.p.y ) )
+        cX, cY = view.worldToImage((self.editGoal.p.x, self.editGoal.p.y))
+        rX, rY = view.worldToImage((self.editGoal.r + self.editGoal.p.x, self.editGoal.p.y))
         radS = rX - cX
         dX = mousePos[0] - cX
         dY = mousePos[1] - cY
@@ -449,7 +449,7 @@ class GoalContext( PGContext, MouseEnabled ):
                                     then it deselects the active object.
         @returns    A boolean if the edit state changed.
         '''
-        cX, cY = view.worldToScreen( ( self.editGoal.minPt.x, self.editGoal.minPt.y ) )
+        cX, cY = view.worldToImage((self.editGoal.minPt.x, self.editGoal.minPt.y))
         dX = mousePos[0] - cX
         dY = mousePos[1] - cY
         distSqd = dX * dX + dY * dY
@@ -458,7 +458,7 @@ class GoalContext( PGContext, MouseEnabled ):
             changed = self.state != self.MIN_AABB
             self.state = self.MIN_AABB
         else:
-            cX, cY = view.worldToScreen( ( self.editGoal.maxPt.x, self.editGoal.maxPt.y ) )
+            cX, cY = view.worldToImage((self.editGoal.maxPt.x, self.editGoal.maxPt.y))
             dX = mousePos[0] - cX
             dY = mousePos[1] - cY
             distSqd = dX * dX + dY * dY
@@ -467,7 +467,7 @@ class GoalContext( PGContext, MouseEnabled ):
                 self.state = self.MAX_AABB
             else:
                 # determine if it is within the distance of the segments
-                worldPos = view.screenToWorld( mousePos )
+                worldPos = view.imageToWorld( mousePos )
                 if ( self.editGoal.isInside( worldPos ) ):
                     changed = self.state != self.MOVE_AABB
                     self.state = self.MOVE_AABB
@@ -492,7 +492,7 @@ class GoalContext( PGContext, MouseEnabled ):
         @returns    A boolean if the edit state changed.
         '''
         opp = self.editGoal.oppositeCorner()
-        cX, cY = view.worldToScreen( opp )
+        cX, cY = view.worldToImage(opp)
         dX = mousePos[0] - cX
         dY = mousePos[1] - cY
         distSqd = dX * dX + dY * dY
@@ -502,7 +502,7 @@ class GoalContext( PGContext, MouseEnabled ):
             self.state = self.SIZE_OBB
         else:
             adj = self.editGoal.adjacentCorner()
-            cX, cY = view.worldToScreen( adj )
+            cX, cY = view.worldToImage(adj)
             dX = mousePos[0] - cX
             dY = mousePos[1] - cY
             distSqd = dX * dX + dY * dY
@@ -511,7 +511,7 @@ class GoalContext( PGContext, MouseEnabled ):
                 self.state = self.TURN_OBB
             else:
                 # determine if it is within the distance of the segments
-                worldPos = view.screenToWorld( mousePos )
+                worldPos = view.imageToWorld( mousePos )
                 if ( self.editGoal.isInside( worldPos ) ):
                     changed = self.state != self.MOVE_OBB
                     self.state = self.MOVE_OBB
