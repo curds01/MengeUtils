@@ -118,6 +118,8 @@ class AABB:
     def area2D( self ):
         '''Computes the area based on the x, y values'''
         size = self.max - self.min
+        if size[0] < 0 or size[1] < 0 or size[2] < 0:
+            return 0
         return size.x * size.y
 
     def getCenter( self ):
