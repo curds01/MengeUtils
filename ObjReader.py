@@ -41,7 +41,8 @@ USEMTL_PAT = re.compile('\s*usemtl\s+([a-zA-Z][a-zA-Z_0-9\(\)]*)')
 def getFaceData( data ):
     """Extracts vertex, normal and uv indices for a face definition.
         data consists of strings: i, i/i, i//i, or i/i/i.
-        All strings in the data should be of the same format. Format determines what inidices are defined"""
+        All strings in the data should be of the same format. Format determines what
+        indices are defined"""
     dataLists = [[], [], []]
     for s in data:
         indices = s.split('/')
@@ -361,7 +362,12 @@ class ObjFile:
         return s
     
     def readFile( self, filename ):
-        file = open( filename, 'r')
+        with open(filename, 'r') as file:
+            self.readFileLike(file)
+
+    def readFileLike(self, file):
+        '''Reads the obj data from the given file-like object. Must have the xreadlines()
+        method'''
         lineNum = 0
         for line in file.xreadlines():
             lineNum += 1
