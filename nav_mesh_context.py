@@ -7,6 +7,90 @@ from RoadContext import PGContext, MouseEnabled, PGMouse
 from Context import BaseContext, ContextResult
 from navMesh import NavMesh
 
+# Features:
+#   Edit a nav mesh
+#       Build polygons
+#           - place vertices
+#               - lock to obstacle vertices
+#           - build polygon off of vertices
+#           - do I detect if they are convex?
+#       Edit polygons
+#           - split polygon
+#           - move vertices
+#   Workflow
+#       - similar to graph
+#           - moving mouse will find nearby vertex
+#           - left click and drag
+#               - if vertex highlighed, it activates it and moves it.
+#               - if vertex is *not* highlighted, a vertex is added and moves it.
+#               - if a vertex is moved "on top" of another vertex, it merges in
+#                   - updating incident faces accordingly.
+#           - middle click and drag from vertex to vertex
+#               - If I drag from v0 to v1 (then up)
+#                   - if they traverse an existing polygon and can cut the polygon into to
+#                     valid polygons, create two polygons from one.
+#               - If I drag from v0, v1, ..., vk (then up)
+#                   As soon as I have three, automatically close the polygon
+#                   - right click cancels
+#                   - if it is a sub-region of another node, cancel
+#                   - Upon relase, if it encloses a novel region, add a node.
+#                       - update obstacles and edges.
+#           - delete vertex
+#               - remove from all nodes incident to it.
+#               - If inciden tnode is reduced to two vertices, remove the node
+#           - Operate on face
+#               - switch to face mode.
+#               - movement highlights
+#               - can delete
+#               - can add it to a group
+#                   - prompt for name?
+#           - operate on edge
+#               - move
+#               - collapse
+#               - delete
+#                   - if interior, two adjacent faces merge
+#                       - checked for convexity
+#                   - if exterior face gets deleted (edges and obstacles get updated).
+#               - extrude
+#           - Can I create groups?
+#       - Operations on graph
+#           - add vertex, face
+#           - delete vertex, vertex, face
+#           - merge faces
+#           - merge vertices
+#           - Confirm convexity (indciate non-convexity)
+#   Design
+#       What actions need to be disambiguated
+#           Hover
+#               - highlight vertex
+#               - highlight edge
+#               - highlight face
+#           Keystroke
+#               - delete: delete highlighted feature
+#               - e?: extrude highlighted edge -- does this require a drag or just a move?
+#               - c?: collapse highlighted edge
+#           Click
+#               - Left MB
+#                   - vertex highlighted: cause the vertex to be dragged
+#                   - edge  hihlighted: cause edge to be dragged
+#                   - face highlighted: case face to be dragged
+#                   - nothing highlighted, create vertex and cause the new vertex to be dragged.
+#               - Right MB
+#                   - if dragging, cancel the drag action (could be create and move or extrude, etc).
+#               - Middle MB
+#                   - vertex highlighted: begin connecting highlighted vertex to next vertex
+#           Drag
+#               - Dragging button
+#                   - left
+#                       - moving vertex reposition the vertex; if near another vertex, mark it for merging
+#                       - moving edge/extruding edge; reposition the edge
+#                       - moving face: reposition the face
+#                   - middle
+#                       - Draw polygon connecting selected vertices
+#               - Release
+#                   - complete action and make permanent
+#           
+
 class NavMeshContext(PGContext, MouseEnabled):
     '''A context for editing navigation meshes'''
     # TODO:
