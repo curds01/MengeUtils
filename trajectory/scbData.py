@@ -7,6 +7,7 @@ except ImportError:
     if ( not OBJ_READER_PATH in sys.path ):
         sys.path.insert( 0, OBJ_READER_PATH )
     from primitives import Vector2
+import os
 import struct
 import numpy as np
 import commonData
@@ -562,17 +563,22 @@ class NPFrameSet( FrameSet ):
             self.currFrame = np.empty( ( self.readAgtCount, self.colCount ), dtype=np.float32 )
 
         skipAmount = stride - 1
+        original_pos = self.file.tell()
         if ( skipAmount ):
             # TODO: Are the semantics of "readDelta" and 'strideDelta" correct here?
-            self.file.seek( skipAmount * ( self.readDelta + self.strideDelta+ self.frameSize ), 1 )
+            seek_address = skipAmount * (self.readDelta + self.strideDelta + self.frameSize)
+            self.file.seek(seek_address, os.SEEK_CUR)
         try:
             floatCount = self.readAgtCount * self.colCount * self.readAgtStride
             data = np.fromstring( self.file.read( self.readFrameSize ), np.float32, floatCount )
             readAgents = self.readAgtCount * self.readAgtStride
             self.currFrame[:,:] = np.reshape( data, ( readAgents, self.colCount ) )[ ::self.readAgtStride, : ]
         except ValueError:
+            # We failed to read data; let's put the head back to where it was originally.
+            self.file.seek(original_pos, os.SEEK_SET)
             raise StopIteration
         self.currFrameIndex += stride
+
         # seek forward based on skipping
         if ( self.agentDelta ):
             self.file.seek( self.agentDelta, 1 ) # advance to next frame
@@ -588,7 +594,7 @@ class NPFrameSet( FrameSet ):
             
             self.currFrameIndex -= stride
             self.file.seek( -(stride+1) * ( self.readDelta + self.strideDelta+ self.frameSize ), 1 )
-            if ( self.currFrame == None):
+            if ( self.currFrame is None):
                 self.currFrame = np.empty( ( self.readAgtCount, self.colCount ), dtype=np.float32 )
             self.currFrame[:,:] = np.reshape( np.fromstring( self.file.read( self.frameSize ), np.float32, self.readAgtCount * self.colCount ), ( self.readAgtCount, self.colCount ) )
             # seek forward based on skipping
