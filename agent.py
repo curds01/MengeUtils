@@ -224,15 +224,15 @@ class AgentSet:
 
     def deleteActiveAgent( self ):
         """Removes the active agent"""
-        if ( self.activeAgent ):
+        if self.activeAgent is not None:
             agt = self.activeAgent
             activeID = agt.id
-            Agent.ID -= 2
-            i = activeID >> 1
-            popped = self.agents.pop( i )
-            assert( popped == agt )
-            for a in self.agents[ i:]:
-                a.id -= 2
+            Agent.ID -= 1
+            popped = self.agents.pop( activeID )
+            assert(popped == agt)
+            # Decrement the ids of all agents following the active agent.
+            for a in self.agents[activeID:]:
+                a.id -= 1
             self.activeAgent = None
             return True
         return False
