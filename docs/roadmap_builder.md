@@ -292,10 +292,9 @@ be removed, or inserted into a selected edge. Whole polygons can be removed with
 ![An example of editing agents](images/roadmap_builder/agents_01.png)<br>
 **Figure 4: A number of agents added to the 4square example's obstacles.**
 
-The agent context allows for the addition and removal (see issue
-https://github.com/curds01/MengeUtils/issues/9) of agents. The agent radius can likewise be defined.
-Currently, no other agent properties can be configured. The agents defined in the application can be
-written to the `agents.xml` file in the output directory.
+The agent context allows for the addition and removal of agents. The agent radius can likewise be
+defined. Currently, no other agent properties can be configured. The agents defined in the
+application can be written to the `agents.xml` file in the output directory.
 
 ## Creating a navigation field
 
