@@ -455,8 +455,7 @@ You can do the following to change the displayed frame:
 
   - Go to the first frame (`up arrow`).
   - Advance to the next frame (`right arrow`).
-  - Back up to the previous frame (`left arrow`). **This appears to have a bug. When in doubt,
-    reset to the first frame.**
+  - Back up to the previous frame (`left arrow`).
   - Advance or back up at a higher rate by holding down one or more modifier keys (`ctrl`, `alt`,
     and `shift`). The more keys you hold, the more frames are jumped with each press of the
    `right` and `left` arrow keys.
