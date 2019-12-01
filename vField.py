@@ -27,6 +27,10 @@ class VectorField:
         self.cellSize = cellSize
         self.setDimensions( size )
 
+    def isValidCell(self, r, c):
+        '''Reports True if (r, c) references a valid cell in the data'''
+        return r >= 0 and c >= 0 and r < self.data.shape[0] and c < self.data.shape[1]
+
     def setMinX( self, value ):
         '''Sets the minimum x-value'''
         self.minPoint[0] = value
@@ -127,7 +131,14 @@ class VectorField:
         return np.sqrt( np.sum( self.data * self.data, 2 ) )
     
     def subRegion( self, minima, maxima ):
-        '''Returns a portion of the field, defined by the index minima and maxima.
+        '''Returns a portion of the field, defined by the index minima and maxima. The region is
+        defined in the range [minima, maxima) -- in other words, the cell indices in maxima define
+        the cells that the region goes up to, but does not include.
+
+        If the sub region extends beyond the domain of the field, the "extra" cells will be
+        populated with the zero value and the data will *not* alias into the field; it will be a
+        deep copy. However, if the region is completely contained by the field, it will be a
+        slice into the data.
 
         @param minima: a 2-tuple-like object of ints.  The indices (i, j) represent the smallest indices of
         the region to compute.
@@ -135,8 +146,35 @@ class VectorField:
         region to compute.  The region is defined as field[ i:I, j:J ].
 
         @return: a (I-i) x (J-j) x 2 array of floats.  The sub-region of the field.
+
+        @pre The maxima index values must be at least as large as the minima index values.
         '''
-        return self.data[ minima[0]:maxima[0], minima[1]:maxima[1], : ]
+        assert(maxima[0] >= minima[0])
+        assert(maxima[1] >= minima[1])
+        if (minima[0] >= 0 and minima[1] >= 0 and
+            maxima[0] < self.data.shape[0] and maxima[1] < self.data.shape[1]):
+            return self.data[minima[0]:maxima[0], minima[1]:maxima[1], :]
+        row_count = maxima[0] - minima[0]
+        col_count = maxima[1] - minima[1]
+        result = np.zeros((row_count, col_count, 2), dtype=self.data.dtype)
+        # Compute the region to read from and the corresponding region to write to.
+        min_r = max(0, minima[0])
+        min_c = max(0, minima[1])
+        # Note: min(shape[i], maxima[i]) can produce a value that's *less* than minima.
+        # Specifically, it can produce a negative value. If min slice index is non-negative and the
+        # max slice index is negative and valid [-1, -self.shape[i]], then I'll get a valid,
+        # non-empty slice. So, in this case, we confirm that the slice is logically meaningful
+        # before we turn it over to numpy to slice.
+        max_r = max(min(self.data.shape[0], maxima[0]), min_r)
+        max_c = max(min(self.data.shape[1], maxima[1]), min_c)
+        sub_region = self.data[min_r:max_r:1, min_c:max_c:1, :]
+        if sub_region.size > 0:
+            delta_r = max_r - min_r
+            delta_c = max_c - min_c
+            target_r = min_r - minima[0]
+            target_c = min_c - minima[1]
+            result[target_r:target_r + delta_r, target_c:target_c + delta_c, :] = sub_region
+        return result
 
     def cellCenters( self, minima, maxima ):
         '''Returns the cell centers for a range of cell fields defined by index minima and maxima.
