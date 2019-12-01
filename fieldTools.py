@@ -268,21 +268,27 @@ def gaussian1D( sigma, cellSize ):
     return k
 
 def smoothFieldRegion( field, kernelSize, minima, maxima ):
-    '''Smooths a region of the field with a guassian kernel of the given size.
+    '''Smooths a region of the field with a guassian kernel of the given size. If the kernel extends
+    beyond the domain of the field, the "missing" data will be filled with zero values.
 
-    @param field: A VectorField
-    @param kernelSize: the size of the gaussian kernel (one standard deviation in meters).
-    @param minima: a 2-tuple-like value.  The minimum indices in field over which the work is being done.
-    @param maxima: a 2-tuple-like value.  The maximum indices in field over which the work is being done.
+    @param field:       A VectorField
+    @param kernelSize:  The size of the gaussian kernel (one standard deviation in meters).
+    @param minima:      A-tuple-like value.  The minimum indices in field over which the work is
+                        being done.
+    @param maxima:      A 2-tuple-like value.  The maximum indices in field over which the work is
+                        being done (the maxima values define the cell ids the region goes *up to*
+                        but does *not* include).
     '''
     # compute kernel
     kernel = gaussian1D( kernelSize, field.cellSize )
     halfWidth = kernel.size / 2
-    # what to do if smoothing near the boundary?
-    left = max( 0, minima[1] - halfWidth )
-    right = min( field.resolution[1], maxima[1] + halfWidth + 1 )
-    bottom = max( 0, minima[0] - halfWidth )
-    top = min( field.resolution[0], maxima[0] + halfWidth + 1 )
+    # Note: this may produce indices which are not valid for the field. We rely on `subRegion()`
+    # to populate a region of the desired size (filling in values as appropriate) so I can 
+    # meaningfully convolve.
+    left = minima[1] - halfWidth
+    right = maxima[1] + halfWidth + 1
+    bottom = minima[0] - halfWidth
+    top = maxima[0] + halfWidth + 1
     subRegion = field.subRegion( (bottom, left), (top, right) )
     tempRegion = np.zeros_like( subRegion )
     opRegion = np.zeros_like( subRegion )

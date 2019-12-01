@@ -397,8 +397,6 @@ hitting the `left` and `right` arrow keys.
 ![Smoothing the navigaiton field](images/roadmap_builder/field_4_smoothing.png)<br>
 **Figure 9: The navigation mesh in the smoothing mode.**
 
-**WARNING: This appears to be buggy in its current state!  Do not use!**
-
 Enter the field-smoothing modet by hitting the `3` key. The text `Brush smooth` will appear in
 the bottom-left corner and the cursor will change two be two concentric circles (a white and blue
 circle).
@@ -409,10 +407,17 @@ weights. The brush size (white circle) is changed with the `up` and `down` arrow
 
 The smoothing operation uses gaussian smoothing on the vector field. The size of the area considered
 is based on the kernel size (made larger and smaller with the `[` and `]` keys, respectively).
-Larger kernels has the effect of a larger "blur" operation. The smoothed field is combined with the
+Larger kernels have the effect of a larger "blur" operation. The smoothed field is combined with the
 existing field via the smoothing strength (made weaker and stronger with the `left` and `right`
-arrows, respectively). A small strength wil modify the field gradually. A large strength will
+arrows, respectively). A small strength will modify the field gradually. A large strength will
 modify the field at a higher rate.
+
+The "smoothing" simply linearly combines vector values. That means opposing vectors get gradually
+averaged to the zero vector; there is no spherical linear interpolation. Also, because of the
+nature of Gaussian smoothing, when applying smoothing near the boundary of the field, it must draw
+data from outside the domain of the field. In this case, it is provided with zero values. This has
+the effect of gradually smoothing the boundary vectors to zero. One way around this is to make the
+vector field larger than the region you care about.
 
 ## Playback SCB files
 
