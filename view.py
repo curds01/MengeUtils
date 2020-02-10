@@ -46,6 +46,10 @@ class View:
         y_GL = (1.0 - y / float( self.wHeight ) ) * self.vHeight + self.vBottom
         return x_GL, y_GL
 
+    def in_view(self, (s_x, s_y)):
+        '''Reports if the given screen space coordinate is visible in the view'''
+        return s_x >= 0 and s_x <= self.vWidth and s_y >= 0 and s_y <= self.vHeight
+
     def worldToScreen( self, (x,y) ):
         '''Converts world-space value into a screen-space value - the result is a 2-TUPLE'''
         x_S = int( ( x - self.vLeft ) * self.wWidth / self.vWidth )

@@ -18,6 +18,10 @@ RIGHT = QtCore.Qt.RightButton
 WHEEL_UP = 4
 WHEEL_DOWN = 5
 
+# TODO: The pygame and qt versions of these should be unified using a single GLView class.
+# It should handle all the basic, common logic and the two derived children should simply
+# connect it to the different APIs.
+
 class GLWidget( QtOpenGL.QGLWidget ):
     '''Simple viewer to draw the scene in'''
     def __init__( self, bgSize, bgBtmLeft, viewSize, viewBtmLeft, winSize, parent=None ):
@@ -232,6 +236,16 @@ class GLWidget( QtOpenGL.QGLWidget ):
         x_GL = x / float( self.wWidth ) * self.vWidth + self.vLeft
         y_GL = (1.0 - y / float( self.wHeight ) ) * self.vHeight + self.vBottom
         return x_GL, y_GL
+
+    def in_view(self, (s_x, s_y)):
+        '''Reports if the given screen space coordinate is visible in the view'''
+        return s_x >= 0 and s_x <= self.wWidth and s_y >= 0 and s_y <= self.wHeight
+
+    def worldToScreen(self, (wX, wY)):
+        '''Converts a world-space value into a screen-space 2-tuple'''
+        sX = int((wX - self.vLeft) * self.wWidth / self.vWidth)
+        sY = int(self.wHeight * (1.0 - (wY - self.vBottom) / self.vHeight))
+        return sX, sY
     
     def startPan( self ):
         self.vLeftOld = self.vLeft

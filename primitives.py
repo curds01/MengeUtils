@@ -7,6 +7,11 @@ class Vector2(object):
         self.x = float(x)
         self.y = float(y)
 
+    def set(self, v2):
+        '''Sets this vector's components from a 2-tuple-like object v2'''
+        self.x = v2[0]
+        self.y = v2[1]
+
     def asTuple( self ):
         return (self.x, self.y)
 
@@ -382,6 +387,10 @@ class Segment:
     def magnitude( self ):
         """Returns length of the line"""
         return ( self.p2 - self.p1 ).magnitude()
+
+    def magSq(self):
+        '''Returns the squared length of the segment'''
+        return (self.p1 - self.p2).magSq()
 
     def normal( self ):
         '''Returns the normal of the line'''
