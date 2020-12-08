@@ -269,7 +269,7 @@ Order the files such that it is guaranteed that if I work in sequence, by the
 time I get to a file to test, all of its upstream dependencies have been
 tested. Note: not everything higher on the list is a dependency.
 
- - [ ] primitives.py
+ - [X] primitives.py
    - [ ] agentPlacement.py
    - [ ] bound.py
    - [ ] domains.py
