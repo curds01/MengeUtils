@@ -1,5 +1,4 @@
 from copy import deepcopy
-from struct import pack
 from math import sqrt
 import warnings
 
@@ -357,36 +356,6 @@ class Face(object):
             vIndex += 1
         return s
 
-    def PLYAsciiFormat( self, useNorms = False, useUvs = False ):
-        """Writes face definition in PLY format"""
-        s = '%d ' % (len(self.verts))
-        vIndex = 0
-        for v in self.verts:
-            s += '%d' % ( v - 1 )
-##            if ( self.uvs ):
-##                s += '/%d' % self.uvs[vIndex]
-##            if ( self.norms ):
-##                if (not self.uvs ):
-##                    s += '/'
-##                s += '/%d' % self.norms[vIndex]
-            s += ' '
-            vIndex += 1
-        return s    
-
-    def PLYBinaryFormat( self, useNorms = False, useUvs = False ):
-        """Writes face definition in PLY format"""
-        s = pack('>b', len(self.verts) )
-##        vIndex = 0
-        for v in self.verts:
-            s += pack('>i', ( v - 1 ) )
-##            if ( self.uvs ):
-##                s += '/%d' % self.uvs[vIndex]
-##            if ( self.norms ):
-##                if (not self.uvs ):
-##                    s += '/'
-##                s += '/%d' % self.norms[vIndex]
-##            vIndex += 1
-        return s            
 
 class Vertex:
     """Encoding of a vertex position in 3D space in an implied frame F."""
@@ -398,64 +367,6 @@ class Vertex:
         """Returns a string that represents this vertex"""
         return "v %f %f %f" % ( self.pos[0], self.pos[1], self.pos[2] )
 
-    def asciiPlyHeader( self, count ):
-        """Returns the header for this element in ply format"""
-        s = 'element vertex %d\n' % ( count )
-        s += 'property float x\n'
-        s += 'property float y\n'
-        s += 'property float z\n'
-        return s
-    
-    def formatPLYAscii( self ):
-        """Returns a string that represents this vertex in ascii ply format"""
-        return "%f %f %f" % ( self.pos[0], self.pos[1], self.pos[2] )
-
-    def binPlyHeader( self, count ):
-        """Returns the header for this element in binary ply format"""
-        s = 'element vertex %d\x0a' % ( count )
-        s += 'property float x\x0a'
-        s += 'property float y\x0a'
-        s += 'property float z\x0a'
-        return s
-
-    def formatPlyBinary( self ):
-        """Returns a string that represents this vertex in binary PLY format"""
-        return pack('>fff', v.x, v.y, v.z)
-
-class ColoredVertex( Vertex ):
-    DEF_COLOR = ( 0, 60, 120 )
-    def __init__( self, color = None ):
-        Vertex.__init__( self )
-        if ( color == None ):
-            self.color = ColoredVertex.DEF_COLOR
-        else:
-            self.color = color
-
-    def asciiPlyHeader( self, count ):
-        """Returns the header for this element in ply format"""
-        s = Vertex.asciiPlyHeader( self, count )
-        s += 'property uchar red\n'
-        s += 'property uchar green\n'
-        s += 'property uchar blue\n'
-        return s
-    
-    def formatPLYAscii( self ):
-        """Returns a string that represents this vertex in ascii ply format"""
-        return "%f %f %f %d %d %d" % ( self.pos[0], self.pos[1], self.pos[2],
-                                       self.color[0], self.color[1], self.color[2] )
-
-    def binPlyHeader( self, count ):
-        """Returns the header for this element in binary ply format"""
-        s = Vertex.binPlyHeader( self, count )
-        s += 'property uchar red\x0a'
-        s += 'property uchar green\x0a'
-        s += 'property uchar blue\x0a'
-        return s
-
-    def formatPlyBinary( self ):
-        """Returns a string that represents this vertex in binary PLY format"""
-        return Vertex.formatPlyBinary( self ) + pack('>BBB', color[0], color[1], color[2])    
-            
         
 class Segment:
     '''A line segment'''

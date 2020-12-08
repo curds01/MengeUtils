@@ -76,12 +76,6 @@ class Material:
         r, g, b = self.diffuse
         s += 'Kd %d %d %d' % (r, g, b)
         return s
-    
-    def PLYBinaryFormat( self ):
-        """Writes material definition in binary PLY format"""
-        # for now it simply outputs the diffuse r, g, b vlaues
-        r, g, b = self.diffuse
-        return pack('>uuu', r, g, b )         
 
 #ILLUM_RGB_PAT = re.compile('\s*[(?:K[asd])(?:Tf)]')
 class MtlLib:
@@ -254,26 +248,6 @@ class Group:
             return 'g %s' % self.name + s
         else:
             return ''
-
-    def PLYAsciiFormat( self, useNorms, useUvs ):
-        """Outputs the group information into ply ascii specific format"""
-        #s = 'g %s' % self.name
-        s = ''
-        for mat, matGrp in self.materials.items():
-            if ( matGrp ):
-                for f in matGrp:
-                    s += '\n%s' % f.PLYAsciiFormat( useNorms, useUvs )
-        return s
-
-    def PLYBinaryFormat( self, useNorms, useUvs ):
-        """Outputs the group information into ply ascii specific format"""
-        #s = 'g %s' % self.name
-        s = ''
-        for mat, matGrp in self.materials.items():
-            if ( matGrp ):
-                for f in matGrp:
-                    s += '%s' % f.PLYBinaryFormat( useNorms, useUvs )
-        return s    
 
     def triangulate( self ):
         """Returns a triangulated version of the group"""
@@ -483,104 +457,6 @@ class ObjFile:
                 outfile.write("vt %g %g\n" % (v.x, v.y) )
         for gName, grp in self.groups.items():
             outfile.write( "%s\n" % grp.OBJFormat() )
-
-    def writePLYAscii( self, outfile, useNorms = False, useUvs = False, useMat = False ):
-        """Writes ascii ply to the file object"""
-        useNorms = useNorms and self.normSet
-        useUvs = useUvs and self.uvSet
-        outfile.write("ply\n")
-        outfile.write("format ascii 1.0\n")
-##        outfile.write("comment written by python objreader version %s\n" % VERSION )
-##        outfile.write("comment date: %s\n" % datetime.today() )
-        outfile.write("element vertex %d\n" % ( len(self.vertSet) ) )
-        outfile.write("property float x\n")
-        outfile.write("property float y\n")
-        outfile.write("property float z\n")
-        if ( useMat ):
-            outfile.write("property uchar red\n")
-            outfile.write("property uchar green\n")
-            outfile.write('property uchar blue\n')
-        if ( useNorms ):
-            outfile.write("element normal %d\n" % ( len( self.normSet) ) )
-            outfile.write('property float x\n')
-            outfile.write('property float y\n')
-            outfile.write('property float z\n')
-        if ( useUvs ):
-            outfile.write("element uv %d\n" % ( len( self.uvSet ) ) )
-            outfile.write('property float u\n')
-            outfile.write('property float v\n')
-        gCount, fCount = self.faceStats()
-        outfile.write("element face %d\n" % ( fCount ) )
-        outfile.write("property list uchar int vertex_index\n")
-        if ( useNorms ):
-            outfile.write("property list uchar int norm_index\n")
-        if ( useUvs ):
-            outfile.write("property list uchar int uv_index\n")
-        outfile.write("end_header")
-        
-        for v in self.vertSet:
-            outfile.write("\n%g %g %g" % (v.x, v.y, v.z ) )
-        if ( useNorms ):
-            for n in self.normSet:
-                outfile.write("\n%g %g %g" % (n.x, n.y, n.z ) )
-        if ( useUvs ):
-            for uv in self.uvSet:
-                outfile.write("\n%g %g" % (uv.x, uv.y) )
-##        if ( self.normSet ):
-##            outfile.write("\n# vertex normals\n" )
-##            for v in self.normSet:
-##                outfile.write("vn %g %g %g\n" % (v.x, v.y, v.z) )
-##        if ( self.uvSet ):
-##            outfile.write("\n# texture vertices\n" )
-##            for v in self.uvSet:
-##                outfile.write("vt %g %g\n" % (v.x, v.y) )
-        for gName, grp in self.groups.items():
-            outfile.write( "%s" % grp.PLYAsciiFormat( useNorms, useUvs ) )
-        outfile.write('\n')
-
-    def writePLYBinary( self, outfile, useNorms = False, useUvs = False ):
-        """Writes ascii ply to the file object"""
-        outfile.write("ply\x0a")
-        outfile.write("format binary_big_endian 1.0\x0a")
-##        outfile.write("comment written by python objreader version %s\n" % VERSION )
-##        outfile.write("comment date: %s\n" % datetime.today() )
-        outfile.write("element vertex %d\x0a" % ( len(self.vertSet) ) )
-        outfile.write("property float x\x0a")
-        outfile.write("property float y\x0a")
-        outfile.write("property float z\x0a")
-        if ( useMat ):
-            outfile.write("property uchar red\x0a")
-            outfile.write("property uchar green\x0a")
-            outfile.write('property uchar blue\x0a')
-        gCount, fCount = self.faceStats()
-        outfile.write("element face %d\x0a" % ( fCount ) )
-        outfile.write("property list uchar int vertex_indices\x0a")
-        outfile.write("end_header\x0a")
-        
-        for v in self.vertSet:
-            outfile.write(pack('>fff', v.x, v.y, v.z))
-##        if ( self.normSet ):
-##            outfile.write("\n# vertex normals\n" )
-##            for v in self.normSet:
-##                outfile.write("vn %g %g %g\n" % (v.x, v.y, v.z) )
-##        if ( self.uvSet ):
-##            outfile.write("\n# texture vertices\n" )
-##            for v in self.uvSet:
-##                outfile.write("vt %g %g\n" % (v.x, v.y) )
-        for gName, grp in self.groups.items():
-            outfile.write( "%s" % grp.PLYBinaryFormat(useNorms, useUvs) )       
-
-    # the geo format has several requirements
-    #   1. There must be a one-to-one correspondence between vertices and normals
-    #       i.e. I can't have four vertices all sharing the same normal,
-    #       I would need four instances of the same normal
-    #   2. I have to generate a tangent and binormal vector for each vertex
-    #   3. All binary values are LITTLE Endian
-#    def writeGEO( self, outfile ):
-#        """Writes two a binary, Horde3D geo file"""
-#        geoMesh = Horde3DMesh()
-#        geoMesh.makeFromObjFile( self )
-#        geoMesh.writeToFile( outfile )                       
     
     def faceStats( self ):
         """Returns group and face count"""
@@ -626,6 +502,7 @@ class ObjFile:
         norm = e1.cross(e2)
         norm.normalize_ip()
         return norm
+
 def usage():
     print "ObjReader -- reads wavefront .obj files and processes them"
     print ""
@@ -633,14 +510,8 @@ def usage():
     print "Options:"
     print "   -in file.obj  - the wavefront obj file to operate on"
     print "                 - no input, no action"
-    print "   -bp file.ply  - file to write binary ply data"
-    print "                 - by default no binary ply file written"
-    print "   -ap file.ply  - file to write ascii ply data"
-    print "                 - by default no ascii ply file written"
     print "   -obj file.obj - file to write triangulated obj data"
     print "                 - defaults to file_t.obj"
-    print "   -geo file.geo - file to write binary geo data"
-    print "                 - by default, no geo file written"
     print "   -nt           - don't triangulate"
     print "                 - without this command line, the obj will be triangulated"
     print "   -mat          - Use materials, if available"
@@ -661,15 +532,12 @@ if __name__ == "__main__":
         sys.exit(1)
 
     objTName = pMan['obj']
-    asciiPlyName = pMan['ap']
-    binaryPlyName = pMan['bp']
-    geoName = pMan['geo']
     noTris = pMan['nt']
     useMat = pMan['mat']
     useUvs = pMan['uv']
     useNorms = pMan['norm']
 
-    if (objTName == None and asciiPlyName == None and binaryPlyName == None ):
+    if (objTName == None ):
         tokens = os.path.splitext( inputName[0] )
         objTName = [tokens[0] + '_t.obj']
     
@@ -680,16 +548,4 @@ if __name__ == "__main__":
     if ( objTName ):
         outFile = open( objTName[0], 'w' )
         obj.writeOBJ( outFile )
-        outFile.close()
-    if ( asciiPlyName ):
-        outFile = open( asciiPlyName[0], 'w' )
-        obj.writePLYAscii( outFile, useNorms, useUvs )
-        outFile.close()
-    if ( binaryPlyName ):
-        outFile = open( binaryPlyName[0], 'wb' )
-        obj.writePLYBinary( outFile, useNorms, useUvs )
-        outFile.close()
-    if ( geoName ):
-        outFile = open( geoName[0], 'wb' )
-        obj.writeGEO( outFile )
         outFile.close()

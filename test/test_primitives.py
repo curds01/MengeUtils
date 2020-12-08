@@ -335,8 +335,6 @@ class TestFace(unittest.TestCase):
         f = dut.Face(v_indices, n_indices, uv_indices)
         self.assertEqual(f.OBJFormat(), "f 1/9/5 2/10/6 3/11/7")
 
-    # TODO: Test ply format; the code itself is not complete.
-
 
 class TestVertex(unittest.TestCase):
 
@@ -358,8 +356,6 @@ class TestVertex(unittest.TestCase):
         self.assertEqual(float(tokens[1]), v.pos[0])
         self.assertEqual(float(tokens[2]), v.pos[1])
         self.assertEqual(float(tokens[3]), v.pos[2])
-
-    # TODO: Test ply format; if the code is kept.
 
 
 class TestSegment(unittest.TestCase):
