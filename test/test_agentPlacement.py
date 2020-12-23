@@ -6,8 +6,35 @@ import unittest
 
 import numpy as np
 
+from primitives import Vector2
 
 class TestAgentPlacement(unittest.TestCase):
+
+    @staticmethod
+    def calc_rank_stats(agents, rank_dir):
+        """Returns the number of agents in the major rank (the first rank) and
+        the total number of ranks."""
+        if rank_dir == dut.RANK_IN_X:
+            row_axis = 1
+        elif rank_dir == dut.RANK_IN_Y:
+            row_axis = 0
+        else:
+            raise ValueError("Bad value for rank_dir: {}".format(rank_dir))
+        rank_population = 1
+        row_value = agents[0, row_axis]
+        for i in range(1, agents.shape[0]):
+            if agents[i, row_axis] != row_value:
+                break
+            rank_population += 1
+        rank_count = 0
+        row_parity = 0
+        agt = 0
+        while agt < agents.shape[0]:
+            rank_count += 1
+            # There must always be at least one agent on a rank.
+            agt += max(1, rank_population - row_parity)
+            row_parity = row_parity ^ 1
+        return rank_population, rank_count
 
     def test_density_and_distance(self):
         """Tests _disk_distance_for_density(), _max_density_for_disk(), and
@@ -60,10 +87,32 @@ class TestAgentPlacement(unittest.TestCase):
         self.assertAlmostEqual(
             dut._effective_radius(0.5), 0.75983, 3)
 
+    def evaluate_noise(self, agent_func):
+        """Evaluates the impact of the noise 2-tuple (mean, stddev) on the
+        given agent function. The `noise` parameter should be the only
+        parameter."""
+        # Noise; we'll test it in two parts. First, with a non-zero mean and a
+        # 0 stddev, it should be a simple offset of mean in each direction.
+        agents = agent_func((0, 0))
+        for mean in (0.1, 0.25, 0.5):
+            noise_agents = agent_func((mean, 0))
+            for i in range(agents.shape[0]):
+                delta = agents[i, :] - noise_agents[i, :]
+                dist = np.sqrt(delta.dot(delta))
+                expected_dist = np.sqrt(2) * mean
+                # TODO: This is 5 places because I'm returning float32. Change
+                #  it to just float (ideally double).
+                self.assertAlmostEqual(dist, expected_dist, 5,
+                                       "For mean {}".format(mean))
+        # For non-zero standard deviation, we'll just assert that *some* of the
+        # positions are not the same.
+        for stddev in (0.1, 0.25, 0.5):
+            noise_agents = agent_func((0, stddev))
+            self.assertTrue(np.any(agents != noise_agents))
     def evaluate_agent_ranks(self, agent_func, rank_axis, row_axis):
-        """Common test infrastructure for dut.make_ranks_in_x() and dut.make_ranks_in_y().
-        The two functions are closely related and this tests the shared
-        properties."""
+        """Common test infrastructure for dut.make_ranks_in_x() and
+        dut.make_ranks_in_y(). The two functions are closely related and this
+        tests the shared properties."""
         # Confirm the "anchor" position is the position of agent 0. We're using
         # values that are perfectly represented in base 2 so that we can
         # guarantee exactitude in values.
@@ -127,32 +176,14 @@ class TestAgentPlacement(unittest.TestCase):
                                 max_count=1000)
         self.assertEqual(agents.shape[0], lim_agents.shape[0])
 
-        # Noise; we'll test it in two parts. First, with a non-zero mean and a
-        # 0 stddev, it should be a simple offset of mean in each direction.
-        agents = agent_func(start_x=0.25, start_y=-0.75, agt_distance=1,
-                            rank_distance=1, rank_count=3, rank_length=3,
-                            noise=(0, 0))
-        for mean in (0.1, 0.25, 0.5):
-            noise_agents = agent_func(start_x=0.25, start_y=-0.75,
-                                      agt_distance=1, rank_distance=1,
-                                      rank_count=3, rank_length=3,
-                                      noise=(mean, 0))
-            for i in range(agents.shape[0]):
-                delta = agents[i, :] - noise_agents[i, :]
-                dist = np.sqrt(delta.dot(delta))
-                expected_dist = np.sqrt(2) * mean
-                # TODO: This is 5 places because I'm returning float32. Change
-                #  it to just float (ideally double).
-                self.assertAlmostEqual(dist, expected_dist, 5,
-                                       "For mean {}".format(mean))
-        # For non-zero standard deviation, we'll just assert that *some* of the
-        # positions are not the same.
-        for stddev in (0.1, 0.25, 0.5):
-            noise_agents = agent_func(start_x=0.25, start_y=-0.75,
-                                      agt_distance=1, rank_distance=1,
-                                      rank_count=3, rank_length=3,
-                                      noise=(0, stddev))
-            self.assertTrue(np.any(agents != noise_agents))
+        # Evaluate noise parameter.
+        self.evaluate_noise(lambda noise: agent_func(start_x=0.25,
+                                                     start_y=-0.75,
+                                                     agt_distance=1,
+                                                     rank_distance=1,
+                                                     rank_count=3,
+                                                     rank_length=3,
+                                                     noise=noise))
 
     def test_make_ranks_in_x(self):
         self.evaluate_agent_ranks(dut.make_ranks_in_x, 0, 1)
@@ -163,16 +194,17 @@ class TestAgentPlacement(unittest.TestCase):
     def test_fill_rectangle(self):
         # This implicitly tests the _distances_in_ranks() method.
 
-        # TODO: This doesn't confirm that the noise parameter is passed through
-        #  to the underlying methods.
-
         # Confirm rank direction is respected.
         # For ranks in y, adjacent agents should have a common x-value.
-        agents = dut.fill_rectangle(0.25, 0, 0, 2, 2, 3, dut.RANK_IN_Y, None)
+        agents = dut.fill_rectangle(
+            radius=0.25, min_x=0, min_y=0, max_x=2, max_y=2, density=3,
+            rank_dir=dut.RANK_IN_Y, noise=None)
         self.assertEqual(agents[0, 0], agents[1, 0])
         self.assertEqual(agents[1, 0], agents[2, 0])
         # For ranks in x, adjacent agents should have a common y-value.
-        agents = dut.fill_rectangle(0.25, 0, 0, 2, 2, 3, dut.RANK_IN_X, None)
+        agents = dut.fill_rectangle(
+            radius=0.25, min_x=0, min_y=0, max_x=2, max_y=2, density=3,
+            rank_dir=dut.RANK_IN_X, noise=None)
         self.assertEqual(agents[0, 1], agents[1, 1])
         self.assertEqual(agents[1, 1], agents[2, 1])
 
@@ -181,9 +213,10 @@ class TestAgentPlacement(unittest.TestCase):
         min_corner = np.array((0, 0))
         max_corner = np.array((2, 2))
         for rank_dir in (dut.RANK_IN_X, dut.RANK_IN_Y):
-            agents = dut.fill_rectangle(0.25, min_corner[0], min_corner[1],
-                                        max_corner[0], max_corner[1], 3,
-                                        rank_dir, None)
+            agents = dut.fill_rectangle(
+                radius=0.25, min_x=min_corner[0], min_y=min_corner[1],
+                max_x=max_corner[0], max_y=max_corner[1], density=3,
+                rank_dir=rank_dir, noise=None)
             p_CminV = agents - min_corner
             p_CmaxV = agents - max_corner
             dist_Cmin = np.sqrt(np.sum(p_CminV * p_CminV, axis=1))
@@ -195,16 +228,18 @@ class TestAgentPlacement(unittest.TestCase):
         min_x, min_y = (-0.25, 11.5)
         max_x, max_y = (12.3, 22.25)
         radius = 0.25
-        agents = dut.fill_rectangle(radius, min_x, min_y, max_x, max_y, 0.5,
-                                    dut.RANK_IN_Y, None)
+        agents = dut.fill_rectangle(
+            radius=radius, min_x=min_x, min_y=min_y, max_x=max_x, max_y=max_y,
+            density=0.5, rank_dir=dut.RANK_IN_Y, noise=None)
         are_inside = ((agents[:, 0] >= min_x + radius) &
                       (agents[:, 1] >= min_y + radius) &
                       (agents[:, 0] <= max_x - radius) &
                       (agents[:, 1] <= max_y - radius))
         self.assertTrue(np.all(are_inside))
 
-        agents = dut.fill_rectangle(radius, min_x, min_y, max_x, max_y, 0.5,
-                                    dut.RANK_IN_X, None)
+        agents = dut.fill_rectangle(
+            radius=radius, min_x=min_x, min_y=min_y, max_x=max_x, max_y=max_y,
+            density=0.5, rank_dir=dut.RANK_IN_X, noise=None)
         are_inside = ((agents[:, 0] >= min_x + radius) &
                       (agents[:, 1] >= min_y + radius) &
                       (agents[:, 0] <= max_x - radius) &
@@ -229,20 +264,31 @@ class TestAgentPlacement(unittest.TestCase):
             # When scale = 1, we need a slight epsilon to prevent failure on
             # because the box appears too small.
             max_x, max_y = scale * base_width + 1e-15, scale * base_height
-            agents = dut.fill_rectangle(radius, min_x, min_y, max_x, max_y,
-                                        density, dut.RANK_IN_X, None)
+            agents = dut.fill_rectangle(
+                radius=radius, min_x=min_x, min_y=min_y, max_x=max_x,
+                max_y=max_y, density=density, rank_dir=dut.RANK_IN_X,
+                noise=None)
             box_area = scale * scale * base_width * base_height
             avg_density = agents.shape[0] / box_area
             self.assertLess(avg_density, density)
             self.assertGreater(avg_density, prev_avg_density)
             prev_avg_density = avg_density
 
+        # Evaluate noise parameter.
+        self.evaluate_noise(
+            lambda noise: dut.fill_rectangle(radius=0.25, min_x=0, min_y=0,
+                                             max_x=5, max_y=6, density=1.5,
+                                             rank_dir=dut.RANK_IN_X,
+                                             noise=noise))
+
         # Error conditions.
 
         # Case: Density too high for given radius; raises error.
         with self.assertRaisesRegexp(ValueError,
                                      ".+ density .+ is too high.+"):
-            dut.fill_rectangle(1, 0, 0, 10, 10, 2, dut.RANK_IN_Y, None)
+            dut.fill_rectangle(
+                radius=1, min_x=0, min_y=0, max_x=10, max_y=10, density=2,
+                rank_dir=dut.RANK_IN_Y, noise=None)
 
         # Case: Rectangle measures too small for even a single agent. The test
         # should be independent of rank direction, so we only test for one
@@ -250,25 +296,150 @@ class TestAgentPlacement(unittest.TestCase):
         with self.assertRaisesRegexp(
                 ValueError,
                 "The rectangle dimensions .+ too small .+ contain .+"):
-            dut.fill_rectangle(1, 0, 0, 1.9, 5, 0.25, dut.RANK_IN_X, None)
+            dut.fill_rectangle(
+                radius=1, min_x=0, min_y=0, max_x=1.9, max_y=5, density=0.25,
+                rank_dir=dut.RANK_IN_X, noise=None)
         with self.assertRaisesRegexp(
                 ValueError,
                 "The rectangle dimensions .+ too small .+ contain .+"):
-            dut.fill_rectangle(1, 0, 0, 5, 1.9, 0.25, dut.RANK_IN_X, None)
+            dut.fill_rectangle(
+                radius=1, min_x=0, min_y=0, max_x=5, max_y=1.9, density=0.25,
+                rank_dir=dut.RANK_IN_X, noise=None)
 
         # Case: Rectangle measures too small to support requested ranks.
         with self.assertRaisesRegexp(
                 ValueError,
                 "Rectangle is too small .+ to support .+ density.+"):
-            dut.fill_rectangle(1, 0, 0, 4, 5, 0.25, dut.RANK_IN_X, None)
+            dut.fill_rectangle(
+                radius=1, min_x=0, min_y=0, max_x=4, max_y=5, density=0.25,
+                rank_dir=dut.RANK_IN_X, noise=None)
         with self.assertRaisesRegexp(
                 ValueError,
                 "Rectangle is too small .+ to support .+ density.+"):
-            dut.fill_rectangle(1, 0, 0, 5, 4, 0.25, dut.RANK_IN_Y, None)
+            dut.fill_rectangle(
+                radius=1, min_x=0, min_y=0, max_x=5, max_y=4, density=0.25,
+                rank_dir=dut.RANK_IN_Y, noise=None)
 
-    def test_corridorMob(self):
+    def test_corridor_mob(self):
         # This implicitly tests the _distances_in_ranks() method.
-        pass
+
+        # Confirm direction of corridor relative to front segment. We'll create
+        # a *narrow* corridor (such that we get a single rank). We'll confirm
+        # that the displacement vector between sequential agents lies in the
+        # expected direction.
+        agent_count = 3
+        for segment_dir, normal_dir in ((Vector2(1, 0), Vector2(0, 1)),
+                                        (Vector2(0, 1), Vector2(-1, 0)),
+                                        (Vector2(-1, 0), Vector2(0, -1)),
+                                        (Vector2(0, -1), Vector2(1, 0))):
+            p_FQ = Vector2(0, 0)
+            p_FR = p_FQ + segment_dir * 0.6
+            agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
+                                      density=1.0, rank_dir=dut.RANK_IN_X,
+                                      agent_count=agent_count)
+            agt_0 = agents[0, :]
+            for i in range(1, agent_count):
+                agt_i = agents[i, :]
+                p_0I = agt_i - agt_0
+                self.assertEqual(np.sqrt(np.dot(p_0I, p_0I)),
+                                 np.dot(p_0I, normal_dir.asTuple()))
+
+        # Confirm agent_count is respected.
+        for count in (1, 2, 4, 12, 30, 157):
+            p_FQ = Vector2(0, 0)
+            p_FR = Vector2(1.5, 0)
+            for rank_dir in (dut.RANK_IN_X, dut.RANK_IN_Y):
+                agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
+                                          density=1.0, rank_dir=rank_dir,
+                                          agent_count=count)
+                self.assertEqual(agents.shape[0], count)
+
+        # Confirm agents are inside the corridor.
+        # Create equations for three lines (the fixed boundaries of the
+        # corridor) and confirm that the agents are all on the correct side of
+        # the line. We pick an arbitrary, ugly line segment assuming that
+        # it works for other line segments.
+        p_FQ = Vector2(-1.5, 2.3)
+        p_FR = Vector2(3.25, -1.7)
+        p_RQ_F = p_FR - p_FQ
+        norm_F = Vector2(-p_RQ_F.y, p_RQ_F.x)
+
+        def make_line(dir_F, p_FP):
+            """Creates a callable representing a line. Can be used to determine
+            whether a point is "left" or "right" of the line (based on the
+            line direction). A point on the left returns a positive value."""
+            norm_F = Vector2(-dir_F.y, dir_F.x)
+            C = -norm_F.dot(p_FP)
+            return lambda pt: np.dot(pt, norm_F.asTuple()) + C
+
+        front_line = make_line(p_RQ_F, p_FQ)
+        line_R = make_line(norm_F, p_FR)
+        line_Q = make_line(-norm_F, p_FQ)
+
+        for count in (1, 15, 37):
+            for rank_dir in (dut.RANK_IN_X, dut.RANK_IN_Y):
+                agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
+                                          density=1.0, rank_dir=rank_dir,
+                                          agent_count=count)
+                for i in range(agents.shape[0]):
+                    self.assertGreater(front_line(agents[i,:]), 0)
+                    self.assertGreater(line_R(agents[i, :]), 0)
+                    self.assertGreater(line_Q(agents[i, :]), 0)
+
+        # Confirm rank respected.
+        p_FQ = Vector2(0, 0)
+        p_FR = Vector2(-3, 0)
+        agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
+                                  density=2.0, rank_dir=dut.RANK_IN_X,
+                                  agent_count=30)
+        # We've selected a corridor front in the -x direction. The first few
+        # agents should have fixed y-values.
+        self.assertEqual(agents[0, 1], agents[1, 1])
+        self.assertEqual(agents[1, 1], agents[2, 1])
+
+        agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
+                                  density=2.0, rank_dir=dut.RANK_IN_Y,
+                                  agent_count=30)
+        # We've selected a corridor front in the -x direction. The first few
+        # agents should have fixed x-values.
+        self.assertEqual(agents[0, 0], agents[1, 0])
+        self.assertEqual(agents[1, 0], agents[2, 0])
+        # Confirm "leading" agents touch the front line.
+        p_FQ = Vector2(0, 0)
+        p_FR = Vector2(-3, 0)
+        agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
+                                  density=2.0, rank_dir=dut.RANK_IN_X,
+                                  agent_count=30)
+        # The first few agents should all have y = -radius.
+        for i in range(3):
+            self.assertEqual(agents[i, 1], -0.25)
+
+        agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
+                                  density=2.0, rank_dir=dut.RANK_IN_Y,
+                                  agent_count=30)
+        rank_pop, _ = self.calc_rank_stats(agents, dut.RANK_IN_Y)
+        agt = 0
+        while agt < agents.shape[0]:
+            self.assertEqual(agents[agt, 1], -0.25)
+            # Only the first agents on the *major* ranks will touch the line.
+            # So, we jump the entire major and minor ranks for the next
+            # candidate.
+            agt += 2 * rank_pop - 1
+        # Error conditions
+
+        # Density requested is too high.
+        with self.assertRaisesRegexp(ValueError,
+                                     "The requested density .+ is too high+"):
+            dut.corridor_mob(
+                radius=1, p_FQ=Vector2(0, 0), p_FR=Vector2(1, 0),
+                density=4, rank_dir=dut.RANK_IN_X, agent_count=1)
+
+        # Corridor is too narrow.
+        with self.assertRaisesRegexp(ValueError,
+                                     "The corridor width .+ is too small.+"):
+            dut.corridor_mob(
+                radius=1.5, p_FQ=Vector2(0, 0), p_FR=Vector2(1, 0),
+                density=0.01, rank_dir=dut.RANK_IN_X, agent_count=1)
 
     def test_rectMob(self):
         pass

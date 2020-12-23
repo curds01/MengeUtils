@@ -25,9 +25,10 @@ def _disk_distance_for_density(target_density, radius):
               with the given radius."""
     max_density = _max_density_for_disk(radius)
     if target_density > max_density:
-        raise ValueError(("For an agent with radius {}, requested density "
-                          "must be smaller than {}; requested density {}.")
-                              .format(radius, max_density, target_density))
+        raise ValueError(
+            ("For an agent with radius {}, requested density must be smaller "
+             "than {}; requested density {}.").format(
+                radius, max_density, target_density))
     return 2 * _effective_radius(target_density)
 
 
@@ -38,30 +39,39 @@ def _max_density_for_disk(radius):
     It should be the case that:
         _disk_distance_for_density(_max_density_for_disk(radius), radius)
     is equal to 2 * radius."""
-    # The hexagonal patter can be drawn inside a single box as shows (modulo
-    # the fidelity of ascii art. The disk has radius R. The box has area
-    #   4R * (R + R⋅√3 + R(√3 - 1))
-    # = 4R * 2R2√3
-    # = 4R²(2√3).
-    # It contains exactly 4 disks worth of area. So, the maximum density is:
-    # 4 / 4R²(2√3) = 1 / R²(2√3)
-    #
-    #        R   R    R   R
-    #      ┌─────────────────┐┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-    #   x o│oo xxx ooo xxx oo│  xxx
-    #     x│ x     x x     x │x     x         R
-    #      │x       x       x│       x┄┄┄┄┄┄
-    #      │x       x       x│       x
-    #     x│ x     x x     x │x     x
-    #   x o│oo xxx ooo xxx oo│o xxx           R⋅√3
-    #   o  │   o o     o o   │  o
-    #      │    o       o    │   o┄┄┄┄┄┄┄┄┄
-    #      │    o       o    │   o
-    #   o  │   o o     o o   │  o             R(√3 - 1)
-    #      └─────────────────┘┄┄┄┄┄┄┄┄┄┄┄┄┄
-    #   x  ooo xxx ooo xxx oo o
-
-    # This is based on maximally packing disks in a hexagonal lattice.
+    # The hexagonal pattern is shown below. We can draw a single box through
+    # four disk centers. This box represents the tileable pattern. The box has
+    # dimensions 2R x 2R⋅√3, yielding an area of 2R²√3. Inside the box, the
+    # total disk area is 2 (the wholly contained center disk, and the four
+    # quarter disks in each corner. Therefore, the density is:
+    #  2 / 2R²√3 = 1 / R²√3
+    #                          2R
+    #                   ┆               ┆
+    #           uuuu vvv┆vvv uuuuuuu vvv┆vvv uuuu
+    #             vv    ┆    vv   vv    ┆    vv
+    #            v      ┆      v v      ┆      v
+    #           v       ┆       v       ┆       v
+    #           v       o───────────────o┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+    #           v       │       v       │       v
+    #            v      │      v v      │      v
+    #             vv    │    vv   vv    │    vv
+    #           uuuu vvv│vvv uuuuuuu vvv│vvv uuuu         R⋅√3
+    #                uu │ uu         uu │ uu
+    #                  u│u             u│u
+    #                   │               │
+    #            o      │       o┄┄┄┄┄┄┄│┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+    #                   │               │
+    #                  u│u             u│u
+    #                uu │ uu         uu │ uu
+    #           uuuu vvv│vvv uuuuuuu vvv│vvv uuuu         R⋅√3
+    #             vv    │    vv   vv    │    vv
+    #            v      │      v v      │      v
+    #           v       │       v       │       v
+    #           v       o───────────────o┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+    #           v               v               v
+    #            v             v v             v
+    #             vv         vv   vv         vv
+    #           uuuu vvvvvvv uuuuuuu vvvvvvv uuuu
     assert(radius > 0)
     return 1.0 / (radius * radius * 2.0 * np.sqrt(3.0))
 
@@ -77,8 +87,6 @@ def _effective_radius(density):
     return 1.0 / (np.sqrt(density * 2 * np.sqrt(3)))
 
 
-# TODO: Update this documentation with ascii art to make the quantities more
-#  clear.
 def make_ranks_in_x(start_x, start_y, agt_distance, rank_distance, rank_count,
                     rank_length, noise=(0, 0), max_count=-1):
     """Creates a block of agents with ranks parallel with the x-axis.
@@ -88,7 +96,7 @@ def make_ranks_in_x(start_x, start_y, agt_distance, rank_distance, rank_count,
              .       O  O  O  O  O
              .      O  O  O  O  O  O
              .        O  O  O  O  O    _
-             .      O  O  O  O  O  O   _ rank_distance
+             2      O  O  O  O  O  O   _ rank_distance
              1        O  O  O  O  O
              0      O  O  O  O  O| |O
                     ^             ^
@@ -293,9 +301,6 @@ def fill_rectangle(radius, min_x, min_y, max_x, max_y, density, rank_dir,
         # Reverse the meaning of "width" and "height" if ranks go in the
         # y-direction.
         width, height = (height, width)
-        # TODO: Should I be doing this to the box????
-        # max_x, max_y = (max_y, max_x)
-        # min_x, min_y = (min_y, min_x)
 
     if width < 0 or height < 0:
         raise ValueError(("The rectangle dimensions ({}, {}) are too small to "
@@ -328,70 +333,133 @@ def fill_rectangle(radius, min_x, min_y, max_x, max_y, density, rank_dir,
                                agt_distance, rank_distance, rank_count,
                                rank_population, noise)
 
-def corridorMob( radius, p0, p1, avgDensity, rankDir, agentCount, noise=None ):
-    """Creates a "corridor mob" of agents.  It is a group of agents constrained on three sides (front and sides)
-    but can keep going indefinitely far to the back.   The limit is specified by the number of agents.  The mob is
-    centered along the "front" line.  The direction of the mob is predicated on the ordering of the front line.  It
-    moves in the direction perpendicular to the line definition (p1 - p0) rotated 90 degrees counter clockwise.
 
-    @param      radius      float - the physical radius of the agents
-    @param      p0          Vector2 - The first point in the front line
-    @param      p1          Vector2 - The second point in the front line
-    @param      avgDensity  float - the average density of the positions
-    @param      rankDir     int - value from the set {RANK_IN_Y, RANK_IN_X} specifies in which
-                                  direction the agents form lines (y- or x-axis, respecitvely).
-                                  row rank is parallel with the front line, column is perpendicular
-    @param      noise       (float, float) - an optional 2-tuple representing normal
-                                        distribution where noise[0] and noise[1] are the
-                                        mean and standard deviation of the noise, respectively
-    @param      agentCount  int - the total number of agents to create
-    @returns    An Nx2 array of agent positions.  Where N is the number of agents required to fill
-                the space.  The ith row consists of the x- and y-positions of the ith agent.
-    """
-    # create a y-axis-aligned box, centered on the origin.  These positions will then get transformed to the line
-    midPt = ( p0 + p1 ) * 0.5
-    lineDir = (p1 - p0).normalize()
-    xAxis = lineDir
-    yAxis = Vector2( -lineDir.y, lineDir.x )
-    # offset
-    P0 = p0 - midPt
-    P1 = p1 - midPt
-    # rotate
-    P0 = Vector2( P0.dot( xAxis ), P0.dot( yAxis ) )
-    P1 = Vector2( P1.dot( xAxis ), P1.dot( yAxis ) )
-    
-    minX = P0.x #+ radius
-    maxX = P1.x #- radius
-    width = maxX - minX
+def corridor_mob(radius, p_FQ, p_FR, density, rank_dir, agent_count,
+                 noise=None):
+    """Populates a "corridor" with a requested number of agents.
 
-    R = _effective_radius( avgDensity )
-    D = 2 * R
-    nbrDist, rankDist = _distances_in_ranks( R )
-    if ( rankDir == RANK_IN_X ):
-        if ( width <= nbrDist ):
-            assert AttributeError, "Width of corridor too small to support ranks with desired average density" 
-        rowCount = int( width / nbrDist )
-        xOffset = ( width - nbrDist * rowCount ) * 0.5 + R   # center them horizontally
-        rankCount = ( agentCount / ( 2 * rowCount - 1 ) + 1) * 2 
-        pos = make_ranks_in_x( minX + xOffset, R, nbrDist, rankDist, noise, rankCount, rowCount, agentCount )
-    elif ( rankDir == RANK_IN_Y ):
-        if ( width <= rankDist ):
-            assert AttributeError, "Width of corridor too small to support ranks with desired average density"
-        rankCount = int( width / rankDist )
-        xOffset = ( width - rankDist * rankCount ) * 0.5 + R   # center them horizontally
-        rankPop = agentCount / rankCount + 1
-        pos = make_ranks_in_y( minX + xOffset, R, nbrDist, rankDist, noise, rankCount, rankPop, agentCount )
+    A "corridor" is an unbounded rectangular region. The width of the region
+    is defined by the line segment QR. Furthermore, the line segment defines
+    the "front" of the rectangular region. The corresponding "back" boundary is
+    however far it needs to be to encompass the requested number of agents.
+
+    The corridor is defined in a local frame: C. The +x direction of Frame C
+    (Cx) is parallel with p_QR. The +y direction of Frame C (Cy) is:
+    [-p_QR.y, p_QR.x] (i.e., the direction of p_QR rotated counter-clockwise).
+
+    The agents are placed in the corridor forming a "block" of agents such
+    that:
+      1. The block fills the width of the corridor to the maximum possible
+         amount based on the requested `density`.
+      2. The block touches the front edge of the region, and extends in the +Cy
+         direction.
+      3. The ranks are oriented parallel with the front line segment (for
+         RANK_IN_X) or parallel with the sides of the corridor (for RANK_IN_Y).
+      4. The block is centered on the front edge.
+
+       Q
+        ┌─────────────────┄┄┄┄┄┄
+        │O   O   O   O   O   O
+        │  O   O   O   O   O
+        │O   O   O   O   O   O
+        └─────────────────┄┄┄┄┄┄
+       R
+
+        Args:
+            radius: A float. The physical radius of the agents.
+            p_FQ: A Vector2. The point Q, measured and expressed in Frame F.
+            p_FR: A Vector2. The point R, measured and expressed in Frame F.
+            density: A float. The targeted density of the positions.
+            rank_dir: An int. A value from the set {RANK_IN_Y, RANK_IN_X}
+              specifies in which direction the agents form ranks (y- or x-axis,
+              respectively). The *local* x-axis lies parallel with the line
+              segment p_FQp_FR.
+            noise: A 2-tuple of floats. Optional specification of positional
+              noise based on a gaussian distribution. noise[0] and noise[1] are
+              the mean and standard deviation of the noise, respectively.
+            agent_count: An int. The total number of agents to create.
+
+        Returns:
+            An Nx2 array of agent positions. N is the number of agents required
+              to fill the space. The ith row consists of the x- and y-positions
+              of the ith agent, measured and exprssed in Frame F.
+
+        Raise:
+            ValueError: If a) the density is too high for the given agent
+              radius, or b) the rank_dir value is unrecognized."""
+    R = _effective_radius(density)
+    if R < radius:
+        raise ValueError(("The requested density {} is too high for the given "
+                          "agent radius {}").format(density, radius))
+    agt_distance, rank_distance = _distances_in_ranks(R)
+
+    # We'll compute the agent positions in frame C (the corridor extends
+    # into the +Cy direction and the front segment is centered on Co).
+    p_QR_F = p_FR - p_FQ
+    width = p_QR_F.magnitude()
+    if width < 2 * radius:
+        raise ValueError(
+            ("The corridor width ({}) is too small to contain agents with "
+             "radius {}").format(width, radius))
+    min_y = radius
+    if rank_dir == RANK_IN_X:
+        rank_population = int(width / agt_distance) + 1
+        rank_width = (rank_population - 1) * agt_distance
+        min_x = -rank_width / 2
+        rank_count = (agent_count / (2 * rank_population - 1) + 1) * 2
+        pos_C = make_ranks_in_x(start_x=min_x, start_y=radius,
+                                agt_distance=agt_distance,
+                                rank_distance=rank_distance,
+                                rank_count=rank_count,
+                                rank_length=rank_population, noise=noise,
+                                max_count=agent_count)
+    elif rank_dir == RANK_IN_Y:
+        # The challenge here is to compute the rank length R. We know the
+        # number of ranks (C) based on corridor width and rank distance. We
+        # know we have N agents to distribute. They are distributed among major
+        # (M) and minor (m) ranks, such that M + m = C. We know that full major
+        # ranks have R agents and full minor ranks have R - 1 agents. For
+        # *some* N, MR + m(R-1) = N (when all ranks are fully populated).
+        # However, on average the ranks will not be fully populated. So the
+        # *true* relationship is:
+        #    MR + m(R-1) ≥ N or MR + m(R-1) - N ≥ 0.
+        # We want to select an R such that we minimize the left-hand side (with
+        # the constraint that R > 0).
+        #
+        #   MR + m(R-1) - N ≥ 0
+        #   MR + mR - m - N ≥ 0
+        #  R(M + m) - m - N ≥ 0
+        #                RC ≥ m + N
+        #                 R ≥ (m + N) / C
+        # So, we select R = floor((m + N) / C) + 1.
+        rank_count = int(width / rank_distance) + 1
+        minor_count = rank_count // 2
+        rank_population = (minor_count + agent_count) / rank_count + 1
+        block_width = (rank_count - 1) * rank_distance
+        min_x = -block_width / 2
+        pos_C = make_ranks_in_y(start_x=min_x, start_y=radius,
+                                agt_distance=agt_distance,
+                                rank_distance=rank_distance,
+                                rank_count=rank_count,
+                                rank_length=rank_population, noise=noise,
+                                max_count=agent_count)
     else:
-        raise AttributeError, "invalid rank direction: %s" % ( str( rankDir ) )
+        raise ValueError("Invalid rank direction: {}".format(rank_dir))
 
-    # translate the points back
-    P_x = np.dot( pos, ( xAxis.x, -xAxis.y ) )
-    P_y = np.dot( pos, ( -yAxis.x, yAxis.y ) )
+    # Now transform from C to F.
+    Cx_F = p_QR_F.normalize()
+    Cy_F = Vector2(-Cx_F.y, Cx_F.x)
+    # Build rotation matrix from rows.
+    R_CF = np.array((Cx_F.asTuple(), Cy_F.asTuple()))
+    p_FM = (p_FQ + p_FR) * 0.5
 
-    pos[:,0] = P_x + midPt.x
-    pos[:,1] = P_y + midPt.y
+    # Ordinarily, we'd want to write: pos_F = R_FC * pos_C (as
+    # pos_F = np.dot(R_FC, pos_C)) but for numpy's broadcasting to work, we
+    # have to *right* multiply as: pos_C * R_CF.
+    pos_F = np.dot(pos_C, R_CF) + p_FM.asTuple()
 
-    return pos
+    return pos_F
+
 
 def rectMob( radius, anchor, vertCenter, horzCenter, aspectRatio, avgDensity, rankDir, agentCount, noise=None, orient=0.0 ):
     """Creates a rectangular mob of people.  The mob is anchored on the given point and the rows
