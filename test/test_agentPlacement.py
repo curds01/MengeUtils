@@ -109,6 +109,7 @@ class TestAgentPlacement(unittest.TestCase):
         for stddev in (0.1, 0.25, 0.5):
             noise_agents = agent_func((0, stddev))
             self.assertTrue(np.any(agents != noise_agents))
+
     def evaluate_agent_ranks(self, agent_func, rank_axis, row_axis):
         """Common test infrastructure for dut.make_ranks_in_x() and
         dut.make_ranks_in_y(). The two functions are closely related and this
@@ -335,8 +336,7 @@ class TestAgentPlacement(unittest.TestCase):
             p_FQ = Vector2(0, 0)
             p_FR = p_FQ + segment_dir * 0.6
             agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
-                                      density=1.0, rank_dir=dut.RANK_IN_X,
-                                      agent_count=agent_count)
+                                      density=1.0, agent_count=agent_count)
             agt_0 = agents[0, :]
             for i in range(1, agent_count):
                 agt_i = agents[i, :]
@@ -348,11 +348,9 @@ class TestAgentPlacement(unittest.TestCase):
         for count in (1, 2, 4, 12, 30, 157):
             p_FQ = Vector2(0, 0)
             p_FR = Vector2(1.5, 0)
-            for rank_dir in (dut.RANK_IN_X, dut.RANK_IN_Y):
-                agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
-                                          density=1.0, rank_dir=rank_dir,
-                                          agent_count=count)
-                self.assertEqual(agents.shape[0], count)
+            agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
+                                      density=1.0, agent_count=count)
+            self.assertEqual(agents.shape[0], count)
 
         # Confirm agents are inside the corridor.
         # Create equations for three lines (the fixed boundaries of the
@@ -377,87 +375,54 @@ class TestAgentPlacement(unittest.TestCase):
         line_Q = make_line(-norm_F, p_FQ)
 
         for count in (1, 15, 37):
-            for rank_dir in (dut.RANK_IN_X, dut.RANK_IN_Y):
-                agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
-                                          density=1.0, rank_dir=rank_dir,
-                                          agent_count=count)
-                for i in range(agents.shape[0]):
-                    self.assertGreater(front_line(agents[i,:]), 0)
-                    self.assertGreater(line_R(agents[i, :]), 0)
-                    self.assertGreater(line_Q(agents[i, :]), 0)
+            agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
+                                      density=1.0, agent_count=count)
+            for i in range(agents.shape[0]):
+                self.assertGreater(front_line(agents[i,:]), 0)
+                self.assertGreater(line_R(agents[i, :]), 0)
+                self.assertGreater(line_Q(agents[i, :]), 0)
 
-        # Confirm rank respected.
-        p_FQ = Vector2(0, 0)
-        p_FR = Vector2(-3, 0)
-        agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
-                                  density=2.0, rank_dir=dut.RANK_IN_X,
-                                  agent_count=30)
-        # We've selected a corridor front in the -x direction. The first few
-        # agents should have fixed y-values.
-        self.assertEqual(agents[0, 1], agents[1, 1])
-        self.assertEqual(agents[1, 1], agents[2, 1])
-
-        agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
-                                  density=2.0, rank_dir=dut.RANK_IN_Y,
-                                  agent_count=30)
-        # We've selected a corridor front in the -x direction. The first few
-        # agents should have fixed x-values.
-        self.assertEqual(agents[0, 0], agents[1, 0])
-        self.assertEqual(agents[1, 0], agents[2, 0])
         # Confirm "leading" agents touch the front line.
         p_FQ = Vector2(0, 0)
         p_FR = Vector2(-3, 0)
         agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
-                                  density=2.0, rank_dir=dut.RANK_IN_X,
-                                  agent_count=30)
+                                  density=2.0, agent_count=30)
         # The first few agents should all have y = -radius.
         for i in range(3):
             self.assertEqual(agents[i, 1], -0.25)
 
+        # Confirm that we can create a mob even if the corridor is only wide
+        # enough for a single agent.
+        p_FQ = Vector2(0.3, 0)
+        p_FR = Vector2(-0.3, 0)
         agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
-                                  density=2.0, rank_dir=dut.RANK_IN_Y,
-                                  agent_count=30)
-        rank_pop, _ = self.calc_rank_stats(agents, dut.RANK_IN_Y)
-        agt = 0
-        while agt < agents.shape[0]:
-            self.assertEqual(agents[agt, 1], -0.25)
-            # Only the first agents on the *major* ranks will touch the line.
-            # So, we jump the entire major and minor ranks for the next
-            # candidate.
-            agt += 2 * rank_pop - 1
-
-        # For RANK_IN_Y, confirm that the last row is not badly filled.
-        # I.e., if not full, it's missing less than the number of ranks
-        # positions to be full. We'll calculate the count of ranks (C) and the
-        # population of the *last* rank. It is missing K agents to be full.
-        # We assert that K < C.
-        for count in (5, 17, 33):
-            p_FQ = Vector2(0, 0)
-            p_FR = Vector2(-3, 0)
-            agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
-                                      density=2.0, rank_dir=dut.RANK_IN_Y,
-                                      agent_count=count)
-            major_pop, rank_count = self.calc_rank_stats(agents, dut.RANK_IN_Y)
-            # print (agents)
-            # print("Major population: {}".format(major_pop))
-            # print("Rank count: {}".format(rank_count))
+                                  density=2.0, agent_count=30)
+        self.assertEqual(len(agents), 30)
+        # The front of the corridor lies in the -Fx direction. Its too narrow
+        # for odd rows, so all agents have an equal x-value.
+        for row in range(1, len(agents)):
+            self.assertEqual(agents[row, 0], agents[0, 0])
 
 
         # Error conditions
+
+        # TODO: Test the case where the agents are small enough and corridor is
+        #  wide enough, but the density creates a major row length of 1.
 
         # Density requested is too high.
         with self.assertRaisesRegexp(ValueError,
                                      "The requested density .+ is too high+"):
             dut.corridor_mob(
                 radius=1, p_FQ=Vector2(0, 0), p_FR=Vector2(1, 0),
-                density=4, rank_dir=dut.RANK_IN_X, agent_count=1)
+                density=4, agent_count=1)
 
         # Corridor is too narrow.
         with self.assertRaisesRegexp(ValueError,
                                      "The corridor width .+ is too small.+"):
             dut.corridor_mob(
                 radius=1.5, p_FQ=Vector2(0, 0), p_FR=Vector2(1, 0),
-                density=0.01, rank_dir=dut.RANK_IN_X, agent_count=1)
+                density=0.01, agent_count=1)
+
 
     def test_rectMob(self):
         pass

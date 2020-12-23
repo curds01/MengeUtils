@@ -7,8 +7,8 @@ import random
 
 import sys
 OBJ_READER_PATH = '\\projects\\objreader'
-if ( not OBJ_READER_PATH in sys.path ):
-    sys.path.insert( 0, OBJ_READER_PATH )
+if not OBJ_READER_PATH in sys.path:
+    sys.path.insert(0, OBJ_READER_PATH)
 from primitives import Vector2
 
         
@@ -222,7 +222,7 @@ def fill_rectangle(radius, min_x, min_y, max_x, max_y, density, rank_dir,
 
     Agent positions are created in a hexagonal lattice contained within a given
     rectangular region. The spacing between the agents is based on the
-    requested `density` value. If no noise is applied, all agents will are
+    requested `density` value. If no noise is applied, all agents are
     guaranteed to be *completely* inside the rectangular region (the addition
     of noise breaks that guarantee).
 
@@ -252,7 +252,7 @@ def fill_rectangle(radius, min_x, min_y, max_x, max_y, density, rank_dir,
                    │    O    O    O   │         │
                    │ O    O    O    O │         │
                    └──────────────────┘         └──────>  x
-                   ╱
+                  ╱
     (min_x, min_y)
 
         Args:
@@ -334,8 +334,7 @@ def fill_rectangle(radius, min_x, min_y, max_x, max_y, density, rank_dir,
                                rank_population, noise)
 
 
-def corridor_mob(radius, p_FQ, p_FR, density, rank_dir, agent_count,
-                 noise=None):
+def corridor_mob(radius, p_FQ, p_FR, density, agent_count, noise=None):
     """Populates a "corridor" with a requested number of agents.
 
     A "corridor" is an unbounded rectangular region. The width of the region
@@ -353,15 +352,17 @@ def corridor_mob(radius, p_FQ, p_FR, density, rank_dir, agent_count,
          amount based on the requested `density`.
       2. The block touches the front edge of the region, and extends in the +Cy
          direction.
-      3. The ranks are oriented parallel with the front line segment (for
-         RANK_IN_X) or parallel with the sides of the corridor (for RANK_IN_Y).
+      3. The ranks are oriented parallel with the front line segment
       4. The block is centered on the front edge.
+      5. The ranks are filled in the +Cx direction, adding rows to reach the
+         requested `agent_count` number of agents. The last rank may not be
+         filled.
 
        Q
-        ┌─────────────────┄┄┄┄┄┄
-        │O   O   O   O   O   O
-        │  O   O   O   O   O
-        │O   O   O   O   O   O
+        ┌─────────────────┄┄┄┄┄┄              ┌─────> Cx
+        │O   O   O   O   O   O                │
+        │  O   O   O   O   O                  v
+        │O   O   O   O   O   O                Cy
         └─────────────────┄┄┄┄┄┄
        R
 
@@ -370,10 +371,6 @@ def corridor_mob(radius, p_FQ, p_FR, density, rank_dir, agent_count,
             p_FQ: A Vector2. The point Q, measured and expressed in Frame F.
             p_FR: A Vector2. The point R, measured and expressed in Frame F.
             density: A float. The targeted density of the positions.
-            rank_dir: An int. A value from the set {RANK_IN_Y, RANK_IN_X}
-              specifies in which direction the agents form ranks (y- or x-axis,
-              respectively). The *local* x-axis lies parallel with the line
-              segment p_FQp_FR.
             noise: A 2-tuple of floats. Optional specification of positional
               noise based on a gaussian distribution. noise[0] and noise[1] are
               the mean and standard deviation of the noise, respectively.
@@ -382,11 +379,12 @@ def corridor_mob(radius, p_FQ, p_FR, density, rank_dir, agent_count,
         Returns:
             An Nx2 array of agent positions. N is the number of agents required
               to fill the space. The ith row consists of the x- and y-positions
-              of the ith agent, measured and exprssed in Frame F.
+              of the ith agent, measured and expressed in Frame F.
 
         Raise:
             ValueError: If a) the density is too high for the given agent
-              radius, or b) the rank_dir value is unrecognized."""
+              radius, or b) the corridor is too narrow to accommodate an agent.
+    """
     R = _effective_radius(density)
     if R < radius:
         raise ValueError(("The requested density {} is too high for the given "
@@ -401,50 +399,17 @@ def corridor_mob(radius, p_FQ, p_FR, density, rank_dir, agent_count,
         raise ValueError(
             ("The corridor width ({}) is too small to contain agents with "
              "radius {}").format(width, radius))
-    min_y = radius
-    if rank_dir == RANK_IN_X:
-        rank_population = int(width / agt_distance) + 1
-        rank_width = (rank_population - 1) * agt_distance
-        min_x = -rank_width / 2
-        rank_count = (agent_count / (2 * rank_population - 1) + 1) * 2
-        pos_C = make_ranks_in_x(start_x=min_x, start_y=radius,
-                                agt_distance=agt_distance,
-                                rank_distance=rank_distance,
-                                rank_count=rank_count,
-                                rank_length=rank_population, noise=noise,
-                                max_count=agent_count)
-    elif rank_dir == RANK_IN_Y:
-        # The challenge here is to compute the rank length R. We know the
-        # number of ranks (C) based on corridor width and rank distance. We
-        # know we have N agents to distribute. They are distributed among major
-        # (M) and minor (m) ranks, such that M + m = C. We know that full major
-        # ranks have R agents and full minor ranks have R - 1 agents. For
-        # *some* N, MR + m(R-1) = N (when all ranks are fully populated).
-        # However, on average the ranks will not be fully populated. So the
-        # *true* relationship is:
-        #    MR + m(R-1) ≥ N or MR + m(R-1) - N ≥ 0.
-        # We want to select an R such that we minimize the left-hand side (with
-        # the constraint that R > 0).
-        #
-        #   MR + m(R-1) - N ≥ 0
-        #   MR + mR - m - N ≥ 0
-        #  R(M + m) - m - N ≥ 0
-        #                RC ≥ m + N
-        #                 R ≥ (m + N) / C
-        # So, we select R = floor((m + N) / C) + 1.
-        rank_count = int(width / rank_distance) + 1
-        minor_count = rank_count // 2
-        rank_population = (minor_count + agent_count) / rank_count + 1
-        block_width = (rank_count - 1) * rank_distance
-        min_x = -block_width / 2
-        pos_C = make_ranks_in_y(start_x=min_x, start_y=radius,
-                                agt_distance=agt_distance,
-                                rank_distance=rank_distance,
-                                rank_count=rank_count,
-                                rank_length=rank_population, noise=noise,
-                                max_count=agent_count)
-    else:
-        raise ValueError("Invalid rank direction: {}".format(rank_dir))
+
+    rank_population = int(width / agt_distance) + 1
+    rank_width = (rank_population - 1) * agt_distance
+    min_x = -rank_width / 2
+    rank_count = (agent_count / (2 * rank_population - 1) + 1) * 2
+    pos_C = make_ranks_in_x(start_x=min_x, start_y=radius,
+                            agt_distance=agt_distance,
+                            rank_distance=rank_distance,
+                            rank_count=rank_count,
+                            rank_length=rank_population, noise=noise,
+                            max_count=agent_count)
 
     # Now transform from C to F.
     Cx_F = p_QR_F.normalize()
