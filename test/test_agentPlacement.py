@@ -425,6 +425,24 @@ class TestAgentPlacement(unittest.TestCase):
             # So, we jump the entire major and minor ranks for the next
             # candidate.
             agt += 2 * rank_pop - 1
+
+        # For RANK_IN_Y, confirm that the last row is not badly filled.
+        # I.e., if not full, it's missing less than the number of ranks
+        # positions to be full. We'll calculate the count of ranks (C) and the
+        # population of the *last* rank. It is missing K agents to be full.
+        # We assert that K < C.
+        for count in (5, 17, 33):
+            p_FQ = Vector2(0, 0)
+            p_FR = Vector2(-3, 0)
+            agents = dut.corridor_mob(radius=0.25, p_FQ=p_FQ, p_FR=p_FR,
+                                      density=2.0, rank_dir=dut.RANK_IN_Y,
+                                      agent_count=count)
+            major_pop, rank_count = self.calc_rank_stats(agents, dut.RANK_IN_Y)
+            # print (agents)
+            # print("Major population: {}".format(major_pop))
+            # print("Rank count: {}".format(rank_count))
+
+
         # Error conditions
 
         # Density requested is too high.
